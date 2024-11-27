@@ -1,0 +1,81 @@
+{
+  "name": "start-data-api-builder",
+  "displayName": "Data API Builder (test)",
+  "description": "Tests the connection string in a Data API Builder configuration file.",
+  "publisher": "jerry-nixon",
+  "version": "0.0.1",
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "galleryBanner": {
+    "color": "#0078d7",
+    "theme": "dark",
+    "background": "images/dab-logo.png"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Debuggers"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dabExtension.testConnection",
+        "title": "Test Data API Builder Connection"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "dabExtension.testConnection",
+          "when": "resourceFilename == 'dab-config.json'",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.9",
+    "@types/mssql": "^9.1.5",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3"
+  },
+  "keywords": [
+    "Data API Builder",
+    "dab",
+    "configuration",
+    "json",
+    "tools",
+    "automation"
+  ],
+  "author": "Jerry Nixon",
+  "license": "MIT",
+  "dependencies": {
+    "@azure/cosmos": "^4.2.0",
+    "dotenv": "^16.4.5",
+    "mssql": "^11.0.1",
+    "mysql2": "^3.11.4",
+    "pg": "^8.13.1"
+  }
+}
