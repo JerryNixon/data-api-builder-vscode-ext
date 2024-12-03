@@ -3,7 +3,7 @@
   "displayName": "Data API Builder (start)",
   "description": "Quickly start Data API Builder from a configuration file with a single click.",
   "publisher": "jerry-nixon",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -22,20 +22,26 @@
     "Programming Languages",
     "Debuggers"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:json",
+    "onCommand:dabExtension.startDab",
+    "workspaceContains:**/dab-config.json",
+    "workspaceContains:**/staticwebapp.database.config.json"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "dabExtension.startDab",
-        "title": "Start DAB"
+        "title": "Start DAB",
+        "category": "DAB"
       }
     ],
     "menus": {
       "explorer/context": [
         {
           "command": "dabExtension.startDab",
-          "when": "resourceFilename == 'dab-config.json'",
+          "when": "resourceFilename == 'dab-config.json' || resourceFilename == 'staticwebapp.database.config.json'",
           "group": "navigation"
         }
       ]
