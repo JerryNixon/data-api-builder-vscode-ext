@@ -1,0 +1,61 @@
+{
+  "name": "visualize-api-builder",
+  "displayName": "Data API Builder (visualize)",
+  "description": "Visualize DAB configurations as Mermaid diagram.",
+  "version": "0.0.2",
+  "icon": "images/icon.png",
+  "publisher": "jerry-nixon",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "galleryBanner": {
+    "color": "#0078d7",
+    "theme": "dark",
+    "background": "images/dab-logo.png"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Debuggers"
+  ],
+  "activationEvents": [
+    "onCommand:dabVisualize.visualizeDab"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dabVisualize.visualizeDab",
+        "title": "Visualize DAB"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "dabVisualize.visualizeDab",
+          "when": "resourceFilename == 'dab-config.json' || resourceFilename == 'staticwebapp.database.config.json'",
+          "group": "navigation"
+        }
+      ]
+    },
+    "extensionDependencies": [
+      "bierner.markdown-mermaid"
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./",
+    "lint": "eslint src",
+    "test": "npm test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0",
+    "typescript": "^5.1.3",
+    "eslint": "^8.42.0"
+  }
+}
