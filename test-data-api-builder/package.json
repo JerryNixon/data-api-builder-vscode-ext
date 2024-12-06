@@ -1,5 +1,5 @@
 {
-  "name": "start-data-api-builder",
+  "name": "test-data-api-builder",
   "displayName": "Data API Builder (test)",
   "description": "Tests the connection string in a Data API Builder configuration file.",
   "publisher": "jerry-nixon",
