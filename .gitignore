@@ -483,8 +483,4 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 
-# Ignore out folder in the root of the repository
-/out/
-
-# Do not ignore out folders in subdirectories
-!*/out/
+out/
