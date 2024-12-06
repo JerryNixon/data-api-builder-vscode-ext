@@ -1,6 +1,6 @@
 {
   "name": "visualize-api-builder",
-  "displayName": "Data API Builder (visualize)",
+  "displayName": "DAB Visualize (Data API Builder)",
   "description": "Visualize DAB configurations as Mermaid diagram.",
   "version": "0.0.2",
   "icon": "images/icon.png",
@@ -23,21 +23,23 @@
     "Debuggers"
   ],
   "activationEvents": [
-    "onCommand:dabVisualize.visualizeDab"
+    "workspaceContains:**/dab-*.json",
+    "workspaceContains:**/staticwebapp.database.config.json"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "dabVisualize.visualizeDab",
-        "title": "Visualize DAB"
+        "command": "dabExtension.visualizeDab",
+        "title": "DAB Visualize",
+        "category": "DAB"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "dabVisualize.visualizeDab",
-          "when": "resourceFilename == 'dab-config.json' || resourceFilename == 'staticwebapp.database.config.json'",
+          "command": "dabExtension.visualizeDab",
+          "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
           "group": "navigation"
         }
       ]

@@ -5,7 +5,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 export function activate(context: vscode.ExtensionContext) {
-  const visualizeDabCommand = vscode.commands.registerCommand('dabVisualize.visualizeDab', async (uri: vscode.Uri) => {
+  const visualizeDabCommand = vscode.commands.registerCommand('dabExtension.visualizeDab', async (uri: vscode.Uri) => {
     if (!uri || !uri.fsPath) {
       vscode.window.showErrorMessage('No file selected for visualization.');
       return;

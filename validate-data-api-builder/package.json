@@ -1,79 +1,77 @@
-{
-  "name": "validate-data-api-builder",
-  "displayName": "Data API Builder (validate)",
-  "description": "Quickly start Data API Builder from a configuration file with a single click.",
-  "publisher": "jerry-nixon",
-  "version": "0.0.1",
-  "icon": "images/icon.png",
-  "engines": {
-    "vscode": "^1.95.0"
-  },
-  "galleryBanner": {
-    "color": "#0078d7",
-    "theme": "dark",
-    "background": "images/dab-logo.png"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
-  },
-  "categories": [
-    "Other",
-    "Programming Languages",
-    "Debuggers"
-  ],
-  "activationEvents": [
-    "onLanguage:json",
-    "onCommand:dabExtension.startDab",
-    "workspaceContains:**/dab-config.json",
-    "workspaceContains:**/staticwebapp.database.config.json"
-  ],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "dabExtension.validateDab",
-        "title": "Validate DAB Configuration",
-        "category": "DAB"
-      }
+  {
+    "name": "validate-data-api-builder",
+    "displayName": "DAB Validate (Data API Builder)",
+    "description": "Validate a Data API Builder configuration file.",
+    "publisher": "jerry-nixon",
+    "version": "0.0.2",
+    "icon": "images/icon.png",
+    "engines": {
+      "vscode": "^1.95.0"
+    },
+    "galleryBanner": {
+      "color": "#0078d7",
+      "theme": "dark",
+      "background": "images/dab-logo.png"
+    },
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
+    },
+    "categories": [
+      "Other",
+      "Programming Languages",
+      "Debuggers"
     ],
-    "menus": {
-      "explorer/context": [
+    "activationEvents": [
+      "workspaceContains:**/dab-*.json",
+      "workspaceContains:**/staticwebapp.database.config.json"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+      "commands": [
         {
           "command": "dabExtension.validateDab",
-          "when": "resourceFilename == 'dab-config.json' || resourceFilename == 'staticwebapp.database.config.json'",
-          "group": "navigation"
+          "title": "DAB Validate",
+          "category": "DAB"
         }
-      ]
+      ],
+      "menus": {
+        "explorer/context": [
+          {
+            "command": "dabExtension.validateDab",
+            "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
+            "group": "navigation"
+          }
+        ]
+      },
+      "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile && npm run lint",
+        "lint": "eslint src",
+        "test": "vscode-test"
+      },
+      "devDependencies": {
+        "@types/vscode": "^1.95.0",
+        "@types/mocha": "^10.0.9",
+        "@types/node": "20.x",
+        "@typescript-eslint/eslint-plugin": "^8.10.0",
+        "@typescript-eslint/parser": "^8.7.0",
+        "eslint": "^9.13.0",
+        "typescript": "^5.6.3",
+        "@vscode/test-cli": "^0.0.10",
+        "@vscode/test-electron": "^2.4.1"
+      },
+      "keywords": [
+        "Data API Builder",
+        "dab",
+        "configuration",
+        "json",
+        "tools",
+        "automation"
+      ],
+      "author": "Jerry Nixon",
+      "license": "MIT"
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.95.0",
-    "@types/mocha": "^10.0.9",
-    "@types/node": "20.x",
-    "@typescript-eslint/eslint-plugin": "^8.10.0",
-    "@typescript-eslint/parser": "^8.7.0",
-    "eslint": "^9.13.0",
-    "typescript": "^5.6.3",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
-  },
-  "keywords": [
-    "Data API Builder",
-    "dab",
-    "configuration",
-    "json",
-    "tools",
-    "automation"
-  ],
-  "author": "Jerry Nixon",
-  "license": "MIT"
-}
+  }

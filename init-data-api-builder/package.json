@@ -1,9 +1,9 @@
 {
   "name": "init-data-api-builder",
-  "displayName": "Data API Builder (initialize)",
-  "description": "Create Data API Builder configuration file.",
+  "displayName": "DAB Init (Data API Builder)",
+  "description": "Create Data API Builder configuration starter file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -28,7 +28,8 @@
     "commands": [
       {
         "command": "dabExtension.initDab",
-        "title": "Init DAB"
+        "title": "DAB Init",
+        "category": "DAB"
       }
     ],
     "menus": {

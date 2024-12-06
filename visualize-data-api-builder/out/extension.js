@@ -41,7 +41,7 @@ const generateMermaidDiagram_1 = require("./generateMermaidDiagram");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 function activate(context) {
-    const visualizeDabCommand = vscode.commands.registerCommand('dabVisualize.visualizeDab', async (uri) => {
+    const visualizeDabCommand = vscode.commands.registerCommand('dabExtension.visualizeDab', async (uri) => {
         if (!uri || !uri.fsPath) {
             vscode.window.showErrorMessage('No file selected for visualization.');
             return;

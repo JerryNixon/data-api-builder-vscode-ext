@@ -2,7 +2,7 @@
 
 A Visual Studio Code extension that guides users through initializing Data API Builder in a folder.
 
-![](images/screenshot.png)
+![](init-data-api-builder/images/screenshot.png)
 
 ## Features
 

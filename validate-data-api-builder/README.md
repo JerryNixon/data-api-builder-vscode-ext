@@ -2,7 +2,7 @@
 
 A Visual Studio Code extension that provides a quick way to validate Data API Builder configurations directly from `dab-config.json` or `staticwebapp.database.config.json`.
 
-![](images/dab-logo.png)
+![](validate-data-api-builder/images/dab-logo.png)
 
 ## Features
 
