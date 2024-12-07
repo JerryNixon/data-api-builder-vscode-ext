@@ -1,7 +1,7 @@
 {
-  "name": "test-data-api-builder",
-  "displayName": "Data API Builder (test)",
-  "description": "Tests the connection string in a Data API Builder configuration file.",
+  "name": "add-data-api-builder",
+  "displayName": "DAB Add (Data API Builder)",
+  "description": "Adds entities to a Data API Builder configuration file.",
   "publisher": "jerry-nixon",
   "version": "0.0.1",
   "icon": "images/icon.png",
@@ -22,20 +22,23 @@
     "Programming Languages",
     "Debuggers"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "workspaceContains:**/dab-*.json",
+    "workspaceContains:**/staticwebapp.database.config.json"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "dabExtension.testConnection",
-        "title": "Test Data API Builder Connection"
+        "command": "dabExtension.addDab",
+        "title": "DAB Add"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "dabExtension.testConnection",
-          "when": "resourceFilename == 'dab-config.json'",
+          "command": "dabExtension.addDab",
+          "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
           "group": "navigation"
         }
       ]

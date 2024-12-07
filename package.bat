@@ -15,8 +15,8 @@ call vsce package
 move /Y *.vsix ../out
 cd ..
 
-cd ./test-data-api-builder
-ECHO STARTING ./test-data-api-builder
+cd ./add-data-api-builder
+ECHO STARTING ./add-data-api-builder
 call vsce package
 move /Y *.vsix ../out
 cd ..
