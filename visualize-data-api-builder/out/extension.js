@@ -37,6 +37,9 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const getTables_1 = require("./getTables");
+const getProcs_1 = require("./getProcs");
+const getViews_1 = require("./getViews");
+const summary_1 = require("./summary");
 const generateMermaidDiagram_1 = require("./generateMermaidDiagram");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
@@ -47,19 +50,31 @@ function activate(context) {
             return;
         }
         try {
-            // Extract tables and relationships from the configuration
+            // Extract tables, procedures, and views from the configuration
             const tables = (0, getTables_1.getTables)(uri.fsPath);
-            // Generate the Mermaid diagram
+            const procedures = (0, getProcs_1.getProcs)(uri.fsPath);
+            const views = (0, getViews_1.getViews)(uri.fsPath);
+            // Get the file name without the path
+            const fileName = path.basename(uri.fsPath);
+            // Generate the Mermaid diagram with tables, procedures, and views
             const mermaidContent = `
+# Configuration: ${fileName}
+<p>&nbsp;</p>
+
 \`\`\`mermaid
-${(0, generateMermaidDiagram_1.generateMermaidDiagram)(tables)}
+${(0, generateMermaidDiagram_1.generateMermaidDiagram)(tables, procedures, views)}
 \`\`\`
       `.trim();
-            // Determine the output path for the diagram
+            // Generate the summary of tables, views, and stored procedures
+            const summaryContent = (0, summary_1.generateSummary)(uri.fsPath);
+            // Combine the Mermaid diagram and the summary
+            const fullContent = `${mermaidContent}\n\n${summaryContent}`;
+            // Determine the output path for the diagram with the same name as the selected file
             const outputDir = path.dirname(uri.fsPath);
-            const outputFilePath = path.join(outputDir, 'dab-diagram.md');
-            // Write the diagram to a Markdown file
-            fs.writeFileSync(outputFilePath, mermaidContent);
+            const fileNameWithoutExt = path.basename(uri.fsPath, path.extname(uri.fsPath));
+            const outputFilePath = path.join(outputDir, `${fileNameWithoutExt}.md`);
+            // Write the combined content to a Markdown file
+            fs.writeFileSync(outputFilePath, fullContent);
             // Open the file in VS Code
             const doc = await vscode.workspace.openTextDocument(outputFilePath);
             await vscode.window.showTextDocument(doc);

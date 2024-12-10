@@ -30,16 +30,44 @@
   "contributes": {
     "commands": [
       {
-        "command": "dabExtension.addDab",
-        "title": "DAB Add"
+        "command": "dabExtension.addTable",
+        "title": "Table"
+      },
+      {
+        "command": "dabExtension.addView",
+        "title": "View"
+      },
+      {
+        "command": "dabExtension.addProc",
+        "title": "Stored Procedure"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "dabExtension.addSubMenu",
+        "label": "DAB Add"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "dabExtension.addDab",
+          "submenu": "dabExtension.addSubMenu",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
           "group": "navigation"
+        }
+      ],
+      "dabExtension.addSubMenu": [
+        {
+          "command": "dabExtension.addTable",
+          "group": "1_add"
+        },
+        {
+          "command": "dabExtension.addView",
+          "group": "1_add"
+        },
+        {
+          "command": "dabExtension.addProc",
+          "group": "1_add"
         }
       ]
     }

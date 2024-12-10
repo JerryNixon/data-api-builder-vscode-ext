@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import { getTables } from './getTables';
+import { getProcs } from './getProcs';
+import { getViews } from './getViews';
+import { generateSummary } from './summary';
 import { generateMermaidDiagram } from './generateMermaidDiagram';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -12,22 +15,37 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     try {
-      // Extract tables and relationships from the configuration
+      // Extract tables, procedures, and views from the configuration
       const tables = getTables(uri.fsPath);
+      const procedures = getProcs(uri.fsPath);
+      const views = getViews(uri.fsPath);
 
-      // Generate the Mermaid diagram
+      // Get the file name without the path
+      const fileName = path.basename(uri.fsPath);
+
+      // Generate the Mermaid diagram with tables, procedures, and views
       const mermaidContent = `
+# Configuration: ${fileName}
+<p>&nbsp;</p>
+
 \`\`\`mermaid
-${generateMermaidDiagram(tables)}
+${generateMermaidDiagram(tables, procedures, views)}
 \`\`\`
       `.trim();
 
-      // Determine the output path for the diagram
-      const outputDir = path.dirname(uri.fsPath);
-      const outputFilePath = path.join(outputDir, 'dab-diagram.md');
+      // Generate the summary of tables, views, and stored procedures
+      const summaryContent = generateSummary(uri.fsPath);
 
-      // Write the diagram to a Markdown file
-      fs.writeFileSync(outputFilePath, mermaidContent);
+      // Combine the Mermaid diagram and the summary
+      const fullContent = `${mermaidContent}\n\n${summaryContent}`;
+
+      // Determine the output path for the diagram with the same name as the selected file
+      const outputDir = path.dirname(uri.fsPath);
+      const fileNameWithoutExt = path.basename(uri.fsPath, path.extname(uri.fsPath));
+      const outputFilePath = path.join(outputDir, `${fileNameWithoutExt}.md`);
+
+      // Write the combined content to a Markdown file
+      fs.writeFileSync(outputFilePath, fullContent);
 
       // Open the file in VS Code
       const doc = await vscode.workspace.openTextDocument(outputFilePath);

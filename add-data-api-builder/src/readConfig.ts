@@ -3,6 +3,44 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
+ * Validates the configuration file path.
+ * @param configPath - The path to the configuration file.
+ * @returns True if valid, false otherwise.
+ */
+export function validateConfigPath(configPath: string): boolean {
+    if (!fs.existsSync(configPath)) {
+        vscode.window.showErrorMessage(`Configuration file not found at path: ${configPath}`);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Checks if a stored procedure already exists in the configuration file.
+ * @param configPath - The path to the configuration file.
+ * @param procedureName - The name of the stored procedure (e.g., 'dbo.SampleProcedure').
+ * @returns True if the stored procedure exists, false otherwise.
+ */
+export async function isProcedureInConfig(configPath: string, procedureName: string): Promise<boolean> {
+    try {
+        const configContent = fs.readFileSync(configPath, 'utf8');
+        const config = JSON.parse(configContent);
+
+        const entities = config['entities'] || {};
+        return Object.values(entities).some(
+            (entity: any) => entity.source?.object === procedureName
+        );
+    } catch (error) {
+        if (error instanceof Error) {
+            vscode.window.showErrorMessage(`Error reading configuration file: ${error.message}`);
+        } else {
+            vscode.window.showErrorMessage(`An unknown error occurred.`);
+        }
+        return false;
+    }
+}
+
+/**
  * Reads the database type from the configuration file.
  * @param configPath - The path to the configuration file.
  * @returns The database type as a string, or an empty string if not found.

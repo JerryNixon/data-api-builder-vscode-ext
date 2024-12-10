@@ -1,9 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateMermaidDiagram = generateMermaidDiagram;
-function generateMermaidDiagram(tables) {
+/**
+ * Generates a Mermaid state diagram representing tables, views, and procedures.
+ * @param tables - An array of TableEntity objects representing tables.
+ * @param procedures - An array of strings representing stored procedure names.
+ * @param views - An array of strings representing view names.
+ * @returns A string containing the Mermaid diagram.
+ */
+function generateMermaidDiagram(tables, procedures, views) {
     const lines = [];
     lines.push('stateDiagram-v2');
+    lines.push('direction TB');
     lines.push(''); // Add a blank line for clarity
     // Add class definitions for styles
     lines.push('  classDef empty fill:none,stroke:none');
@@ -18,15 +26,24 @@ function generateMermaidDiagram(tables) {
     lines.push(''); // Add a blank line for clarity
     // Modular methods
     writeTables(lines, tables);
-    writeViews(lines, []);
-    writeProcs(lines, []);
+    writeViews(lines, views);
+    writeProcs(lines, procedures);
     return lines.join('\n');
 }
+/**
+ * Sanitizes entity names by removing "dbo." and replacing dots with underscores.
+ * @param entityName - The entity name to sanitize.
+ * @returns The sanitized entity name.
+ */
 function sanitizeEntityName(entityName) {
     return (entityName.startsWith('dbo.') ? entityName.replace('dbo.', '') : entityName).replace(/\./g, '_');
 }
+/**
+ * Writes table definitions and their classifications to the lines array.
+ * @param lines - The array to append Mermaid diagram lines to.
+ * @param tables - An array of TableEntity objects representing tables.
+ */
 function writeTables(lines, tables) {
-    const addedRelationships = new Set();
     const phantomEntities = new Set();
     const tablesGroup = [];
     const noRelationshipTables = [];
@@ -58,60 +75,86 @@ function writeTables(lines, tables) {
     }
     else {
         noRelationshipTables.forEach(table => lines.push(`    ${table}`)); // Standalone tables
-        for (const table of tables) {
-            const sanitizedTableName = sanitizeEntityName(table.name);
-            for (const relationship of Object.values(table.relationships)) {
-                const { targetEntity, linkingObject } = relationship;
-                let sanitizedTargetEntity = sanitizeEntityName(targetEntity);
-                let sanitizedLinkingObject;
-                if (linkingObject) {
-                    sanitizedLinkingObject = sanitizeEntityName(linkingObject);
-                    if (phantomEntities.has(sanitizedLinkingObject)) {
-                        const linkToTargetKey = `${sanitizedLinkingObject} --> ${sanitizedTargetEntity}`;
-                        if (!addedRelationships.has(linkToTargetKey)) {
-                            addedRelationships.add(linkToTargetKey);
-                            lines.push(`    ${sanitizedLinkingObject} --> ${sanitizedTargetEntity}`);
-                        }
-                    }
-                    else {
-                        const sourceToLinkKey = `${sanitizedTableName} --> ${sanitizedLinkingObject}`;
-                        if (!addedRelationships.has(sourceToLinkKey)) {
-                            addedRelationships.add(sourceToLinkKey);
-                            lines.push(`    ${sanitizedTableName} --> ${sanitizedLinkingObject}`);
-                        }
+        writeRelationships(lines, tables, phantomEntities);
+    }
+    lines.push('  }');
+}
+/**
+ * Writes table relationships to the lines array.
+ * @param lines - The array to append Mermaid diagram lines to.
+ * @param tables - An array of TableEntity objects representing tables.
+ * @param phantomEntities - A set of phantom entities representing linking objects.
+ */
+function writeRelationships(lines, tables, phantomEntities) {
+    const addedRelationships = new Set();
+    for (const table of tables) {
+        const sanitizedTableName = sanitizeEntityName(table.name);
+        for (const relationship of Object.values(table.relationships)) {
+            const { targetEntity, linkingObject } = relationship;
+            let sanitizedTargetEntity = sanitizeEntityName(targetEntity);
+            let sanitizedLinkingObject;
+            if (linkingObject) {
+                sanitizedLinkingObject = sanitizeEntityName(linkingObject);
+                if (phantomEntities.has(sanitizedLinkingObject)) {
+                    const linkToTargetKey = `${sanitizedLinkingObject} --> ${sanitizedTargetEntity}`;
+                    if (!addedRelationships.has(linkToTargetKey)) {
+                        addedRelationships.add(linkToTargetKey);
+                        lines.push(`    ${sanitizedLinkingObject} --> ${sanitizedTargetEntity}`);
                     }
                 }
                 else {
-                    const sourceToTargetKey = `${sanitizedTableName} --> ${sanitizedTargetEntity}`;
-                    if (!addedRelationships.has(sourceToTargetKey)) {
-                        addedRelationships.add(sourceToTargetKey);
-                        lines.push(`    ${sanitizedTableName} --> ${sanitizedTargetEntity}`);
+                    const sourceToLinkKey = `${sanitizedTableName} --> ${sanitizedLinkingObject}`;
+                    if (!addedRelationships.has(sourceToLinkKey)) {
+                        addedRelationships.add(sourceToLinkKey);
+                        lines.push(`    ${sanitizedTableName} --> ${sanitizedLinkingObject}`);
                     }
+                }
+            }
+            else {
+                const sourceToTargetKey = `${sanitizedTableName} --> ${sanitizedTargetEntity}`;
+                if (!addedRelationships.has(sourceToTargetKey)) {
+                    addedRelationships.add(sourceToTargetKey);
+                    lines.push(`    ${sanitizedTableName} --> ${sanitizedTargetEntity}`);
                 }
             }
         }
     }
-    lines.push('  }');
 }
+/**
+ * Writes view definitions to the lines array.
+ * @param lines - The array to append Mermaid diagram lines to.
+ * @param views - An array of strings representing view names.
+ */
 function writeViews(lines, views) {
-    views.forEach(view => lines.push(`  class ${view} view`));
+    views.forEach(view => lines.push(`  class ${sanitizeEntityName(view.name)} view`));
     lines.push('  state Views {');
     if (views.length === 0) {
         lines.push('    NoViews');
     }
     else {
-        views.forEach(view => lines.push(`    ${view}`));
+        views.forEach(view => lines.push(`    ${sanitizeEntityName(view.name)}`));
     }
     lines.push('  }');
 }
+/**
+ * Writes stored procedure definitions to the lines array.
+ * @param lines - The array to append Mermaid diagram lines to.
+ * @param procedures - An array of StoredProcedure objects representing stored procedures.
+ */
 function writeProcs(lines, procedures) {
-    procedures.forEach(procedure => lines.push(`  class ${procedure} proc`));
+    procedures.forEach(procedure => {
+        const sanitizedProcName = sanitizeEntityName(procedure.name);
+        lines.push(`  class ${sanitizedProcName} proc`);
+    });
     lines.push('  state Procedures {');
     if (procedures.length === 0) {
         lines.push('    NoProcs');
     }
     else {
-        procedures.forEach(procedure => lines.push(`    ${procedure}`));
+        procedures.forEach(procedure => {
+            const sanitizedProcName = sanitizeEntityName(procedure.name);
+            lines.push(`    ${sanitizedProcName}`);
+        });
     }
     lines.push('  }');
 }
