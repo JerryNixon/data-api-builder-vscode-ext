@@ -34,7 +34,7 @@ export function generateSummary(configPath: string): string {
     if (views.length > 0) {
         summary += '|Entity|Source\n';
         summary += '|-|-\n';
-        views.forEach(view => summary += `|${view}|${view}\n`);
+        views.forEach(view => summary += `|${view.name}|${view.sourceName}\n`);
     } else {
         summary += '> None\n';
     }
