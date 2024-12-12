@@ -45,7 +45,9 @@ export function generateMermaidDiagram(tables: TableEntity[], procedures: Stored
  * @returns The sanitized entity name.
  */
 function sanitizeEntityName(entityName: string): string {
-  return (entityName.startsWith('dbo.') ? entityName.replace('dbo.', '') : entityName).replace(/\./g, '_');
+  return (entityName.startsWith('dbo.') ? entityName.replace('dbo.', '') : entityName)
+  .replace(/\./g, '_')
+  .replace(/[\[\]]/g, '');
 }
 
 /**

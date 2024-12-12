@@ -36,7 +36,9 @@ function generateMermaidDiagram(tables, procedures, views) {
  * @returns The sanitized entity name.
  */
 function sanitizeEntityName(entityName) {
-    return (entityName.startsWith('dbo.') ? entityName.replace('dbo.', '') : entityName).replace(/\./g, '_');
+    return (entityName.startsWith('dbo.') ? entityName.replace('dbo.', '') : entityName)
+        .replace(/\./g, '_')
+        .replace(/[\[\]]/g, '');
 }
 /**
  * Writes table definitions and their classifications to the lines array.
