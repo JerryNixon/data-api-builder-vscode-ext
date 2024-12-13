@@ -13,7 +13,7 @@ export function generateMermaidDiagram(tables: TableEntity[], procedures: Stored
   const lines: string[] = [];
 
   lines.push('stateDiagram-v2');
-  lines.push('direction TB');
+  lines.push('direction LR');
   
   lines.push(''); // Add a blank line for clarity
 

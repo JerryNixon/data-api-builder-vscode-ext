@@ -11,7 +11,7 @@ exports.generateMermaidDiagram = generateMermaidDiagram;
 function generateMermaidDiagram(tables, procedures, views) {
     const lines = [];
     lines.push('stateDiagram-v2');
-    lines.push('direction TB');
+    lines.push('direction LR');
     lines.push(''); // Add a blank line for clarity
     // Add class definitions for styles
     lines.push('  classDef empty fill:none,stroke:none');
