@@ -3,7 +3,7 @@
     "displayName": "DAB Validate (Data API Builder)",
     "description": "Validate a Data API Builder configuration file.",
     "publisher": "jerry-nixon",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "icon": "images/icon.png",
     "engines": {
       "vscode": "^1.95.0"
@@ -40,7 +40,7 @@
           {
             "command": "dabExtension.validateDab",
             "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-            "group": "navigation"
+            "group": "1_dab"
           }
         ]
       },

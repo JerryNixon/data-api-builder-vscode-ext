@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { addTable } from './mssql/addTable';
 import { addView } from './mssql/addView';
 import { addProc } from './mssql/addProc';
+import { addRelationship } from './mssql/addRelationship';
 import { readDatabaseType, getConnectionString } from './readConfig';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -17,7 +18,11 @@ export function activate(context: vscode.ExtensionContext) {
     await handleAddEntity(uri, addProc, 'Add Stored Procedure');
   });
 
-  context.subscriptions.push(addTableCommand, addViewCommand, addProcCommand);
+  const addRelationshipCommand = vscode.commands.registerCommand('dabExtension.addRelationship', async (uri: vscode.Uri) => {
+    await handleAddEntity(uri, addRelationship, 'Add Relationship');
+  });
+
+  context.subscriptions.push(addTableCommand, addViewCommand, addProcCommand, addRelationshipCommand);
 }
 
 async function handleAddEntity(uri: vscode.Uri, action: (configPath: string, connectionString: string) => Promise<void>, entityType: string) {

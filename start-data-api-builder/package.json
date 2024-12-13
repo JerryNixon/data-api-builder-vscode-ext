@@ -3,7 +3,7 @@
   "displayName": "DAB Start (Data API builder)",
   "description": "Start Data API Builder from a configuration file.",
   "publisher": "jerry-nixon",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -40,7 +40,7 @@
         {
           "command": "dabExtension.startDab",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-          "group": "navigation"
+          "group": "1_dab"
         }
       ]
     }

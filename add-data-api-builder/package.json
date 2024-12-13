@@ -3,7 +3,7 @@
   "displayName": "DAB Add (Data API Builder)",
   "description": "Adds entities to a Data API Builder configuration file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -40,6 +40,10 @@
       {
         "command": "dabExtension.addProc",
         "title": "Stored Procedure"
+      },
+      {
+        "command": "dabExtension.addRelationship",
+        "title": "Relationship"
       }
     ],
     "submenus": [
@@ -53,21 +57,25 @@
         {
           "submenu": "dabExtension.addSubMenu",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-          "group": "navigation"
+          "group": "1_dab"
         }
       ],
       "dabExtension.addSubMenu": [
         {
           "command": "dabExtension.addTable",
-          "group": "1_add"
+          "group": "1_add@1"
         },
         {
           "command": "dabExtension.addView",
-          "group": "1_add"
+          "group": "1_add@2"
         },
         {
           "command": "dabExtension.addProc",
-          "group": "1_add"
+          "group": "1_add@3"
+        },
+        {
+          "command": "dabExtension.addRelationship",
+          "group": "1_add@4"
         }
       ]
     }

@@ -2,7 +2,7 @@
   "name": "visualize-api-builder",
   "displayName": "DAB Visualize (Data API Builder)",
   "description": "Visualize DAB configurations as Mermaid diagram.",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "icon": "images/icon.png",
   "publisher": "jerry-nixon",
   "engines": {
@@ -40,7 +40,7 @@
         {
           "command": "dabExtension.visualizeDab",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-          "group": "navigation"
+          "group": "1_dab"
         }
       ]
     },
