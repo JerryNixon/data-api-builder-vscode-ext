@@ -25,7 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       // Generate the Mermaid diagram with tables, procedures, and views
       const mermaidContent = `
-# Configuration: ${fileName}
+## ${fileName}
 <p>&nbsp;</p>
 
 \`\`\`mermaid
