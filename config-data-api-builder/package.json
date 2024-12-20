@@ -40,7 +40,7 @@
         {
           "command": "dabExtension.editDataSource",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-          "group": "navigation"
+          "group": "1_dab"
         }
       ]
     }

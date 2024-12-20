@@ -9,6 +9,12 @@ call vsce package
 move /Y *.vsix ../out
 cd ..
 
+cd ./config-data-api-builder
+ECHO STARTING ./config-data-api-builder
+call vsce package
+move /Y *.vsix ../out
+cd ..
+
 cd ./start-data-api-builder
 ECHO STARTING ./start-data-api-builder
 call vsce package

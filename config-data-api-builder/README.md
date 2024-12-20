@@ -1,25 +1,19 @@
-# Start Data API Builder
+# DAB Config (Data API Builder)
 
-A Visual Studio Code extension that adds a quick way to start Data API Builder directly from `dab-config.json`.
+A Visual Studio Code extension that allows editing the Data API Builder configuration file (`dab-config.json`) with ease.
 
-![](start-data-api-builder/images/screenshot.png)
+![](config-data-api-builder/images/screenshot.png)
+
+### Editor UI
+
+![](config-data-api-builder/images/screenshot2.png)
 
 ## Features
 
-- Adds a right-click context menu for files named `dab-config.json`.
+- Adds a right-click context menu for files named `dab-config.json` or `staticwebapp.database.config.json`.
+- Provides a custom UI for editing Data API Builder configuration.
 - Automatically opens a new terminal and runs `dab start`.
-
-## Requirements
-
-- Ensure that `dab` is installed: `dotnet tool install microsoft.dataapibuilder -g`
 
 ## Known Issues
 
-- Only files named exactly `dab-config.json` will show the context menu option.
-- The terminal assumes `dab` is available globally in your environment.
-
-## Release Notes
-
-### 1.0.0
-
-- Initial release: Context menu and terminal support for starting DAB.
+- In this version, the `entities` section is not editable in the UI.

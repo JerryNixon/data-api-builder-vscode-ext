@@ -16,7 +16,6 @@ export function showDataSourceEditor(context: vscode.ExtensionContext, uri: vsco
   // Initial load
   loadDataSource(panel, uri);
 
-  // Handle messages received from the webview
   panel.webview.onDidReceiveMessage(
     (message) => {
       switch (message.command) {
@@ -27,18 +26,30 @@ export function showDataSourceEditor(context: vscode.ExtensionContext, uri: vsco
         case 'load':
           loadDataSource(panel, uri);
           return;
+
+        case 'reload':
+          if (panel) {
+            loadDataSource(panel, uri);
+          } else {
+            vscode.window.showErrorMessage('Panel is not available for reload.');
+          }
+          return;
       }
     },
     undefined,
     context.subscriptions
   );
+
+  panel.onDidDispose(() => {
+    console.log('Panel was disposed');
+  }, undefined, context.subscriptions);
 }
 
 function loadDataSource(panel: vscode.WebviewPanel, uri: vscode.Uri) {
   try {
     const configContent = fs.readFileSync(uri.fsPath, 'utf8');
     const config = JSON.parse(configContent);
-    
+
     console.log('Full config:', config);
     console.log('data-source:', config['data-source']);
     console.log('runtime:', config['runtime']);

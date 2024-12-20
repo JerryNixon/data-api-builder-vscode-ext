@@ -6,6 +6,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edit DAB Data Source</title>
   <style>
+    @media (prefers-color-scheme: light) {
+      body {
+        background-color: #121212;
+        color: #e0e0e0;
+      }
+
+      .section-header {
+        background-color: white;
+        color: black;
+      }
+
+      .section-header::before {
+        color: black;
+      }
+
+      .section-header:hover {
+        background-color: #444;
+      }
+    }
+
     body {
       font-family: sans-serif;
       padding: 20px;
@@ -16,16 +36,25 @@
       overflow: hidden;
     }
 
+    .spacer {
+      height: 40px;
+    }
+
     .header {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      border-bottom: 1px solid #ccc;
+      position: sticky;
+      top: 0;
+      padding-top: 10px;
       padding-bottom: 10px;
       margin-bottom: 20px;
+      z-index: 10;
+
+      display: flex;
+      justify-content: flex-end;
+      border-bottom: 1px solid #ccc;
     }
 
     .header button {
+      margin-left: 20px;
       padding: 10px 20px;
       background-color: #0078d4;
       color: white;
@@ -76,298 +105,307 @@
     }
 
     .section-content {
-      padding: 10px 15px;
+      padding: 20px 15px 20px 15px;
       display: none;
+      flex-direction: column;
+      gap: 10px;
     }
 
     .section.open .section-content {
-      display: block;
+      display: flex;
     }
-
-    /* ** */
 
     .reset-button {
       background: none;
       border: none;
       cursor: pointer;
       color: #555;
-      display: inline;
+      font-size: 16px;
       width: 30px;
-      vertical-align: text-bottom;
+      vertical-align: middle;
     }
 
     .reset-button:hover {
       color: #0078d4;
     }
 
-    /* ** */
-
-    div.check-input {
-      margin-top: 10px;
-      margin-bottom: 10px;
-      margin-left: 0px;
+    .radio-group {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 5px;
     }
 
-    label.check-input {
-      font-weight: normal;
+    .radio-group .radio-label {
+      font-weight: bold;
+      text-transform: uppercase;
     }
 
-    input.check-input {
-      width: auto;
+    .radio-group .radio-options {
+      grid-column: 2 / span 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0px;
+    }
+
+    .reset-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #555;
+      font-size: 16px;
+    }
+
+    .reset-button:hover {
+      color: #0078d4;
+    }
+
+    .checkbox-group {
+      display: grid;
+      grid-template-columns: auto auto 1fr;
+      align-items: center;
+      gap: 0px;
+    }
+
+    .text-group {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 0px;
+    }
+
+    .text-group label {
+      margin-left: 5px;
+    }
+
+    .text-group input[type="text"],
+    input[type="number"] {
+      grid-column: 2 / span 1;
+      margin-left: 5px;
       padding: 4px;
-      margin-top: 5px;
-      box-sizing: border-box;
+      width: 90%;
     }
 
-    /* ** */
-
-    div.text-input-label {
-      margin-top: 10px;
-    }
-
-    label.text-input-label {
-      display: inline;
-      margin-top: 15px;
-      font-weight: normal;
-    }
-
-    div.text-input {
-      margin-left: 35px;
-      margin-bottom: 10px;
-    }
-
-    input.text-input {
-      width: 100%;
-      padding: 4px;
-      margin-top: 5px;
-      box-sizing: border-box;
+    input[type="checkbox"] {
+      margin-right: 5px;
     }
   </style>
 </head>
 
 <body>
   <div class="header">
+    <button type="button" id="reloadButton">Reload</button>
     <button type="button" id="saveButton">Save</button>
   </div>
+
 
   <div class="scroll-container">
     <form id="configForm">
 
-      <h1>Data Source</h1>
+      <div class="section">
+        <div class="section-header">Data Source</div>
+        <div class="section-content">
 
-      <div class="text-input-label">
-        <button style="visibility: collapse;" type="button" class="reset-button"></button>
-        <label class="text-input-label" for="databaseType">Database Type</label>
-      </div>
-      <div class="text-input">
-        <input class="text-input" type="text" id="databaseType" placeholder="/api" readonly>
-      </div>
+          <div class="text-group">
+            <button type="button" class="reset-button" style="visibility: collapse;"></button>
+            <label for="databaseType">Database Type</label>
+            <input type="text" id="databaseType" readonly>
+          </div>
 
-      <div class="text-input-label">
-        <button style="visibility: collapse;" type="button" class="reset-button"></button>
-        <label class="text-input-label" for="connectionString">Connection String</label>
-      </div>
-      <div class="text-input">
-        <input class="text-input" type="text" id="connectionString" placeholder="/api">
-      </div>
+          <div class="text-group">
+            <button type="button" class="reset-button" style="visibility: collapse;"></button>
+            <label for="connectionString">Connection String</label>
+            <input type="text" id="connectionString" placeholder="Enter connection string">
+          </div>
 
-      <div class="check-input">
-        <button type="button" class="reset-button" title="Reset to Default"
-          onclick="resetField('setSessionContext', false)">⚙️</button>
-        <label class="check-input"><input class="check-input" type="checkbox" id="setSessionContext">Set Session
-          Context</label>
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('setSessionContext', false)" title="Reset to Default">⚙️</button>
+            <input type="checkbox" id="setSessionContext">
+            <label for="setSessionContext">Set Session Context</label>
+          </div>
+
+        </div>
       </div>
 
       <h1>Runtime</h1>
 
-      <div class="section open">
+      <div class="section">
         <div class="section-header">REST Configuration</div>
         <div class="section-content">
 
-          <div class="check-input">
-            <button type="button" class="reset-button" onclick="resetField('restEnabled', true)"
-              title="Reset to Default">⚙️</button>
-            <label class="check-input" for="restEnabled"><input type="checkbox" id="restEnabled" class="check-input">
-              REST Enabled</label>
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('restEnabled', true)" title="Reset to Default">⚙️</button>
+            <input type="checkbox" id="restEnabled">
+            <label for="restEnabled">REST Enabled</label>
           </div>
 
-          <div class="text-input-label">
-            <button type="button" class="reset-button" onclick="resetField('restPath', '/api')"
-              title="Reset to Default">⚙️</button>
-            <label class="text-input-label" for="restPath">REST Path</label>
-          </div>
-          <div class="text-input">
-            <input class="text-input" type="text" id="restPath" placeholder="/api">
+          <div class="text-group">
+            <button type="button" class="reset-button" style="visibility: collapse;"></button>
+            <label for="restPath">REST Path</label>
+            <input type="text" id="restPath" placeholder="/api">
           </div>
 
-          <div class="check-input">
-            <button type="button" class="reset-button" onclick="resetField('requestBodyStrict', false)"
-              title="Reset to Default">⚙️</button>
-            <input class="check-input" type="checkbox" id="requestBodyStrict">
-            <label class="check-input" for="requestBodyStrict">Request Body Strict</label>
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('requestBodyStrict', true)" title="Reset to Default">⚙️</button>
+            <input type="checkbox" id="requestBodyStrict">
+            <label for="requestBodyStrict">Request Body Strict</label>
           </div>
 
         </div>
       </div>
 
-      <div class="section open">
+      <div class="section">
         <div class="section-header">GraphQL Configuration</div>
         <div class="section-content">
 
-          <div class="check-input">
-            <button type="button" class="reset-button" onclick="resetField('graphqlEnabled', true)"
-              title="Reset to Default">⚙️</button>
-            <label class="check-input" for="graphqlEnabled">
-              <input class="check-input" type="checkbox" id="graphqlEnabled"> GraphQL Enabled
-            </label>
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('graphqlEnabled', true)" title="Reset to Default">⚙️</button>
+            <input type="checkbox" id="graphqlEnabled">
+            <label for="graphqlEnabled">GraphQL Enabled</label>
           </div>
 
-          <div class="text-input-label">
-            <button type="button" class="reset-button" onclick="resetField('graphqlPath', '/graphql')"
-              title="Reset to Default">⚙️</button>
-            <label class="text-input" for="graphqlPath">GraphQL Path</label>
-          </div>
-          <div class="text-input">
-            <input class="text-input" type="text" id="graphqlPath" placeholder="/graphql">
+          <div class="text-group">
+            <button type="button" class="reset-button" style="visibility: collapse;"></button>
+            <label for="graphqlPath">GraphQL Path</label>
+            <input type="text" id="graphqlPath" placeholder="/graphql">
           </div>
 
-          <div class="check-input">
-            <button type="button" class="reset-button" onclick="resetField('allowIntrospection', false)"
-              title="Reset to Default">⚙️</button>
-            <label class="check-input" for="allowIntrospection">
-              <input class="check-input" type="checkbox" id="allowIntrospection"> Allow Introspection
-            </label>
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('allowIntrospection', true)" title="Reset to Default">⚙️</button>
+            <input type="checkbox" id="allowIntrospection">
+            <label for="allowIntrospection">Allow Introspection</label>
           </div>
 
         </div>
       </div>
 
-      <div class="section open">
+      <div class="section">
         <div class="section-header">Host Configuration</div>
         <div class="section-content">
 
-          <span class="radio-label">Host Mode</span>
           <div class="radio-group">
-            <div class="form-group">
-              <button type="button" class="reset-button" onclick="resetField('hostModeDevelopment', true)"
-                title="Reset to default value: Development">⚙️</button>
-              <label class="radio-group">
-                <input type="radio" name="hostMode" value="development" id="hostModeDevelopment"> Development
-              </label>
-            </div>
-
-            <div class="form-group">
-              <button type="button" class="reset-button" onclick="resetField('hostModeProduction', false)"
-                title="Reset to default value: Production">⚙️</button>
-              <label class="radio-group">
-                <input type="radio" name="hostMode" value="production" id="hostModeProduction"> Production
-              </label>
+            <button type="button" class="reset-button" style="visibility: collapse;"></button>
+            <label class="radio-label" for="hostMode">Host Mode</label>
+            <div class="radio-options">
+              <label><input type="radio" name="hostMode" value="development" id="hostModeDevelopment"> Development</label>
+              <label><input type="radio" name="hostMode" value="production" id="hostModeProduction"> Production</label>
             </div>
           </div>
 
-          <label class="form-group" for="corsOrigins">CORS Origins</label>
-          <div class="input-group">
-            <button type="button" class="reset-button"
-              onclick="resetField('corsOrigins', 'https://example1.com, https://example2.com')"
-              title="Reset to default value: https://example1.com, https://example2.com">⚙️</button>
-            <input type="text" id="corsOrigins"
-              placeholder="Enter origins, e.g., https://example1.com, https://example2.com">
+          <div class="text-group">
+            <button type="button" class="reset-button" onclick="resetField('corsOrigins', '')" title="Reset to Default">⚙️</button>
+            <label for="corsOrigins">CORS Origins</label>
+            <input type="text" id="corsOrigins" placeholder="Enter origins, e.g., https://example1.com, https://example2.com">
           </div>
 
-          <div class="form-group">
-            <button type="button" class="checkbox reset-button" onclick="resetField('corsAllowCredentials', false)"
-              title="Reset to default value: False">⚙️</button>
-            <label class="checkbox" for="corsAllowCredentials">
-              <input type="checkbox" id="corsAllowCredentials"> Allow Credentials
-            </label>
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('corsAllowCredentials', false)" title="Reset to Default">⚙️</button>
+            <input type="checkbox" id="corsAllowCredentials">
+            <label for="corsAllowCredentials">Allow Credentials</label>
           </div>
 
-        </div>
-      </div>
-
-      <div class="section open">
-        <div class="section-header">Authentication Configuration</div>
-        <div class="section-content">
-          <div>
-            <span class="radio-group">Authentication Provider</span>
-            <div class="radio-group">
-              <label class="radio-group"><input type="radio" name="authProvider" value="StaticWebApps"
-                  id="authProviderStaticWebApps">
-                StaticWebApps</label>
-              <label class="radio-group"><input type="radio" name="authProvider" value="AppService"
-                  id="authProviderAppService">
-                AppService</label>
-              <label class="radio-group"><input type="radio" name="authProvider" value="AzureAd"
-                  id="authProviderAzureAd"> AzureAd</label>
-              <label class="radio-group"><input type="radio" name="authProvider" value="Simulator"
-                  id="authProviderSimulator">
-                Simulator</label>
-            </div>
-          </div>
-
-          <label for="jwtAudience">JWT Audience</label>
-          <input type="text" id="jwtAudience" placeholder="Enter JWT audience">
-
-          <label for="jwtIssuer">JWT Issuer</label>
-          <input type="text" id="jwtIssuer" placeholder="Enter JWT issuer">
         </div>
       </div>
 
       <div class="section">
         <div class="section-header">Pagination Configuration</div>
         <div class="section-content">
-          <label for="maxPageSize">Max Page Size</label>
-          <input type="number" id="maxPageSize" placeholder="100000">
 
-          <label for="defaultPageSize">Default Page Size</label>
-          <input type="number" id="defaultPageSize" placeholder="100">
+          <div class="text-group">
+            <button type="button" class="reset-button" style="visibility: collapse;"></button>
+            <label for="maxPageSize">Max Page Size</label>
+            <input type="number" id="maxPageSize" placeholder="100000">
+          </div>
+
+          <div class="text-group">
+            <button type="button" class="reset-button" style="visibility: collapse;"></button>
+            <label for="defaultPageSize">Default Page Size</label>
+            <input type="number" id="defaultPageSize" placeholder="100">
+          </div>
+
         </div>
       </div>
 
       <div class="section">
         <div class="section-header">Cache Configuration</div>
         <div class="section-content">
-          <label><input type="checkbox" id="cacheEnabled"> Enable Cache</label>
 
-          <label for="cacheTtlSeconds">Cache TTL (seconds)</label>
-          <input type="number" id="cacheTtlSeconds" placeholder="5">
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('cacheEnabled', false)" title="Reset to Default">⚙️</button>
+            <input type="checkbox" id="cacheEnabled">
+            <label for="cacheEnabled">Enable Cache</label>
+          </div>
+
+          <div class="text-group">
+            <button type="button" class="reset-button" style="visibility: collapse;"></button>
+            <label for="cacheTtlSeconds">Cache TTL (seconds)</label>
+            <input type="number" id="cacheTtlSeconds" placeholder="5">
+          </div>
+
         </div>
       </div>
 
-      <div class="section">
+      <div class="section open">
         <div class="section-header">Telemetry Configuration</div>
         <div class="section-content">
-          <label for="appInsightsConnectionString">Application Insights Connection String</label>
-          <input type="text" id="appInsightsConnectionString" placeholder="Enter connection string">
 
-          <label><input type="checkbox" id="appInsightsEnabled"> Enable Application Insights</label>
+          <h2 style="margin-left: 35px; margin-bottom: 0;">Application Insights</h2>
 
-          <label for="otelEndpoint">Open Telemetry Endpoint</label>
-          <input type="text" id="otelEndpoint" placeholder="Enter OpenTelemetry endpoint">
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('appInsightsEnabled', true)" title="Reset to default value: True">⚙️</button>
+            <input type="checkbox" id="appInsightsEnabled">
+            <label for="appInsightsEnabled">Enable Application Insights</label>
+          </div>
 
-          <label for="otelHeaders">Open Telemetry Headers</label>
-          <input type="text" id="otelHeaders" placeholder="Enter headers">
+          <div class="text-group">
+            <button style="visibility: collapse;" type="button" class="reset-button" onclick="resetField('appInsightsConnectionString', '')" title="Reset to default value">⚙️</button>
+            <label for="appInsightsConnectionString">Application Insights Connection String</label>
+            <input type="text" id="appInsightsConnectionString" placeholder="Enter connection string">
+          </div>
 
-          <label for="otelServiceName">Open Telemetry Service Name</label>
-          <input type="text" id="otelServiceName" placeholder="dab">
+          <h2 style="margin-left: 35px; margin-bottom: 0;">Open Telemetry</h2>
 
-          <div>
-            <span class="radio-group">Open Telemetry Exporter Protocol</span>
-            <div class="radio-group">
-              <label class="radio-group"><input type="radio" name="otelExporterProtocol" value="grpc"
-                  id="otelExporterGrpc"> gRPC</label>
-              <label class="radio-group"><input type="radio" name="otelExporterProtocol" value="httpprotobuf"
-                  id="otelExporterHttpProtobuf">
-                HTTP Protobuf</label>
+          <div class="checkbox-group">
+            <button type="button" class="reset-button" onclick="resetField('otelEnabled', true)" title="Reset to default value: True">⚙️</button>
+            <input type="checkbox" id="otelEnabled">
+            <label for="otelEnabled">Enable Open Telemetry</label>
+          </div>
+
+          <div class="text-group">
+            <button style="visibility: collapse;" type="button" class="reset-button" onclick="resetField('otelEndpoint', '')" title="Reset to default value">⚙️</button>
+            <label for="otelEndpoint">Open Telemetry Endpoint</label>
+            <input type="text" id="otelEndpoint" placeholder="Enter OpenTelemetry endpoint">
+          </div>
+
+          <div class="text-group">
+            <button style="visibility: collapse;" type="button" class="reset-button" onclick="resetField('otelHeaders', '')" title="Reset to default value">⚙️</button>
+            <label for="otelHeaders">Open Telemetry Headers</label>
+            <input type="text" id="otelHeaders" placeholder="Enter headers">
+          </div>
+
+          <div class="text-group">
+            <button type="button" class="reset-button" onclick="resetField('otelServiceName', 'dab')" title="Reset to default value: dab">⚙️</button>
+            <label for="otelServiceName">Open Telemetry Service Name</label>
+            <input type="text" id="otelServiceName" placeholder="dab">
+          </div>
+
+          <div class="radio-group">
+            <button type="button" class="reset-button" onclick="resetField('otelExporterProtocol', 'grpc')" title="Reset to default value: gRPC">⚙️</button>
+            <label class="radio-label" for="otelExporterProtocol">Open Telemetry Exporter Protocol</label>
+            <div class="radio-options">
+              <label><input type="radio" name="otelExporterProtocol" value="grpc" id="otelExporterGrpc"> gRPC</label>
+              <label><input type="radio" name="otelExporterProtocol" value="httpprotobuf" id="otelExporterHttpProtobuf"> HTTP Protobuf</label>
             </div>
           </div>
 
-          <label><input type="checkbox" id="otelEnabled"> Enable Open Telemetry</label>
         </div>
       </div>
 
+      <div class="spacer">&nbsp;</div>
+
     </form>
   </div>
+
 
   <script>
     const vscode = acquireVsCodeApi();
@@ -377,14 +415,82 @@
     function loadDatasource(config) {
       currentConfig = config;
 
-      const setValue = (id, value, defaultValue = '') => {
+      // Define default values
+      const defaults = {
+        'data-source': {
+          'database-type': 'mssql',
+          'connection-string': '',
+          options: {
+            'set-session-context': false
+          }
+        },
+        runtime: {
+          host: {
+            mode: 'development',
+            cors: {
+              origins: [],
+              'allow-credentials': false
+            },
+            authentication: {
+              provider: 'StaticWebApps',
+              jwt: {
+                audience: '',
+                issuer: ''
+              }
+            }
+          },
+          rest: {
+            enabled: true,
+            path: '/api',
+            'request-body-strict': true
+          },
+          graphql: {
+            enabled: true,
+            path: '/graphql',
+            'allow-introspection': true
+          },
+          pagination: {
+            'max-page-size': 100000,
+            'default-page-size': 100
+          },
+          cache: {
+            enabled: false,
+            'ttl-seconds': 5
+          },
+          telemetry: {
+            'application-insights': {
+              'connection-string': '',
+              enabled: true
+            },
+            'open-telemetry': {
+              endpoint: '',
+              headers: '',
+              'service-name': 'dab',
+              'exporter-protocol': 'grpc',
+              enabled: true
+            }
+          }
+        }
+      };
+
+      // Deep merge function to apply defaults
+      function deepMerge(target, source) {
+        for (const key in source) {
+          if (source[key] instanceof Object && key in target) {
+            deepMerge(target[key], source[key]);
+          } else if (!(key in target)) {
+            target[key] = source[key];
+          }
+        }
+      }
+
+      // Apply defaults to the incoming config
+      deepMerge(config, defaults);
+
+      const setValue = (id, value) => {
         const element = document.getElementById(id);
         if (element) {
-          if (typeof value === 'object' && value !== null) {
-            element.value = JSON.stringify(value);
-          } else {
-            element.value = value ?? defaultValue;
-          }
+          element.value = value;
         } else {
           console.error(`Element with id '${id}' not found`);
         }
@@ -393,74 +499,69 @@
       const setChecked = (id, value) => {
         const element = document.getElementById(id);
         if (element) {
-          console.log(`Setting ${id} to`, value);
           element.checked = Boolean(value);
         } else {
           console.error(`Element with id '${id}' not found`);
         }
       };
 
-      const setRadioValue = (name, value, defaultValue) => {
+      const setRadioValue = (name, value) => {
         const radios = document.getElementsByName(name);
-        const selectedValue = value ?? defaultValue;
         radios.forEach(radio => {
-          radio.checked = radio.value === selectedValue;
+          radio.checked = radio.value === value;
         });
       };
 
-      console.log('loadDatasource called with:', config);
-
       // Populate Data Source fields
-      const dataSource = config['data-source'] || {};
-      console.log('dataSource:', dataSource);
-      setValue('databaseType', dataSource['database-type'], 'mssql');
+      const dataSource = config['data-source'];
+      setValue('databaseType', dataSource['database-type']);
       setValue('connectionString', dataSource['connection-string']);
       setChecked('setSessionContext', dataSource.options?.['set-session-context']);
 
-      const runtime = config.runtime || {};
+      const runtime = config.runtime;
 
       // Populate Host Configuration fields
-      const host = runtime.host || {};
-      setRadioValue('hostMode', host.mode, 'development');
-      setValue('corsOrigins', (host.cors?.origins || []).join(', '));
-      setChecked('corsAllowCredentials', host.cors?.['allow-credentials']);
-      setRadioValue('authProvider', host.authentication?.provider, 'StaticWebApps');
-      setValue('jwtAudience', host.authentication?.jwt?.audience);
-      setValue('jwtIssuer', host.authentication?.jwt?.issuer);
+      const host = runtime.host;
+      setRadioValue('hostMode', host.mode);
+      setValue('corsOrigins', host.cors.origins.join(', '));
+      setChecked('corsAllowCredentials', host.cors['allow-credentials']);
+      setRadioValue('authProvider', host.authentication.provider);
+      setValue('jwtAudience', host.authentication.jwt.audience);
+      setValue('jwtIssuer', host.authentication.jwt.issuer);
 
       // Populate REST Configuration fields
-      const rest = runtime.rest || {};
+      const rest = runtime.rest;
       setChecked('restEnabled', rest.enabled);
-      setValue('restPath', rest.path, '/api');
+      setValue('restPath', rest.path);
       setChecked('requestBodyStrict', rest['request-body-strict']);
 
       // Populate GraphQL Configuration fields
-      const graphql = runtime.graphql || {};
+      const graphql = runtime.graphql;
       setChecked('graphqlEnabled', graphql.enabled);
-      setValue('graphqlPath', graphql.path, '/graphql');
+      setValue('graphqlPath', graphql.path);
       setChecked('allowIntrospection', graphql['allow-introspection']);
 
       // Populate Pagination Configuration fields
-      const pagination = runtime.pagination || {};
-      setValue('maxPageSize', pagination['max-page-size'], 100000);
-      setValue('defaultPageSize', pagination['default-page-size'], 100);
+      const pagination = runtime.pagination;
+      setValue('maxPageSize', pagination['max-page-size']);
+      setValue('defaultPageSize', pagination['default-page-size']);
 
       // Populate Cache Configuration fields
-      const cache = runtime.cache || {};
+      const cache = runtime.cache;
       setChecked('cacheEnabled', cache.enabled);
-      setValue('cacheTtlSeconds', cache['ttl-seconds'], 5);
+      setValue('cacheTtlSeconds', cache['ttl-seconds']);
 
       // Populate Telemetry Configuration fields
-      const telemetry = runtime.telemetry || {};
-      const appInsights = telemetry['application-insights'] || {};
+      const telemetry = runtime.telemetry;
+      const appInsights = telemetry['application-insights'];
       setValue('appInsightsConnectionString', appInsights['connection-string']);
       setChecked('appInsightsEnabled', appInsights.enabled);
 
-      const openTelemetry = telemetry['open-telemetry'] || {};
+      const openTelemetry = telemetry['open-telemetry'];
       setValue('otelEndpoint', openTelemetry.endpoint);
       setValue('otelHeaders', openTelemetry.headers);
-      setValue('otelServiceName', openTelemetry['service-name'], 'dab');
-      setRadioValue('otelExporterProtocol', openTelemetry['exporter-protocol'], 'grpc');
+      setValue('otelServiceName', openTelemetry['service-name']);
+      setRadioValue('otelExporterProtocol', openTelemetry['exporter-protocol']);
       setChecked('otelEnabled', openTelemetry.enabled);
     }
 
@@ -487,16 +588,19 @@
 
       console.log('Saving dataSource with currentConfig:', currentConfig);
 
-      // Construct the dataSource object
+      // Construct the data-source object
       currentConfig['data-source'] = {
-        'database-type': getValueString('databaseType'),
+        'database-type': getValueString('databaseType', 'mssql'),
         'connection-string': getValueString('connectionString'),
         options: {
           'set-session-context': getChecked('setSessionContext')
         }
       };
 
+      // Construct runtime configuration
       currentConfig.runtime = currentConfig.runtime || {};
+
+      // Host configuration
       currentConfig.runtime.host = {
         mode: getRadioValue('hostMode', 'development'),
         cors: {
@@ -515,28 +619,33 @@
         }
       };
 
+      // REST configuration
       currentConfig.runtime.rest = {
         enabled: getChecked('restEnabled'),
         path: getValueString('restPath', '/api'),
         'request-body-strict': getChecked('requestBodyStrict')
       };
 
+      // GraphQL configuration
       currentConfig.runtime.graphql = {
         enabled: getChecked('graphqlEnabled'),
         path: getValueString('graphqlPath', '/graphql'),
         'allow-introspection': getChecked('allowIntrospection')
       };
 
+      // Pagination configuration
       currentConfig.runtime.pagination = {
         'max-page-size': getValueInt('maxPageSize', 100000),
         'default-page-size': getValueInt('defaultPageSize', 100)
       };
 
+      // Cache configuration
       currentConfig.runtime.cache = {
         enabled: getChecked('cacheEnabled'),
         'ttl-seconds': getValueInt('cacheTtlSeconds', 5)
       };
 
+      // Telemetry configuration
       currentConfig.runtime.telemetry = {
         'application-insights': {
           'connection-string': getValueString('appInsightsConnectionString'),
@@ -555,12 +664,15 @@
       vscode.postMessage({ command: 'save', content: JSON.stringify(currentConfig) });
     }
 
+    document.getElementById('reloadButton').addEventListener('click', () => {
+      vscode.postMessage({ command: 'reload' });
+    });
+
     window.addEventListener('message', (event) => {
       console.log('Received event:', event);
       console.log('Received event.data:', event.data);
 
       if (event.data.command === 'load') {
-        console.log('Received config:', event.data.config);
         loadDatasource(event.data.config || {});
       }
     });
