@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit DAB Data Source</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+
+    .header button {
+      padding: 10px 20px;
+      background-color: #0078d4;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .header button:hover {
+      background-color: #005a9e;
+    }
+
+    .scroll-container {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+
+    form {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    fieldset {
+      border: 1px solid #ccc;
+      padding: 0;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    legend {
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      margin: 0;
+    }
+
+    legend::before {
+      content: '⯈';
+      display: inline-block;
+      margin-right: 8px;
+      transition: transform 0.2s ease;
+    }
+
+    fieldset.open legend::before {
+      content: '⯆';
+    }
+
+    .fieldset-content {
+      padding: 10px 15px 15px 15px;
+      display: none;
+    }
+
+    fieldset.open .fieldset-content {
+      display: block;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      box-sizing: border-box;
+    }
+
+    input[type="checkbox"] {
+      width: auto;
+      margin-top: 0;
+      margin-right: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <button type="button" id="saveButton">Save</button>
+  </div>
+
+  <div class="scroll-container">
+    <form id="configForm">
+
+      <h1>Data Source</h1>
+      <div>
+        <label for="databaseType">Database Type</label>
+        <input type="text" id="databaseType" readonly>
+
+        <label for="connectionString">Connection String</label>
+        <input type="text" id="connectionString" placeholder="Enter connection string">
+
+        <label><input type="checkbox" id="setSessionContext"> Set Session Context</label>
+      </div>
+
+      <h1>Runtime</h2>
+
+        <fieldset class="accordion">
+          <legend>REST Configuration</legend>
+          <div class="fieldset-content">
+            <label><input type="checkbox" id="restEnabled"> REST Enabled</label>
+
+            <label for="restPath">REST Path</label>
+            <input type="text" id="restPath" placeholder="/api">
+
+            <label><input type="checkbox" id="requestBodyStrict"> Request Body Strict</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="accordion">
+          <legend>GraphQL Configuration</legend>
+          <div class="fieldset-content">
+            <label><input type="checkbox" id="graphqlEnabled"> GraphQL Enabled</label>
+
+            <label for="graphqlPath">GraphQL Path</label>
+            <input type="text" id="graphqlPath" placeholder="/graphql">
+
+            <label><input type="checkbox" id="allowIntrospection"> Allow Introspection</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="accordion">
+          <legend>Host Configuration</legend>
+          <div class="fieldset-content">
+            <label for="hostMode">Host Mode</label>
+            <select id="hostMode">
+              <option value="development">development</option>
+              <option value="production">production</option>
+            </select>
+
+            <label for="corsOrigins">CORS Origins</label>
+            <textarea id="corsOrigins" placeholder='Enter origins, e.g., ["https://example.com"]'></textarea>
+
+            <label><input type="checkbox" id="corsAllowCredentials"> Allow Credentials</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="accordion">
+          <legend>Authentication Configuration</legend>
+          <div class="fieldset-content">
+            <label for="authProvider">Authentication Provider</label>
+            <select id="authProvider">
+              <option value="StaticWebApps">StaticWebApps</option>
+              <option value="AppService">AppService</option>
+              <option value="AzureAd">AzureAd</option>
+              <option value="Simulator">Simulator</option>
+            </select>
+
+            <label for="jwtAudience">JWT Audience</label>
+            <input type="text" id="jwtAudience" placeholder="Enter JWT audience">
+
+            <label for="jwtIssuer">JWT Issuer</label>
+            <input type="text" id="jwtIssuer" placeholder="Enter JWT issuer">
+          </div>
+        </fieldset>
+
+        <fieldset class="accordion">
+          <legend>Pagination Configuration</legend>
+          <div class="fieldset-content">
+            <label for="maxPageSize">Max Page Size</label>
+            <input type="number" id="maxPageSize" placeholder="100000">
+
+            <label for="defaultPageSize">Default Page Size</label>
+            <input type="number" id="defaultPageSize" placeholder="100">
+          </div>
+        </fieldset>
+
+        <fieldset class="accordion">
+          <legend>Cache Configuration</legend>
+          <div class="fieldset-content">
+            <label><input type="checkbox" id="cacheEnabled"> Enable Cache</label>
+
+            <label for="cacheTtlSeconds">Cache TTL (seconds)</label>
+            <input type="number" id="cacheTtlSeconds" placeholder="5">
+          </div>
+        </fieldset>
+
+        <fieldset class="accordion">
+          <legend>Telemetry Configuration</legend>
+          <div class="fieldset-content">
+            <label for="appInsightsConnectionString">Application Insights Connection String</label>
+            <input type="text" id="appInsightsConnectionString" placeholder="Enter connection string">
+
+            <label><input type="checkbox" id="appInsightsEnabled"> Enable Application Insights</label>
+
+            <label for="otelEndpoint">Open Telemetry Endpoint</label>
+            <input type="text" id="otelEndpoint" placeholder="Enter OpenTelemetry endpoint">
+
+            <label for="otelHeaders">Open Telemetry Headers</label>
+            <input type="text" id="otelHeaders" placeholder="Enter headers">
+
+            <label for="otelServiceName">Open Telemetry Service Name</label>
+            <input type="text" id="otelServiceName" placeholder="dab">
+
+            <label for="otelExporterProtocol">Open Telemetry Exporter Protocol</label>
+            <select id="otelExporterProtocol">
+              <option value="grpc">grpc</option>
+              <option value="httpprotobuf">httpprotobuf</option>
+            </select>
+
+            <label><input type="checkbox" id="otelEnabled"> Enable Open Telemetry</label>
+          </div>
+        </fieldset>
+
+    </form>
+  </div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+
+    function loadDatasource(config) {
+      const setValue = (id, value, defaultValue = '') => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.value = value ?? defaultValue;
+        } else {
+          console.error(`Element with id '${id}' not found`);
+        }
+      };
+
+      const setChecked = (id, value) => {
+        const element = document.getElementById(id);
+        if (element) {
+          console.log(`Setting ${id} to`, value);
+          element.checked = !!value;
+        } else {
+          console.error(`Element with id '${id}' not found`);
+        }
+      };
+
+      const setSelection = (id, value, defaultValue = '') => {
+        const element = document.getElementById(id);
+        if (element) {
+          element.value = value ?? defaultValue;
+        } else {
+          console.error(`Element with id '${id}' not found`);
+        }
+      };
+
+      console.log('loadDatasource called with:', config);
+
+      // Populate Data Source fields
+      const dataSource = config['data-source'] || {};
+      console.log('dataSource:', dataSource);
+      setValue('databaseType', dataSource['database-type'], 'mssql');
+      setValue('connectionString', dataSource['connection-string']);
+      setChecked('setSessionContext', dataSource.options?.['set-session-context']);
+
+      const runtime = config.runtime || {};
+
+      // Populate Host Configuration fields
+      const host = runtime.host || {};
+      setSelection('hostMode', host.mode, 'development');
+      setValue('corsOrigins', JSON.stringify(host.cors?.origins || []));
+      setChecked('corsAllowCredentials', host.cors?.['allow-credentials']);
+      setSelection('authProvider', host.authentication?.provider, 'StaticWebApps');
+      setValue('jwtAudience', host.authentication?.jwt?.audience);
+      setValue('jwtIssuer', host.authentication?.jwt?.issuer);
+
+      // Populate REST Configuration fields
+      const rest = runtime.rest || {};
+      setChecked('restEnabled', rest.enabled);
+      setValue('restPath', rest.path, '/api');
+      setChecked('requestBodyStrict', rest['request-body-strict']);
+
+      // Populate GraphQL Configuration fields
+      const graphql = runtime.graphql || {};
+      setChecked('graphqlEnabled', graphql.enabled);
+      setValue('graphqlPath', graphql.path, '/graphql');
+      setChecked('allowIntrospection', graphql['allow-introspection']);
+
+      // Populate Pagination Configuration fields
+      const pagination = runtime.pagination || {};
+      setValue('maxPageSize', pagination['max-page-size'], 100000);
+      setValue('defaultPageSize', pagination['default-page-size'], 100);
+
+      // Populate Cache Configuration fields
+      const cache = runtime.cache || {};
+      setChecked('cacheEnabled', cache.enabled);
+      setValue('cacheTtlSeconds', cache['ttl-seconds'], 5);
+
+      // Populate Telemetry Configuration fields
+      const telemetry = runtime.telemetry || {};
+      const appInsights = telemetry['application-insights'] || {};
+      setValue('appInsightsConnectionString', appInsights['connection-string']);
+      setChecked('appInsightsEnabled', appInsights.enabled);
+
+      const openTelemetry = telemetry['open-telemetry'] || {};
+      setValue('otelEndpoint', openTelemetry.endpoint);
+      setValue('otelHeaders', openTelemetry.headers);
+      setValue('otelServiceName', openTelemetry['service-name'], 'dab');
+      setSelection('otelExporterProtocol', openTelemetry['exporter-protocol'], 'grpc');
+      setChecked('otelEnabled', openTelemetry.enabled);
+    }
+
+    function saveDatasource() {
+      const getValueString = (id, defaultValue = '') => document.getElementById(id).value || defaultValue;
+      const getValueInt = (id, defaultValue = 0) => parseInt(document.getElementById(id).value, 10) || defaultValue;
+      const getChecked = (id) => document.getElementById(id).checked;
+      const getValueArray = (id, defaultValue = []) => {
+        try {
+          return JSON.parse(document.getElementById(id).value || '[]');
+        } catch {
+          return defaultValue;
+        }
+      };
+
+      const dataSource = {
+        'database-type': getValueString('databaseType'),
+        'connection-string': getValueString('connectionString'),
+        options: {
+          'set-session-context': getChecked('setSessionContext')
+        },
+        runtime: {
+          host: {
+            mode: getValueString('hostMode', 'development'),
+            cors: {
+              origins: getValueArray('corsOrigins'),
+              'allow-credentials': getChecked('corsAllowCredentials')
+            },
+            authentication: {
+              provider: getValueString('authProvider', 'StaticWebApps'),
+              jwt: {
+                audience: getValueString('jwtAudience'),
+                issuer: getValueString('jwtIssuer')
+              }
+            }
+          },
+          rest: {
+            enabled: getChecked('restEnabled'),
+            path: getValueString('restPath', '/api'),
+            'request-body-strict': getChecked('requestBodyStrict')
+          },
+          graphql: {
+            enabled: getChecked('graphqlEnabled'),
+            path: getValueString('graphqlPath', '/graphql'),
+            'allow-introspection': getChecked('allowIntrospection')
+          },
+          pagination: {
+            'max-page-size': getValueInt('maxPageSize', 100000),
+            'default-page-size': getValueInt('defaultPageSize', 100)
+          },
+          cache: {
+            enabled: getChecked('cacheEnabled'),
+            'ttl-seconds': getValueInt('cacheTtlSeconds', 5)
+          },
+          telemetry: {
+            'application-insights': {
+              'connection-string': getValueString('appInsightsConnectionString'),
+              enabled: getChecked('appInsightsEnabled')
+            },
+            'open-telemetry': {
+              endpoint: getValueString('otelEndpoint'),
+              headers: getValueString('otelHeaders'),
+              'service-name': getValueString('otelServiceName', 'dab'),
+              'exporter-protocol': getValueString('otelExporterProtocol', 'grpc'),
+              enabled: getChecked('otelEnabled')
+            }
+          }
+        }
+      };
+
+      vscode.postMessage({ command: 'save', content: JSON.stringify(dataSource) });
+    }
+
+    window.addEventListener('message', (event) => {
+      console.log('Received event:', event);
+      console.log('Received event.data:', event.data);
+
+      if (event.data.command === 'load') {
+        console.log('Received config:', event.data.config);
+        loadDatasource(event.data.config || {});
+      }
+    });
+
+    document.querySelectorAll('legend').forEach((legend) => {
+      legend.addEventListener('click', () => {
+        const fieldset = legend.closest('fieldset');
+        fieldset.classList.toggle('open');
+      });
+    });
+
+    document.getElementById('saveButton').addEventListener('click', saveDatasource);
+
+  </script>
+</body>
+
+</html>
