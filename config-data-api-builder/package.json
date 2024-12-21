@@ -24,13 +24,15 @@
   ],
   "activationEvents": [
     "workspaceContains:**/dab-*.json",
-    "workspaceContains:**/staticwebapp.database.config.json"
+    "workspaceContains:**/staticwebapp.database.config.json",
+    "onFileSystemChange:**/dab-*.json",
+    "onFileSystemChange:**/staticwebapp.database.config.json"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "dabExtension.editDataSource",
+        "command": "dabExtension.editConfiguration",
         "title": "DAB Config",
         "category": "DAB"
       }
@@ -38,7 +40,7 @@
     "menus": {
       "explorer/context": [
         {
-          "command": "dabExtension.editDataSource",
+          "command": "dabExtension.editConfiguration",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
           "group": "1_dab"
         }

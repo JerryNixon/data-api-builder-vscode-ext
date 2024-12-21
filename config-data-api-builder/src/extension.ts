@@ -3,7 +3,7 @@ import { showDataSourceEditor } from './datasource';
 
 export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand(
-    'dabExtension.editDataSource',
+    'dabExtension.editConfiguration',
     (uri: vscode.Uri) => {
       showDataSourceEditor(context, uri);
     }
