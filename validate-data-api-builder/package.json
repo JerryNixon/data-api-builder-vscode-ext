@@ -3,7 +3,7 @@
     "displayName": "DAB Validate (Data API Builder)",
     "description": "Validate a Data API Builder configuration file.",
     "publisher": "jerry-nixon",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "icon": "images/icon.png",
     "engines": {
       "vscode": "^1.95.0"
