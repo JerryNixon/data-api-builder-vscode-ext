@@ -2,7 +2,7 @@
 
 A Visual Studio Code extension that adds a quick way to start Data API Builder directly from `dab-config.json`.
 
-![](images/screenshot.png)
+![](https://raw.githubusercontent.com/JerryNixon/data-api-builder-vscode-ext/refs/heads/master/add-data-api-builder/images/screenshot.png)
 
 ## Features
 

@@ -2,11 +2,11 @@
 
 A Visual Studio Code extension that visualizes Data API Builder (DAB) configurations as Mermaid diagrams for better understanding and analysis.
 
-![](visualize-data-api-builder/images/screenshot.png)
+![](https://github.com/JerryNixon/visualize-api-builder-vscode-ext/blob/master/start-data-api-builder/images/screenshot.png?raw=true)
 
 ### Simple diagram example
 
-![](visualize-data-api-builder/images/screenshot2.png)
+![](https://github.com/JerryNixon/visualize-api-builder-vscode-ext/blob/master/start-data-api-builder/images/screenshot2.png?raw=true)
 
 ## Features
 

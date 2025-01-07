@@ -2,11 +2,11 @@
 
 A Visual Studio Code extension that allows editing the Data API Builder configuration file (`dab-config.json`) with ease.
 
-![](config-data-api-builder/images/screenshot.png)
+![](https://github.com/JerryNixon/data-api-builder-vscode-ext/blob/master/config-data-api-builder/images/screenshot.png?raw=true)
 
 ### Editor UI
 
-![](config-data-api-builder/images/screenshot2.png)
+![](https://raw.githubusercontent.com/JerryNixon/data-api-builder-vscode-ext/refs/heads/master/config-data-api-builder/images/screenshot2.png?raw=true)
 
 ## Features
 
