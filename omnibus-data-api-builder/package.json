@@ -1,0 +1,54 @@
+{
+  "name": "omnibus-data-api-builder",
+  "displayName": "Data API builder (Omnibus)",
+  "description": "⭐ All Data API builder extensions in one package.",
+  "publisher": "jerry-nixon",
+  "version": "0.0.3",
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "galleryBanner": {
+    "color": "#0078d7",
+    "theme": "dark",
+    "background": "images/dab-logo.png"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JerryNixon/omnibus-data-api-builder.git"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Debuggers"
+  ],
+  "extensionPack": [
+    "jerry-nixon.add-data-api-builder",
+    "jerry-nixon.init-data-api-builder",
+    "jerry-nixon.start-data-api-builder",
+    "jerry-nixon.validate-data-api-builder",
+    "jerry-nixon.visualize-data-api-builder",
+    "jerry-nixon.config-data-api-builder"
+  ],
+  "keywords": [
+    "microsoft.dataapibuilder",
+    "dataapibuilder",
+    "microsoft",
+    "data api builder",
+    "dab",
+    "data api",
+    "api",
+    "configuration",
+    "json",
+    "tools",
+    "automation",
+    "cosmos",
+    "sql",
+    "postgres",
+    "mysql",
+    "azure",
+    "omnibus"
+  ],
+  "author": "Jerry Nixon",
+  "license": "MIT"
+}

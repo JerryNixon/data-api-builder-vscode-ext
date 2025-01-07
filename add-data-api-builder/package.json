@@ -3,7 +3,7 @@
   "displayName": "DAB Add (Data API Builder)",
   "description": "Adds entities to a Data API Builder configuration file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
