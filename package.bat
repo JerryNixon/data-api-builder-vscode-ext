@@ -9,7 +9,6 @@ call vsce package
 move /Y *.vsix ../out
 cd ..
 
-GOTO EXIT
 cd ./init-data-api-builder
 ECHO STARTING ./init-data-api-builder
 call vsce package
@@ -30,6 +29,7 @@ cd ..
 
 cd ./add-data-api-builder
 ECHO STARTING ./add-data-api-builder
+call npx webpack
 call vsce package
 move /Y *.vsix ../out
 cd ..
@@ -47,4 +47,5 @@ move /Y *.vsix ../out
 cd ..
 
 
+GOTO EXIT
 :EXIT

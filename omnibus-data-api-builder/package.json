@@ -3,7 +3,7 @@
   "displayName": "Data API builder (Omnibus)",
   "description": "⭐ All Data API builder extensions in one package.",
   "publisher": "jerry-nixon",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -27,7 +27,7 @@
     "jerry-nixon.init-data-api-builder",
     "jerry-nixon.start-data-api-builder",
     "jerry-nixon.validate-data-api-builder",
-    "jerry-nixon.visualize-data-api-builder",
+    "jjerry-nixon.visualize-api-builder",
     "jerry-nixon.config-data-api-builder"
   ],
   "keywords": [

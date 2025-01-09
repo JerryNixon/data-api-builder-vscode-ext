@@ -155,7 +155,11 @@ async function selectDatabaseType(): Promise<string | undefined> {
 }
 
 async function getConnectionString(): Promise<string | undefined> {
-  return await vscode.window.showInputBox({ prompt: 'Enter your connection string' });
+  const input = await vscode.window.showInputBox({ prompt: 'Enter your connection string' });
+  if (!input) {
+    return undefined;
+  }
+  return input.replace(/;User=/, ';User Id=');
 }
 
 function writeEnvFile(folderPath: string, connectionString: string): void {
@@ -250,7 +254,7 @@ function updateDotnetToolsConfig(folderPath: string): void {
   }
 
   configContent.tools['microsoft.dataapibuilder'] = {
-    version: '1.2.11',
+    version: '1.3.19',
     commands: ['dab'],
     rollForward: true,
   };

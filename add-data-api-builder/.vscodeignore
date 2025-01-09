@@ -1,18 +1,17 @@
+# Include only required modules from node_modules
+!node_modules/mssql/**
+
+# Exclude everything else in node_modules
+node_modules/**
+
+# Include compiled output
+!out/**
+
+# Exclude unnecessary files
 .vscode/**
-.vscode-test/**
 src/**
+.vscode-test/**
 .gitignore
-.yarnrc
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/eslint.config.mjs
 **/*.map
 **/*.ts
-**/.vscode-test.*
-!images/**
-node_modules
 out/test
-src
-.vscode
-.gitignore
-tsconfig.json

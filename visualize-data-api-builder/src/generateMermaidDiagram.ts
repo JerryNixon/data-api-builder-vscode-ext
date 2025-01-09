@@ -19,8 +19,8 @@ export function generateMermaidDiagram(tables: TableEntity[], procedures: Stored
 
   // Add class definitions for styles
   lines.push('  classDef empty fill:none,stroke:none');
-  lines.push('  classDef table stroke:blue;');
-  lines.push('  classDef view stroke:red;');
+  lines.push('  classDef table stroke:black;');
+  lines.push('  classDef view stroke:black;');
   lines.push('  classDef proc stroke:black;');
   lines.push('  classDef phantom stroke:gray,stroke-dasharray:5 5;');
 
