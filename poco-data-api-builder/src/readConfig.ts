@@ -12,6 +12,7 @@ interface EntitySource {
 export interface EntityDefinition {
     source: EntitySource;
     mappings?: Record<string, string>;
+    type?: 'table' | 'view' | 'stored-procedure'; // Add type here
 }
 
 /**
@@ -132,7 +133,7 @@ export async function getConnectionString(configPath: string): Promise<string> {
 /**
  * Retrieves the entities from the configuration file.
  * @param configPath - The path to the configuration file.
- * @returns A record of entities with strong types, including source and mappings.
+ * @returns A record of entities with strong types, including source, mappings, and type.
  */
 export function getEntities(configPath: string): Record<string, EntityDefinition> {
     try {
@@ -140,7 +141,15 @@ export function getEntities(configPath: string): Record<string, EntityDefinition
 
         // Validate the presence and structure of entities
         if (config?.entities && typeof config.entities === 'object') {
-            return config.entities;
+            const entities: Record<string, EntityDefinition> = {};
+
+            for (const [key, value] of Object.entries(config.entities)) {
+                const entity = value as EntityDefinition;
+                entity.type = entity.source?.type; // Add type directly from source
+                entities[key] = entity;
+            }
+
+            return entities;
         }
 
         vscode.window.showWarningMessage(`No valid entities found in the configuration at ${configPath}`);

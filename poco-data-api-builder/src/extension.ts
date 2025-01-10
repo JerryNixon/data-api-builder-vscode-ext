@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { EntityDefinition, validateConfigPath, getConnectionString, getEntities } from './readConfig';
-import { openConnection, getTableAsPoco } from './mssql/querySql';
+import { openConnection, getTableAsPoco, getViewAsPoco, getProcedureAsPoco } from './mssql/querySql';
 
 export function activate(context: vscode.ExtensionContext) {
   const generatePocoCommand = vscode.commands.registerCommand('dabExtension.generatePoco', async (uri: vscode.Uri) => {
@@ -24,12 +24,23 @@ export function activate(context: vscode.ExtensionContext) {
 
     try {
       const entities: Record<string, EntityDefinition> = getEntities(configPath);
-      const entityNames = Object.keys(entities);
 
-      const selectedEntities = await vscode.window.showQuickPick(
-        entityNames.map(name => ({ label: name, picked: false })),
-        { canPickMany: true, placeHolder: 'Select entities to generate POCOs for' }
-      );
+      const sortedEntities = Object.entries(entities)
+        .sort(([nameA, entityA], [nameB, entityB]) => {
+          const typeOrder = { table: 1, view: 2, 'stored-procedure': 3 };
+          const typeComparison = typeOrder[entityA.source.type] - typeOrder[entityB.source.type];
+          return typeComparison !== 0 ? typeComparison : nameA.localeCompare(nameB);
+        });
+
+      const entityItems = sortedEntities.map(([name, entity]) => ({
+        label: name,
+        description: `${entity.source.type.charAt(0).toUpperCase() + entity.source.type.slice(1)}: ${entity.source.object}`,
+      }));
+
+      const selectedEntities = await vscode.window.showQuickPick(entityItems, {
+        canPickMany: true,
+        placeHolder: 'Select entities to generate POCOs for'
+      });
 
       if (!selectedEntities || selectedEntities.length === 0) {
         vscode.window.showInformationMessage('No entities selected.');
@@ -41,7 +52,7 @@ export function activate(context: vscode.ExtensionContext) {
         async (progress) => {
           let combinedPocoCode = `using System.Text.Json.Serialization;
 
-namespace Api;
+namespace Models;
 
 `;
 
@@ -49,7 +60,19 @@ namespace Api;
             progress.report({ message: `Processing ${selected.label}...` });
 
             const entity = entities[selected.label];
-            const poco = await getTableAsPoco(pool, entity.source.object, entity.mappings);
+            let poco = '';
+
+            if (entity.source.type === 'table') {
+              poco = await getTableAsPoco(pool, entity.source.object, entity.mappings);
+            } else if (entity.source.type === 'view') {
+              poco = await getViewAsPoco(pool, entity.source.object, entity.mappings);
+            } else if (entity.source.type === 'stored-procedure') {
+              poco = await getProcedureAsPoco(pool, entity.source.object, entity.mappings);
+            } else {
+              vscode.window.showWarningMessage(`Unsupported entity type: ${entity.source.type}`);
+              continue;
+            }
+
             combinedPocoCode += poco + '\n';
           }
 
