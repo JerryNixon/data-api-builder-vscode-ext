@@ -1,0 +1,82 @@
+{
+  "name": "poco-data-api-builder",
+  "displayName": "DAB Poco Gen (Data API builder)",
+  "description": "Generate C# POCO (Plain Old CLR Object) models from a configuration file.",
+  "publisher": "jerry-nixon",
+  "version": "0.0.1",
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "galleryBanner": {
+    "color": "#0078d7",
+    "theme": "dark",
+    "background": "images/dab-logo.png"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/dab-config.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dabExtension.generatePoco",
+        "title": "Generate POCO Models",
+        "category": "DAB"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "dabExtension.generatePoco",
+          "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
+          "group": "1_dab"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.9",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3"
+  },
+  "keywords": [
+    "Data API Builder",
+    "dab",
+    "poco",
+    "c#",
+    "csharp",
+    "configuration",
+    "json",
+    "tools",
+    "automation",
+    "code generation"
+  ],
+  "author": "Jerry Nixon",
+  "license": "MIT",
+  "dependencies": {
+    "@types/mssql": "^9.1.6",
+    "mssql": "^9.3.2"
+  }
+}
