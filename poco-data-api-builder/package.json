@@ -28,8 +28,7 @@
     "commands": [
       {
         "command": "dabExtension.generatePoco",
-        "title": "Generate POCO Models",
-        "category": "DAB"
+        "title": "Generate C#"
       }
     ],
     "menus": {
@@ -37,7 +36,7 @@
         {
           "command": "dabExtension.generatePoco",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-          "group": "1_dab"
+          "group": "1_dab@99"
         }
       ]
     }

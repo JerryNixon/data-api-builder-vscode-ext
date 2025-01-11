@@ -11,6 +11,36 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
+    const menuOptions = [
+      { label: 'POCO Models', picked: true },
+      { label: 'Repository Class', description: '(Coming Soon)', disabled: true },
+      { label: 'Repository Unit Tests', description: '(Coming Soon)', disabled: true },
+    ];
+
+    const selectedMenu = await vscode.window.showQuickPick(
+      menuOptions.map((option) => ({
+        label: option.label,
+        picked: option.picked,
+        description: option.disabled ? option.description : undefined,
+        alwaysShow: true,
+        disabled: option.disabled, // Track disabled state
+      })),
+      {
+        canPickMany: true, // Allow multiple selections for checklist behavior
+        placeHolder: 'Select the type of artifacts to generate',
+      }
+    );
+
+    if (!selectedMenu || selectedMenu.length > 1 || !selectedMenu.some((item) => item.label === 'POCO Models')) {
+      vscode.window.showInformationMessage('Only POCO Models are currently supported.');
+      return;
+    }
+
+    if (selectedMenu.some((item) => item.label !== 'POCO Models' && !item.disabled)) {
+      vscode.window.showErrorMessage('Invalid selection. Only POCO Models can be selected.');
+      return;
+    }
+
     const connectionString = await getConnectionString(configPath);
     if (!connectionString) {
       vscode.window.showErrorMessage('Failed to retrieve the connection string.');
@@ -39,7 +69,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       const selectedEntities = await vscode.window.showQuickPick(entityItems, {
         canPickMany: true,
-        placeHolder: 'Select entities to generate POCOs for'
+        placeHolder: 'Select entities to generate POCOs for',
       });
 
       if (!selectedEntities || selectedEntities.length === 0) {
@@ -93,4 +123,4 @@ namespace Models;
   context.subscriptions.push(generatePocoCommand);
 }
 
-export function deactivate() { }
+export function deactivate() {}

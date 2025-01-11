@@ -33,7 +33,8 @@ export async function openConnection(connectionString: string): Promise<sql.Conn
 export async function getTableAsPoco(
   pool: sql.ConnectionPool,
   tableName: string,
-  mappings?: Record<string, string>
+  mappings?: Record<string, string>,
+  keyFields?: string[]
 ): Promise<string> {
   if (!pool.connected) {
     throw new Error('Database connection is closed.');
@@ -44,7 +45,7 @@ export async function getTableAsPoco(
 
   try {
     const columns = await queryTableOrViewMetadata(pool, schemaName, pureName);
-    return formatMetadataAsPoco(className, columns, mappings);
+    return formatMetadataAsPoco(className, columns, mappings, keyFields);
   } catch (error) {
     vscode.window.showErrorMessage(`Error generating POCO for table ${tableName}: ${error}`);
     return "";
@@ -61,7 +62,8 @@ export async function getTableAsPoco(
 export async function getViewAsPoco(
   pool: sql.ConnectionPool,
   viewName: string,
-  mappings?: Record<string, string>
+  mappings?: Record<string, string>,
+  keyFields?: string[]
 ): Promise<string> {
   if (!pool.connected) {
     throw new Error('Database connection is closed.');
@@ -72,7 +74,7 @@ export async function getViewAsPoco(
 
   try {
     const columns = await queryTableOrViewMetadata(pool, schemaName, pureName);
-    return formatMetadataAsPoco(className, columns, mappings);
+    return formatMetadataAsPoco(className, columns, mappings, keyFields);
   } catch (error) {
     vscode.window.showErrorMessage(`Error generating POCO for view ${viewName}: ${error}`);
     return "";
@@ -189,7 +191,7 @@ function formatCsharpProperty(columnName: string, dataType: string, alias?: stri
 `;
 }
 
-function formatMetadataAsPoco(className: string, columns: any[], mappings?: Record<string, string>): string {
+function formatMetadataAsPoco(className: string, columns: any[], mappings?: Record<string, string>, keyFields?: string[]): string {
   let pocoCode = `public class ${className} {
 `;
 
@@ -197,6 +199,13 @@ function formatMetadataAsPoco(className: string, columns: any[], mappings?: Reco
     const alias = mappings ? mappings[row.COLUMN_NAME] : undefined;
     pocoCode += formatCsharpProperty(row.COLUMN_NAME, row.DATA_TYPE, alias);
   });
+
+  if (keyFields && keyFields.length > 0) {
+    const urlFragment = keyFields.map((key) => `/${genJsonName(key)}: \"${genJsonName(key)}\"`).join('');
+    pocoCode += `
+    public string UrlFragment() => $"${urlFragment}";
+`;
+  }
 
   pocoCode += `}
 `;
