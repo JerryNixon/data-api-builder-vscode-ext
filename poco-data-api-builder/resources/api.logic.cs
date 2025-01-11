@@ -1,5 +1,13 @@
 namespace Api.Logic;
 
+/*
+    Attention: this generic code should be reusable across
+    every Data API builder project without modification.
+    Having said that, this isn't special code. Treat
+    it as a fully function starting place. You may need to
+    modify, but 90% of you will just leave this alone.
+*/
+
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
 using System.Net.Http.Json;
@@ -8,23 +16,21 @@ using System.Text.Json.Serialization;
 
 public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableViewRepository<T> where T : class
 {
-    private readonly Uri _baseUri;
     private readonly HttpClient? _httpClient;
 
     public ApiTableViewRepository(Uri baseUri, HttpClient? httpClient = null) : base(baseUri)
     {
-        _baseUri = baseUri;
         _httpClient = httpClient;
     }
 
-    public async Task<T[]> GetAsync(ApiTableViewGetOptions? apiGetOptions = null)
+    public async Task<T[]> GetAsync(ApiTableViewGetOptions? options = null)
     {
         var http = _httpClient ?? new();
-        apiGetOptions?.AddHeaders(http);
+        options?.AddHeaders(http);
 
-        var uriBuilder = new UriBuilder(_baseUri)
+        var uriBuilder = new UriBuilder(BaseUri)
         {
-            Query = apiGetOptions?.ToQueryString()
+            Query = options?.ToQueryString()
         };
 
         var response = await http.GetAsync(uriBuilder.Uri);
@@ -35,14 +41,14 @@ public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableVie
         return (await EnsureSuccessAsync(response)) ?? [];
     }
 
-    public async Task<T> PostAsync(T item, ApiOptions? apiOptions = null)
+    public async Task<T> PostAsync(T item, options? options = null)
     {
         ArgumentNullException.ThrowIfNull(item);
 
         var http = _httpClient ?? new();
-        apiOptions?.AddHeaders(http);
+        options?.AddHeaders(http);
 
-        var response = await http.PostAsJsonAsync(_baseUri, item);
+        var response = await http.PostAsJsonAsync(BaseUri, item);
         if (_httpClient is null)
         {
             http.Dispose();
@@ -50,12 +56,12 @@ public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableVie
         return (await EnsureSuccessAsync(response)).Single();
     }
 
-    public async Task<T> PutAsync(T item, ApiOptions? apiOptions = null)
+    public async Task<T> PutAsync(T item, options? options = null)
     {
         ArgumentNullException.ThrowIfNull(item);
 
         var http = _httpClient ?? new();
-        apiOptions?.AddHeaders(http);
+        options?.AddHeaders(http);
 
         var uri = BuildUriWithKeyProperties(item);
         var content = SerializeWithoutKeyProperties(item);
@@ -67,7 +73,7 @@ public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableVie
         return (await EnsureSuccessAsync(response)).Single();
     }
 
-    public async Task<T> PatchAsync(T item, ApiOptions? apiOptions = null)
+    public async Task<T> PatchAsync(T item, options? apiOptions = null)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -84,10 +90,10 @@ public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableVie
         return (await EnsureSuccessAsync(response)).Single();
     }
 
-    public async Task DeleteAsync(T item, ApiOptions? apiOptions = null)
+    public async Task DeleteAsync(T item, options? options = null)
     {
         var http = _httpClient ?? new();
-        apiOptions?.AddHeaders(http);
+        options?.AddHeaders(http);
 
         var uri = BuildUriWithKeyProperties(item);
         var response = await http.DeleteAsync(uri);
@@ -110,24 +116,24 @@ public abstract class ApiProcedureRepository<T> : ApiRepository<T>, IApiProcedur
         _httpClient = httpClient;
     }
 
-    public async Task<T[]> ExecuteProcedureAsync(ApiStoredProcedureExecOptions apiOptions)
+    public async Task<T[]> ExecuteProcedureAsync(ApiStoredProcedureExecOptions options)
     {
-        return apiOptions.Method switch
+        return options.Method switch
         {
-            ApiStoredProcedureExecOptions.ApiMethod.GET => await ExecuteProcedureGetAsync(apiOptions),
-            ApiStoredProcedureExecOptions.ApiMethod.POST => await ExecuteProcedurePostAsync(apiOptions),
+            ApiStoredProcedureExecOptions.ApiMethod.GET => await ExecuteProcedureGetAsync(options),
+            ApiStoredProcedureExecOptions.ApiMethod.POST => await ExecuteProcedurePostAsync(options),
             _ => throw new InvalidOperationException("Invalid API method.")
         };
     }
 
-    private async Task<T[]> ExecuteProcedureGetAsync(ApiStoredProcedureExecOptions apiOptions)
+    private async Task<T[]> ExecuteProcedureGetAsync(ApiStoredProcedureExecOptions options)
     {
         var http = _httpClient ?? new();
-        apiOptions.AddHeaders(http);
+        options.AddHeaders(http);
 
         var uriBuilder = new UriBuilder(_baseUri)
         {
-            Query = apiOptions.ToQueryString()
+            Query = options.ToQueryString()
         };
 
         var response = await http.GetAsync(uriBuilder.Uri);
@@ -139,12 +145,12 @@ public abstract class ApiProcedureRepository<T> : ApiRepository<T>, IApiProcedur
         return (await EnsureSuccessAsync(response)) ?? [];
     }
 
-    private async Task<T[]> ExecuteProcedurePostAsync(ApiStoredProcedureExecOptions apiOptions)
+    private async Task<T[]> ExecuteProcedurePostAsync(ApiStoredProcedureExecOptions options)
     {
         var http = _httpClient ?? new();
-        apiOptions.AddHeaders(http);
+        options.AddHeaders(http);
 
-        var response = await http.PostAsync(_baseUri, apiOptions.ToJsonContent());
+        var response = await http.PostAsync(_baseUri, options.ToJsonContent());
         if (_httpClient is null)
         {
             http.Dispose();
@@ -181,10 +187,10 @@ public class ApiError
 public interface IApiTableViewRepository<T> where T : class
 {
     Task<T[]> GetAsync(ApiTableViewGetOptions? apiGetOptions = null);
-    Task<T> PostAsync(T item, ApiOptions? apiOptions = null);
-    Task<T> PutAsync(T item, ApiOptions? apiOptions = null);
-    Task<T> PatchAsync(T item, ApiOptions? apiOptions = null);
-    Task DeleteAsync(T item, ApiOptions? apiOptions = null);
+    Task<T> PostAsync(T item, options? apiOptions = null);
+    Task<T> PutAsync(T item, options? apiOptions = null);
+    Task<T> PatchAsync(T item, options? apiOptions = null);
+    Task DeleteAsync(T item, options? apiOptions = null);
 }
 
 public interface IApiProcedureRepository<T> where T : class
@@ -276,34 +282,46 @@ public abstract class ApiRepository<T> where T : class
 
     protected static async Task<T[]> EnsureSuccessAsync(HttpResponseMessage response)
     {
-        response.EnsureSuccessStatusCode();
-
-        var root = await response.Content.ReadFromJsonAsync<ApiRoot<T>>()
-            ?? throw new InvalidOperationException("The response deserialized as null.");
-
-        if (root.Error is not null)
+        try
         {
-            throw new Exception($"Code: {root.Error.Code}, Message: {root.Error.Message}, Status: {root.Error.Status}");
-        }
-        else if (root.Results is null)
-        {
-            throw new Exception("The response did not contain any results.");
-        }
+            var url = response.RequestMessage?.RequestUri?.ToString() ?? "unknown";
+            Debug.WriteLine($"{url} returned {response.StatusCode}.");
+            if (!response.IsSuccessStatusCode)
+            {
+                Debug.WriteLine($"{url} returned {response.StatusCode}.");
+                throw new HttpRequestException($"{url} returned {response.StatusCode}.", null, response.StatusCode);
+            }
 
-        response.Dispose();
-        return root.Results;
+            var root = await response.Content.ReadFromJsonAsync<ApiRoot<T>>()
+                ?? throw new InvalidOperationException("The response deserialized as null.");
+
+            if (root.Error is not null)
+            {
+                throw new Exception($"Code: {root.Error.Code}, Message: {root.Error.Message}, Status: {root.Error.Status}");
+            }
+            else if (root.Results is null)
+            {
+                throw new Exception("The response did not contain any results.");
+            }
+
+            return root.Results;
+        }
+        finally
+        {
+            response?.Dispose();
+        }
     }
 }
 
-public class ApiOptions
+public class options
 {
-    public string? HeaderXMsApiRole { get; set; }
-    public string? HeaderAuthorization { get; set; }
+    public string? XMsApiRole { get; set; }
+    public string? Authorization { get; set; }
 
     public void AddHeaders(HttpClient httpClient)
     {
-        AddHttpHeader(httpClient, "x-ms-api-role", HeaderXMsApiRole);
-        AddHttpHeader(httpClient, "Bearer", HeaderAuthorization);
+        AddHttpHeader(httpClient, "x-ms-api-role", XMsApiRole);
+        AddHttpHeader(httpClient, "Bearer", Authorization);
 
         static void AddHttpHeader(HttpClient httpClient, string key, string? value)
         {
@@ -319,7 +337,7 @@ public class ApiOptions
     }
 }
 
-public class ApiStoredProcedureExecOptions : ApiOptions
+public class ApiStoredProcedureExecOptions : options
 {
     public enum ApiMethod { GET, POST }
 
@@ -356,23 +374,23 @@ public class ApiStoredProcedureExecOptions : ApiOptions
     }
 }
 
-public class ApiTableViewGetOptions : ApiOptions
+public class ApiTableViewGetOptions : options
 {
-    public string? QuerySelect { get; set; }
-    public string? QueryFilter { get; set; }
-    public string? QueryOrderBy { get; set; }
-    public int? QueryFirst { get; set; }
-    public string? QueryAfter { get; set; }
+    public string? Select { get; set; }
+    public string? Filter { get; set; }
+    public string? OrderBy { get; set; }
+    public int? First { get; set; }
+    public string? After { get; set; }
 
     public string? ToQueryString()
     {
         var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
 
-        AddQueryParameter(query, "$select", QuerySelect);
-        AddQueryParameter(query, "$filter", QueryFilter);
-        AddQueryParameter(query, "$orderby", QueryOrderBy);
-        AddQueryParameter(query, "$first", QueryFirst?.ToString());
-        AddQueryParameter(query, "$after", QueryAfter);
+        AddQueryParameter(query, "$select", Select);
+        AddQueryParameter(query, "$filter", Filter);
+        AddQueryParameter(query, "$orderby", OrderBy);
+        AddQueryParameter(query, "$first", First?.ToString());
+        AddQueryParameter(query, "$after", After);
 
         return query.ToString();
 

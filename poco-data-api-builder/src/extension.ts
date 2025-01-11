@@ -49,7 +49,7 @@ export function activate(context: vscode.ExtensionContext) {
       await createApiModelsCs(pool, entities, selectedEntities, genCsFolder);
       await createApiLogicCs(context, genCsFolder);
       await createApiCs(genCsFolder, entities, selectedEntities);
-      await createProgramCs(genCsFolder);
+      await createProgramCs(genCsFolder, selectedEntities, entities);
       
       // Open Models.cs in the IDE
       const modelsFilePath = path.join(genCsFolder, 'Api.Models.cs');
@@ -130,9 +130,47 @@ async function createApiCs(
   createApiCsFull(genCsFolder, entities, selectedEntities);
 }
 
-async function createProgramCs(genCsFolder: string): Promise<void> {
+export async function createProgramCs(
+  genCsFolder: string,
+  selectedEntities: vscode.QuickPickItem[],
+  entities: Record<string, EntityDefinition>
+): Promise<void> {
   const programFilePath = path.join(genCsFolder, 'Program.cs');
-  fs.writeFileSync(programFilePath, '');
+
+  if (selectedEntities.length === 0) {
+    vscode.window.showWarningMessage('No entities selected for Program.cs generation.');
+    return;
+  }
+
+  const programCodeParts: string[] = [];
+
+  for (const selected of selectedEntities) {
+    const entity = selected.label;
+    const entityDef = entities[entity];
+    const restPath = entityDef.restPath?.replace(/^\/+/g, '') || entity;
+
+    programCodeParts.push(`        var ${entity.toLowerCase()}Uri = new Uri($"{baseUrl}${restPath}");
+        var ${entity}Repository = new Api.${entity}Repository(${entity.toLowerCase()}Uri);
+        var ${entity.toLowerCase()}Items = await ${entity}Repository.GetAsync(options: new() { First = 1 });
+        foreach (var item in ${entity.toLowerCase()}Items)
+        {
+            Console.WriteLine(item.ToString());
+        }`);
+  }
+
+  const programCode = `namespace App;
+
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        var baseUrl = "http://localhost:5000/api/";
+
+${programCodeParts.join('\n\n')}
+    }
+}`;
+
+  fs.writeFileSync(programFilePath, programCode);
 }
 
 async function pickEntities(entities: Record<string, EntityDefinition>): Promise<vscode.QuickPickItem[] | undefined> {
