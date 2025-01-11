@@ -43,7 +43,7 @@ export async function getTableAsPoco(
   const className = getCsharpName(pureName);
 
   try {
-    const columns = await queryMetadata(pool, schemaName, pureName);
+    const columns = await queryTableOrViewMetadata(pool, schemaName, pureName);
     return formatMetadataAsPoco(className, columns, mappings);
   } catch (error) {
     vscode.window.showErrorMessage(`Error generating POCO for table ${tableName}: ${error}`);
@@ -71,7 +71,7 @@ export async function getViewAsPoco(
   const className = getCsharpName(pureName);
 
   try {
-    const columns = await queryMetadata(pool, schemaName, pureName);
+    const columns = await queryTableOrViewMetadata(pool, schemaName, pureName);
     return formatMetadataAsPoco(className, columns, mappings);
   } catch (error) {
     vscode.window.showErrorMessage(`Error generating POCO for view ${viewName}: ${error}`);
@@ -99,15 +99,7 @@ export async function getProcedureAsPoco(
   const className = getCsharpName(pureName);
 
   try {
-    const result = await pool.request()
-      .input("procedureName", sql.NVarChar, `[${schemaName}].[${pureName}]`)
-      .execute("sp_describe_first_result_set");
-
-    const columns = result.recordset.map((row: any) => ({
-      COLUMN_NAME: row.name,
-      DATA_TYPE: row.system_type_name.split('(')[0] // Strip any length/precision info
-    }));
-
+    const columns = await queryProcedureMetadata(pool, schemaName, pureName);
     return formatMetadataAsPoco(className, columns, mappings);
   } catch (error) {
     vscode.window.showErrorMessage(`Error generating POCO for stored procedure ${procedureName}: ${error}`);
@@ -142,7 +134,7 @@ function extractSchemaName(objectName: string): { schemaName: string; pureName: 
   return { schemaName, pureName };
 }
 
-async function queryMetadata(pool: sql.ConnectionPool, schemaName: string, pureName: string): Promise<any[]> {
+async function queryTableOrViewMetadata(pool: sql.ConnectionPool, schemaName: string, pureName: string): Promise<any[]> {
   const query = `
     SELECT COLUMN_NAME, DATA_TYPE
     FROM INFORMATION_SCHEMA.COLUMNS
@@ -167,7 +159,23 @@ async function queryMetadata(pool: sql.ConnectionPool, schemaName: string, pureN
 
     return result.recordset;
   } catch (error) {
-    vscode.window.showErrorMessage(`Error fetching metadata: ${error}`);
+    vscode.window.showErrorMessage(`Error fetching metadata for table/view: ${error}`);
+    throw error;
+  }
+}
+
+async function queryProcedureMetadata(pool: sql.ConnectionPool, schemaName: string, pureName: string): Promise<any[]> {
+  try {
+    const result = await pool.request()
+      .input("procedureName", sql.NVarChar, `[${schemaName}].[${pureName}]`)
+      .execute("sp_describe_first_result_set");
+
+    return result.recordset.map((row: any) => ({
+      COLUMN_NAME: row.name,
+      DATA_TYPE: row.system_type_name.split('(')[0] // Strip any length/precision info
+    }));
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error fetching metadata for procedure: ${error}`);
     throw error;
   }
 }

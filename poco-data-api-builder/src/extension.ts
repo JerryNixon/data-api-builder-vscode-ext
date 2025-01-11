@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       const entityItems = sortedEntities.map(([name, entity]) => ({
         label: name,
-        description: `${entity.source.type.charAt(0).toUpperCase() + entity.source.type.slice(1)}: ${entity.source.object}`,
+        detail: `${entity.source.type.charAt(0).toUpperCase() + entity.source.type.slice(1)}: ${entity.source.object}`,
       }));
 
       const selectedEntities = await vscode.window.showQuickPick(entityItems, {
