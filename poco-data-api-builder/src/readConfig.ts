@@ -12,7 +12,9 @@ interface EntitySource {
 export interface EntityDefinition {
     source: EntitySource;
     mappings?: Record<string, string>;
-    type?: 'table' | 'view' | 'stored-procedure'; // Add type here
+    type?: 'table' | 'view' | 'stored-procedure';
+    restPath?: string; // Include rest path
+    runtimeRestPath?: string; // Include runtime.rest.path
 }
 
 /**
@@ -33,7 +35,7 @@ export function validateConfigPath(configPath: string): boolean {
  * @param configPath - The path to the configuration file.
  * @returns The parsed configuration object or null if an error occurs.
  */
-export function readConfig(configPath: string): any {
+export function readConfig(configPath: string): Record<string, unknown> | null {
     try {
         const configContent = fs.readFileSync(configPath, 'utf8');
         return JSON.parse(configContent);
@@ -101,7 +103,7 @@ export async function getConnectionString(configPath: string): Promise<string> {
             return '';
         }
 
-        let connectionString = config['data-source']?.['connection-string'] || '';
+        let connectionString = (config['data-source'] as any)?.['connection-string'] || '';
 
         if (connectionString.startsWith('@env(')) {
             const envVarName = extractEnvVarName(connectionString);
@@ -133,7 +135,7 @@ export async function getConnectionString(configPath: string): Promise<string> {
 /**
  * Retrieves the entities from the configuration file.
  * @param configPath - The path to the configuration file.
- * @returns A record of entities with strong types, including source, mappings, and type.
+ * @returns A record of entities with strong types, including source, mappings, type, and runtime rest path.
  */
 export function getEntities(configPath: string): Record<string, EntityDefinition> {
     try {
@@ -141,12 +143,17 @@ export function getEntities(configPath: string): Record<string, EntityDefinition
 
         // Validate the presence and structure of entities
         if (config?.entities && typeof config.entities === 'object') {
+            const runtimeRestPath = (config['runtime'] as any)?.['rest']?.['path'] || '';
             const entities: Record<string, EntityDefinition> = {};
 
             for (const [key, value] of Object.entries(config.entities)) {
-                const entity = value as EntityDefinition;
-                entity.type = entity.source?.type; // Add type directly from source
-                entities[key] = entity;
+                if (typeof value === 'object' && value !== null) {
+                    const entity = value as EntityDefinition;
+                    entity.type = entity.source?.type; // Add type directly from source
+                    entity.restPath = (value as any)?.rest?.path || ''; // Include rest.path
+                    entity.runtimeRestPath = runtimeRestPath; // Include runtime.rest.path
+                    entities[key] = entity;
+                }
             }
 
             return entities;

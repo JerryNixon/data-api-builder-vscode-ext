@@ -1,7 +1,11 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { EntityDefinition, validateConfigPath, getConnectionString, getEntities } from './readConfig';
 import { openConnection, getTableAsPoco, getViewAsPoco, getProcedureAsPoco } from './mssql/querySql';
+import { createApiCsFull } from './csharpApi';
 
+// Public Methods
 export function activate(context: vscode.ExtensionContext) {
   const generatePocoCommand = vscode.commands.registerCommand('dabExtension.generatePoco', async (uri: vscode.Uri) => {
     const configPath = uri.fsPath;
@@ -11,116 +15,141 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    const menuOptions = [
-      { label: 'POCO Models', picked: true },
-      { label: 'Repository Class', description: '(Coming Soon)', disabled: true },
-      { label: 'Repository Unit Tests', description: '(Coming Soon)', disabled: true },
-    ];
-
-    const selectedMenu = await vscode.window.showQuickPick(
-      menuOptions.map((option) => ({
-        label: option.label,
-        picked: option.picked,
-        description: option.disabled ? option.description : undefined,
-        alwaysShow: true,
-        disabled: option.disabled, // Track disabled state
-      })),
-      {
-        canPickMany: true, // Allow multiple selections for checklist behavior
-        placeHolder: 'Select the type of artifacts to generate',
-      }
-    );
-
-    if (!selectedMenu || selectedMenu.length > 1 || !selectedMenu.some((item) => item.label === 'POCO Models')) {
-      vscode.window.showInformationMessage('Only POCO Models are currently supported.');
-      return;
-    }
-
-    if (selectedMenu.some((item) => item.label !== 'POCO Models' && !item.disabled)) {
-      vscode.window.showErrorMessage('Invalid selection. Only POCO Models can be selected.');
-      return;
-    }
-
-    const connectionString = await getConnectionString(configPath);
-    if (!connectionString) {
-      vscode.window.showErrorMessage('Failed to retrieve the connection string.');
-      return;
-    }
-
-    const pool = await openConnection(connectionString);
-    if (!pool) {
-      return;
-    }
-
     try {
       const entities: Record<string, EntityDefinition> = getEntities(configPath);
 
-      const sortedEntities = Object.entries(entities)
-        .sort(([nameA, entityA], [nameB, entityB]) => {
-          const typeOrder = { table: 1, view: 2, 'stored-procedure': 3 };
-          const typeComparison = typeOrder[entityA.source.type] - typeOrder[entityB.source.type];
-          return typeComparison !== 0 ? typeComparison : nameA.localeCompare(nameB);
-        });
+      if (!entities || Object.keys(entities).length === 0) {
+        vscode.window.showInformationMessage('No entities found in the configuration.');
+        return;
+      }
 
-      const entityItems = sortedEntities.map(([name, entity]) => ({
-        label: name,
-        detail: `${entity.source.type.charAt(0).toUpperCase() + entity.source.type.slice(1)}: ${entity.source.object}`,
-      }));
-
-      const selectedEntities = await vscode.window.showQuickPick(entityItems, {
-        canPickMany: true,
-        placeHolder: 'Select entities to generate POCOs for',
-      });
+      const selectedEntities = await pickEntities(entities);
 
       if (!selectedEntities || selectedEntities.length === 0) {
         vscode.window.showInformationMessage('No entities selected.');
         return;
       }
 
-      await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'Generating POCOs', cancellable: false },
-        async (progress) => {
-          let combinedPocoCode = `using System.Text.Json.Serialization;
+      const connectionString = await getConnectionString(configPath);
+      if (!connectionString) {
+        vscode.window.showErrorMessage('Failed to retrieve the connection string.');
+        return;
+      }
 
-namespace Models;
+      const pool = await openConnection(connectionString);
+      if (!pool) {
+        return;
+      }
 
-`;
+      const genCsFolder = path.join(path.dirname(configPath), 'GenCs');
+      if (!fs.existsSync(genCsFolder)) {
+        fs.mkdirSync(genCsFolder);
+      }
 
-          for (const selected of selectedEntities) {
-            progress.report({ message: `Processing ${selected.label}...` });
+      await createApiModelsCs(pool, entities, selectedEntities, genCsFolder);
+      await createApiLogicCs(context, genCsFolder);
+      await createApiCs(genCsFolder, entities, selectedEntities);
+      await createProgramCs(genCsFolder);
+      
+      // Open Models.cs in the IDE
+      const modelsFilePath = path.join(genCsFolder, 'Api.Models.cs');
+      const modelsDocument = await vscode.workspace.openTextDocument(modelsFilePath);
+      await vscode.window.showTextDocument(modelsDocument);
 
-            const entity = entities[selected.label];
-            let poco = '';
-
-            if (entity.source.type === 'table') {
-              poco = await getTableAsPoco(pool, entity.source.object, entity.mappings);
-            } else if (entity.source.type === 'view') {
-              poco = await getViewAsPoco(pool, entity.source.object, entity.mappings);
-            } else if (entity.source.type === 'stored-procedure') {
-              poco = await getProcedureAsPoco(pool, entity.source.object, entity.mappings);
-            } else {
-              vscode.window.showWarningMessage(`Unsupported entity type: ${entity.source.type}`);
-              continue;
-            }
-
-            combinedPocoCode += poco + '\n';
-          }
-
-          const document = await vscode.workspace.openTextDocument({ language: 'csharp', content: combinedPocoCode });
-          await vscode.window.showTextDocument(document);
-        }
-      );
-
-      vscode.window.showInformationMessage('All POCOs generated successfully.');
-
+      vscode.window.showInformationMessage('Generation completed successfully.');
     } catch (error) {
-      vscode.window.showErrorMessage(`Error during POCO generation: ${error}`);
-    } finally {
-      pool.close();
+      vscode.window.showErrorMessage(`Error during generation: ${error}`);
     }
   });
 
   context.subscriptions.push(generatePocoCommand);
 }
 
-export function deactivate() {}
+export function deactivate() { }
+
+// Private Methods
+async function createApiModelsCs(
+  pool: any,
+  entities: Record<string, EntityDefinition>,
+  selectedEntities: vscode.QuickPickItem[],
+  genCsFolder: string
+): Promise<void> {
+  const modelsFilePath = path.join(genCsFolder, 'Api.Models.cs');
+
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: 'Generating POCOs', cancellable: false },
+    async (progress) => {
+      let combinedPocoCode = `namespace Api.Models;
+
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
+`;
+
+      for (const selected of selectedEntities) {
+        progress.report({ message: `Processing ${selected.label}...` });
+
+        const entity = entities[selected.label];
+        let poco = '';
+
+        if (entity.source.type === 'table') {
+          poco = await getTableAsPoco(pool, entity.source.object, entity.source['key-fields'], entity.mappings);
+        } else if (entity.source.type === 'view') {
+          poco = await getViewAsPoco(pool, entity.source.object, entity.source['key-fields'], entity.mappings);
+        } else if (entity.source.type === 'stored-procedure') {
+          poco = await getProcedureAsPoco(pool, entity.source.object, entity.mappings);
+        } else {
+          vscode.window.showWarningMessage(`Unsupported entity type: ${entity.source.type}`);
+          continue;
+        }
+
+        combinedPocoCode += poco + '\n';
+      }
+
+      fs.writeFileSync(modelsFilePath, combinedPocoCode.trim());
+    }
+  );
+}
+
+async function createApiLogicCs(context: vscode.ExtensionContext, genCsFolder: string): Promise<void> {
+  const logicFilePath = path.join(genCsFolder, 'Api.Logic.cs');
+  const sourceLogicPath = path.join(context.extensionPath, 'resources', 'api.logic.cs');
+
+  if (fs.existsSync(sourceLogicPath)) {
+    fs.copyFileSync(sourceLogicPath, logicFilePath);
+  } else {
+    vscode.window.showWarningMessage('Logic.cs template file not found.');
+  }
+}
+
+async function createApiCs(
+  genCsFolder: string,
+  entities: Record<string, EntityDefinition>,
+  selectedEntities: vscode.QuickPickItem[]
+): Promise<void> {
+  createApiCsFull(genCsFolder, entities, selectedEntities);
+}
+
+async function createProgramCs(genCsFolder: string): Promise<void> {
+  const programFilePath = path.join(genCsFolder, 'Program.cs');
+  fs.writeFileSync(programFilePath, '');
+}
+
+async function pickEntities(entities: Record<string, EntityDefinition>): Promise<vscode.QuickPickItem[] | undefined> {
+  const sortedEntities = Object.entries(entities)
+    .sort(([nameA, entityA], [nameB, entityB]) => {
+      const typeOrder = { table: 1, view: 2, 'stored-procedure': 3 };
+      const typeComparison = typeOrder[entityA.source.type] - typeOrder[entityB.source.type];
+      return typeComparison !== 0 ? typeComparison : nameA.localeCompare(nameB);
+    });
+
+  const entityItems = sortedEntities.map(([name, entity]) => ({
+    label: name,
+    detail: `${entity.source.type.charAt(0).toUpperCase() + entity.source.type.slice(1)}: ${entity.source.object}`,
+  }));
+
+  return await vscode.window.showQuickPick(entityItems, {
+    canPickMany: true,
+    placeHolder: 'Select entities to generate POCOs for',
+  });
+}

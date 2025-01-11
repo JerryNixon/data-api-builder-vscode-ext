@@ -33,8 +33,8 @@ export async function openConnection(connectionString: string): Promise<sql.Conn
 export async function getTableAsPoco(
   pool: sql.ConnectionPool,
   tableName: string,
+  keyFields: string[] | undefined,
   mappings?: Record<string, string>,
-  keyFields?: string[]
 ): Promise<string> {
   if (!pool.connected) {
     throw new Error('Database connection is closed.');
@@ -62,8 +62,8 @@ export async function getTableAsPoco(
 export async function getViewAsPoco(
   pool: sql.ConnectionPool,
   viewName: string,
+  keyFields: string[] | undefined,
   mappings?: Record<string, string>,
-  keyFields?: string[]
 ): Promise<string> {
   if (!pool.connected) {
     throw new Error('Database connection is closed.');
@@ -91,7 +91,7 @@ export async function getViewAsPoco(
 export async function getProcedureAsPoco(
   pool: sql.ConnectionPool,
   procedureName: string,
-  mappings?: Record<string, string>
+  mappings?: Record<string, string>,
 ): Promise<string> {
   if (!pool.connected) {
     throw new Error('Database connection is closed.');
@@ -182,31 +182,27 @@ async function queryProcedureMetadata(pool: sql.ConnectionPool, schemaName: stri
   }
 }
 
-function formatCsharpProperty(columnName: string, dataType: string, alias?: string): string {
+function formatCsharpProperty(columnName: string, dataType: string, alias?: string, isKey: boolean = false): string {
   const jsonName = genJsonName(alias || columnName);
   const propertyName = getCsharpName(alias || columnName);
   const propertyType = mapSqlTypeToCSharp(dataType);
-  return `    [JsonPropertyName("${jsonName}")]
+  const keyAttribute = isKey ? "    [Key]\n" : "";
+  return `${keyAttribute}    [JsonPropertyName("${jsonName}")]
     public ${propertyType} ${propertyName} { get; set; }
 `;
 }
 
-function formatMetadataAsPoco(className: string, columns: any[], mappings?: Record<string, string>, keyFields?: string[]): string {
-  let pocoCode = `public class ${className} {
+function formatMetadataAsPoco(className: string, columns: any[], mappings?: Record<string, string>, keyFields: string[] = []): string {
+  let pocoCode = `public class ${className} 
+{
 `;
 
   columns.forEach((row) => {
     const alias = mappings ? mappings[row.COLUMN_NAME] : undefined;
-    pocoCode += formatCsharpProperty(row.COLUMN_NAME, row.DATA_TYPE, alias);
+    const isKey = keyFields.includes(row.COLUMN_NAME);
+    pocoCode += formatCsharpProperty(row.COLUMN_NAME, row.DATA_TYPE, alias, isKey) + "\n";
   });
-
-  if (keyFields && keyFields.length > 0) {
-    const urlFragment = keyFields.map((key) => `/${genJsonName(key)}: \"${genJsonName(key)}\"`).join('');
-    pocoCode += `
-    public string UrlFragment() => $"${urlFragment}";
-`;
-  }
-
+  pocoCode = pocoCode.replace(/\n$/, "");
   pocoCode += `}
 `;
   return pocoCode;
@@ -215,8 +211,8 @@ function formatMetadataAsPoco(className: string, columns: any[], mappings?: Reco
 function mapSqlTypeToCSharp(sqlType: string): string {
   const typeMapping: { [key: string]: string } = {
     "int": "int",
-    "varchar": "string",
-    "nvarchar": "string",
+    "varchar": "string?",
+    "nvarchar": "string?",
     "datetime": "DateTime",
     "bit": "bool",
     // Extend mappings as needed
