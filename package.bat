@@ -9,6 +9,15 @@ call vsce package
 move /Y *.vsix ../out
 cd ..
 
+cd ./poco-data-api-builder
+ECHO STARTING ./poco-data-api-builder
+call npx webpack
+call vsce package
+move /Y *.vsix ../out
+cd ..
+
+GOTO EXIT
+
 cd ./init-data-api-builder
 ECHO STARTING ./init-data-api-builder
 call vsce package
