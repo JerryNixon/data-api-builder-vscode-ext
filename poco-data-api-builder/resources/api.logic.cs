@@ -41,7 +41,7 @@ public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableVie
         return (await EnsureSuccessAsync(response)) ?? [];
     }
 
-    public async Task<T> PostAsync(T item, options? options = null)
+    public async Task<T> PostAsync(T item, Options? options = null)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -56,7 +56,7 @@ public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableVie
         return (await EnsureSuccessAsync(response)).Single();
     }
 
-    public async Task<T> PutAsync(T item, options? options = null)
+    public async Task<T> PutAsync(T item, Options? options = null)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -73,7 +73,7 @@ public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableVie
         return (await EnsureSuccessAsync(response)).Single();
     }
 
-    public async Task<T> PatchAsync(T item, options? apiOptions = null)
+    public async Task<T> PatchAsync(T item, Options? apiOptions = null)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -90,7 +90,7 @@ public abstract class ApiTableViewRepository<T> : ApiRepository<T>, IApiTableVie
         return (await EnsureSuccessAsync(response)).Single();
     }
 
-    public async Task DeleteAsync(T item, options? options = null)
+    public async Task DeleteAsync(T item, Options? options = null)
     {
         var http = _httpClient ?? new();
         options?.AddHeaders(http);
@@ -131,9 +131,16 @@ public abstract class ApiProcedureRepository<T> : ApiRepository<T>, IApiProcedur
         var http = _httpClient ?? new();
         options.AddHeaders(http);
 
+        // Build the query string
+        var queryString = options.Parameters?
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
+            .Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}")
+            .Aggregate((a, b) => $"{a}&{b}");
+
+        // Append query string to the base URI
         var uriBuilder = new UriBuilder(_baseUri)
         {
-            Query = options.ToQueryString()
+            Query = queryString
         };
 
         var response = await http.GetAsync(uriBuilder.Uri);
@@ -187,10 +194,10 @@ public class ApiError
 public interface IApiTableViewRepository<T> where T : class
 {
     Task<T[]> GetAsync(ApiTableViewGetOptions? apiGetOptions = null);
-    Task<T> PostAsync(T item, options? apiOptions = null);
-    Task<T> PutAsync(T item, options? apiOptions = null);
-    Task<T> PatchAsync(T item, options? apiOptions = null);
-    Task DeleteAsync(T item, options? apiOptions = null);
+    Task<T> PostAsync(T item, Options? apiOptions = null);
+    Task<T> PutAsync(T item, Options? apiOptions = null);
+    Task<T> PatchAsync(T item, Options? apiOptions = null);
+    Task DeleteAsync(T item, Options? apiOptions = null);
 }
 
 public interface IApiProcedureRepository<T> where T : class
@@ -285,21 +292,22 @@ public abstract class ApiRepository<T> where T : class
         try
         {
             var url = response.RequestMessage?.RequestUri?.ToString() ?? "unknown";
-            Debug.WriteLine($"{url} returned {response.StatusCode}.");
-            if (!response.IsSuccessStatusCode)
-            {
-                Debug.WriteLine($"{url} returned {response.StatusCode}.");
-                throw new HttpRequestException($"{url} returned {response.StatusCode}.", null, response.StatusCode);
-            }
+            Debug.WriteLine($"{url.Replace("%24", "$")} returned {response.StatusCode}.");
 
             var root = await response.Content.ReadFromJsonAsync<ApiRoot<T>>()
                 ?? throw new InvalidOperationException("The response deserialized as null.");
 
             if (root.Error is not null)
             {
-                throw new Exception($"Code: {root.Error.Code}, Message: {root.Error.Message}, Status: {root.Error.Status}");
+                Debug.WriteLine($"Code: {root.Error.Code}, Message: {root.Error.Message}, Status: {root.Error.Status}");
             }
-            else if (root.Results is null)
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException($"{url} returned {response.StatusCode} with {root?.Error?.Message}.", null, response.StatusCode);
+            }
+
+            if (root.Results is null)
             {
                 throw new Exception("The response did not contain any results.");
             }
@@ -313,7 +321,24 @@ public abstract class ApiRepository<T> where T : class
     }
 }
 
-public class options
+public static class Utility
+{
+    public static async Task<bool> IsApiAvailableAsync(string url)
+    {
+        using var httpClient = new HttpClient();
+        try
+        {
+            var response = await httpClient.GetAsync(url);
+            return response.IsSuccessStatusCode;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+    }
+}
+
+public class Options
 {
     public string? XMsApiRole { get; set; }
     public string? Authorization { get; set; }
@@ -337,13 +362,13 @@ public class options
     }
 }
 
-public class ApiStoredProcedureExecOptions : options
+public class ApiStoredProcedureExecOptions : Options
 {
     public enum ApiMethod { GET, POST }
 
     public ApiMethod Method { get; set; } = ApiMethod.GET;
 
-    public Dictionary<string, string> Parameters { get; } = [];
+    public Dictionary<string, string> Parameters { get; set; } = [];
 
     public JsonContent ToJsonContent()
     {
@@ -374,7 +399,7 @@ public class ApiStoredProcedureExecOptions : options
     }
 }
 
-public class ApiTableViewGetOptions : options
+public class ApiTableViewGetOptions : Options
 {
     public string? Select { get; set; }
     public string? Filter { get; set; }

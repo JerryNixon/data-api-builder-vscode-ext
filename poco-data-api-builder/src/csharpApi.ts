@@ -3,6 +3,14 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { EntityDefinition } from './readConfig';
 
+export async function createApiCs(
+  genCsFolder: string,
+  entities: Record<string, EntityDefinition>,
+  selectedEntities: vscode.QuickPickItem[]
+): Promise<void> {
+  createApiCsFull(genCsFolder, entities, selectedEntities);
+}
+
 export async function createApiCsFull(
   genCsFolder: string,
   entities: Record<string, EntityDefinition>,
@@ -40,7 +48,7 @@ using Api.Logic;
     {
         var options = new ApiTableViewGetOptions
         {
-            QueryFilter = $"${queryFilters}"
+            Filter = $"${queryFilters}"
         };
         return (await GetAsync(options)).FirstOrDefault();
     }

@@ -7,6 +7,7 @@ interface EntitySource {
     object: string; // Database object name
     type: 'table' | 'view' | 'stored-procedure';
     'key-fields'?: string[];
+    parameters?: Record<string, string>; // Parameters dictionary
 }
 
 export interface EntityDefinition {
@@ -149,9 +150,21 @@ export function getEntities(configPath: string): Record<string, EntityDefinition
             for (const [key, value] of Object.entries(config.entities)) {
                 if (typeof value === 'object' && value !== null) {
                     const entity = value as EntityDefinition;
-                    entity.type = entity.source?.type; // Add type directly from source
-                    entity.restPath = (value as any)?.rest?.path || ''; // Include rest.path
-                    entity.runtimeRestPath = runtimeRestPath; // Include runtime.rest.path
+
+                    // Add type directly from source
+                    entity.type = entity.source?.type;
+
+                    // Include rest.path
+                    entity.restPath = (value as any)?.rest?.path || '';
+
+                    // Include runtime.rest.path
+                    entity.runtimeRestPath = runtimeRestPath;
+
+                    // Include parameters for stored-procedures
+                    if (entity.type === 'stored-procedure') {
+                        entity.source.parameters = (value as any)?.source?.parameters || {};
+                    }
+
                     entities[key] = entity;
                 }
             }

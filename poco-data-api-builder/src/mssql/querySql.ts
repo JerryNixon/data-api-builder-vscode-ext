@@ -193,7 +193,7 @@ function formatCsharpProperty(columnName: string, dataType: string, alias?: stri
 }
 
 function formatMetadataAsPoco(className: string, columns: any[], mappings?: Record<string, string>, keyFields: string[] = []): string {
-  let pocoCode = `public class ${className} 
+  let pocoCode = `public record class ${className} 
 {
 `;
 
@@ -210,12 +210,34 @@ function formatMetadataAsPoco(className: string, columns: any[], mappings?: Reco
 
 function mapSqlTypeToCSharp(sqlType: string): string {
   const typeMapping: { [key: string]: string } = {
-    "int": "int",
+    // String types
     "varchar": "string?",
     "nvarchar": "string?",
+    // Date and time types
     "datetime": "DateTime",
+    "smalldatetime": "DateTime",
+    "datetime2": "DateTime",
+    "datetimeoffset": "DateTimeOffset",
+    "date": "DateTime",
+    "time": "TimeSpan",
+    // Boolean type
     "bit": "bool",
+    // Integer types
+    "tinyint": "byte",
+    "smallint": "short",
+    "int": "int",
+    "bigint": "long",
+    // Decimal types
+    "decimal": "decimal",
+    "numeric": "decimal",
+    "money": "decimal",
+    "smallmoney": "decimal",
+    "real": "float",
+    "float": "double",
+    // Default fallback
+    "uniqueidentifier": "Guid", // Guid type
     // Extend mappings as needed
   };
-  return typeMapping[sqlType] || "object";
+
+  return typeMapping[sqlType.toLowerCase()] || "object";
 }
