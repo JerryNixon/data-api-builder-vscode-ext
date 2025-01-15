@@ -104,10 +104,22 @@ function extractEnvVarName(connectionString: string): string {
  * @param configPath - The path to the configuration file.
  * @returns The connection string as a string, or an empty string if not found or if LocalDB is detected.
  */
+/**
+ * Retrieves the connection string from the configuration file.
+ * @param configPath - The path to the configuration file.
+ * @returns The connection string as a string, or an empty string if not found or if LocalDB is detected.
+ */
 export async function getConnectionString(configPath: string): Promise<string> {
     try {
         const config = readConfig(configPath);
         if (!config) {
+            return '';
+        }
+
+        // Check if data-source.database-type is mssql
+        const databaseType = (config['data-source'] as any)?.['database-type'];
+        if (databaseType !== 'mssql') {
+            vscode.window.showErrorMessage('This extension currently only supports Microsoft SQL databases.');
             return '';
         }
 

@@ -11,16 +11,25 @@ using Api.Logic.Options;
 
 public static class Utility
 {
-    public static async Task<bool> IsApiAvailableAsync(string url)
+    public static async Task<bool> IsApiAvailableAsync(string url, int timeoutInSeconds = 30)
     {
-        using var httpClient = new HttpClient();
+        using var httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(timeoutInSeconds)
+        };
         try
         {
             var response = await httpClient.GetAsync(url);
             return response.IsSuccessStatusCode;
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
+            Debug.WriteLine($"Error: {ex.Message}");
+            return false;
+        }
+        catch (TaskCanceledException)
+        {
+            Debug.WriteLine($"Timed out after {timeoutInSeconds} seconds.");
             return false;
         }
     }
