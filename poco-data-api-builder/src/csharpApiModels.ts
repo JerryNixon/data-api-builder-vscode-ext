@@ -10,18 +10,22 @@ export async function createApiModelsCs(
   selectedEntities: vscode.QuickPickItem[],
   genCsFolder: string
 ): Promise<void> {
-  const modelsFilePath = path.join(genCsFolder, 'Api.Models.cs');
+  const modelsFolderPath = path.join(genCsFolder, 'Api', 'Models');
 
-  await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: 'Generating POCOs', cancellable: false },
-    async (progress) => {
-      let combinedPocoCode = `namespace Api.Models;
+  // Ensure the target directory exists
+  fs.mkdirSync(modelsFolderPath, { recursive: true });
+
+  const header = `
+namespace Api.Models;
 
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 `;
 
+  await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: 'Generating POCOs', cancellable: false },
+    async (progress) => {
       for (const selected of selectedEntities) {
         progress.report({ message: `Processing ${selected.label}...` });
 
@@ -29,20 +33,23 @@ using System.Text.Json.Serialization;
         let poco = '';
 
         if (entity.source.type === 'table') {
-          poco = await getTableAsPoco(pool, entity.source.object, entity.source['key-fields'], entity.mappings);
+          poco = await getTableAsPoco(pool, entity.source.object, entity.source['key-fields'], entity.mappings || {});
         } else if (entity.source.type === 'view') {
-          poco = await getViewAsPoco(pool, entity.source.object, entity.source['key-fields'], entity.mappings);
+          poco = await getViewAsPoco(pool, entity.source.object, entity.source['key-fields'], entity.mappings || {});
         } else if (entity.source.type === 'stored-procedure') {
-          poco = await getProcedureAsPoco(pool, entity.source.object, entity.mappings);
+          poco = await getProcedureAsPoco(pool, entity.source.object, entity.mappings || {});
         } else {
           vscode.window.showWarningMessage(`Unsupported entity type: ${entity.source.type}`);
           continue;
         }
 
-        combinedPocoCode += poco + '\n';
-      }
+        // Add the header to the POCO
+        const content = header + poco;
 
-      fs.writeFileSync(modelsFilePath, combinedPocoCode.trim());
+        // Write the POCO to a file
+        const filePath = path.join(modelsFolderPath, `${selected.label}.cs`);
+        fs.writeFileSync(filePath, content.trim());
+      }
     }
   );
 }

@@ -3,19 +3,26 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
+interface EntityRest {
+    enabled: boolean;
+    path: string;
+    methods?: string[]; // Optional property to capture proc REST methods
+}
+
 interface EntitySource {
     object: string; // Database object name
     type: 'table' | 'view' | 'stored-procedure';
     'key-fields'?: string[];
-    parameters?: Record<string, string>; // Parameters dictionary
+    parameters?: Record<string, string>; // Proc parameters dictionary
 }
 
 export interface EntityDefinition {
+    restPath: string;
     source: EntitySource;
     mappings?: Record<string, string>;
     type?: 'table' | 'view' | 'stored-procedure';
-    restPath?: string; // Include rest path
-    runtimeRestPath?: string; // Include runtime.rest.path
+    rest?: EntityRest; // entities.entity.rest
+    runtimeRestPath?: string; // runtime.rest.path
 }
 
 /**

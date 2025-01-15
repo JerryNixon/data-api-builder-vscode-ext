@@ -241,3 +241,130 @@ function mapSqlTypeToCSharp(sqlType: string): string {
 
   return typeMapping[sqlType.toLowerCase()] || "object";
 }
+
+/**
+ * Fetches primary key columns and their data types for a given table.
+ * @param pool - The SQL Server connection pool.
+ * @param tableName - The name of the table.
+ * @returns A record mapping column names to their data types.
+ */
+export async function getTableKeysTypes(
+  pool: sql.ConnectionPool,
+  tableName: string
+): Promise<Record<string, string>> {
+  if (!pool.connected) {
+    throw new Error('Database connection is closed.');
+  }
+
+  const { schemaName, pureName } = extractSchemaName(tableName);
+
+  const query = `
+  SELECT c.COLUMN_NAME, c.DATA_TYPE
+    FROM INFORMATION_SCHEMA.COLUMNS c
+    INNER JOIN INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+      ON c.TABLE_SCHEMA = tc.TABLE_SCHEMA AND c.TABLE_NAME = tc.TABLE_NAME
+    INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+      ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME AND c.COLUMN_NAME = kcu.COLUMN_NAME
+    WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+      AND c.TABLE_SCHEMA = @schemaName
+      AND c.TABLE_NAME = @pureName;
+  `;
+
+  try {
+    const result = await pool.request()
+      .input('schemaName', sql.NVarChar, schemaName)
+      .input('pureName', sql.NVarChar, pureName)
+      .query(query);
+
+    return result.recordset.reduce((acc, row) => {
+      acc[row.COLUMN_NAME] = mapSqlTypeToCSharp(row.DATA_TYPE);
+      return acc;
+    }, {} as Record<string, string>);
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error fetching table keys: ${error}`);
+    throw error;
+  }
+}
+
+/**
+ * Fetches column data types for specified columns in a view.
+ * @param pool - The SQL Server connection pool.
+ * @param viewName - The name of the view.
+ * @param columnNames - The columns to retrieve types for.
+ * @returns A record mapping column names to their data types.
+ */
+export async function getViewKeyTypes(
+  pool: sql.ConnectionPool,
+  viewName: string,
+  columnNames: string[]
+): Promise<Record<string, string>> {
+  if (!pool.connected) {
+    throw new Error('Database connection is closed.');
+  }
+
+  const { schemaName, pureName } = extractSchemaName(viewName);
+  const columnNamesPlaceholder = columnNames.map((_, i) => `@column${i}`).join(', ');
+
+  const query = `
+    SELECT COLUMN_NAME, DATA_TYPE
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = @schemaName AND TABLE_NAME = @pureName
+      AND COLUMN_NAME IN (${columnNamesPlaceholder});
+  `;
+
+  try {
+    const request = pool.request().input('schemaName', sql.NVarChar, schemaName).input('pureName', sql.NVarChar, pureName);
+
+    columnNames.forEach((name, index) => {
+      request.input(`column${index}`, sql.NVarChar, name);
+    });
+
+    const result = await request.query(query);
+
+    return result.recordset.reduce((acc, row) => {
+      acc[row.COLUMN_NAME] = mapSqlTypeToCSharp(row.DATA_TYPE);
+      return acc;
+    }, {} as Record<string, string>);
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error fetching view columns: ${error}`);
+    throw error;
+  }
+}
+
+/**
+ * Fetches parameter names and their data types for a stored procedure.
+ * @param pool - The SQL Server connection pool.
+ * @param procName - The name of the stored procedure.
+ * @returns A record mapping parameter names to their data types.
+ */
+export async function getProcParameterTypes(
+  pool: sql.ConnectionPool,
+  procName: string
+): Promise<Record<string, string>> {
+  if (!pool.connected) {
+    throw new Error('Database connection is closed.');
+  }
+
+  const { schemaName, pureName } = extractSchemaName(procName);
+
+  const query = `
+    SELECT PARAMETER_NAME, DATA_TYPE
+    FROM INFORMATION_SCHEMA.PARAMETERS
+    WHERE SPECIFIC_SCHEMA = @schemaName AND SPECIFIC_NAME = @pureName;
+  `;
+
+  try {
+    const result = await pool.request()
+      .input('schemaName', sql.NVarChar, schemaName)
+      .input('pureName', sql.NVarChar, pureName)
+      .query(query);
+
+    return result.recordset.reduce((acc, row) => {
+      acc[row.PARAMETER_NAME.replace('@', '')] = mapSqlTypeToCSharp(row.DATA_TYPE);
+      return acc;
+    }, {} as Record<string, string>);
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error fetching procedure parameters: ${error}`);
+    throw error;
+  }
+}

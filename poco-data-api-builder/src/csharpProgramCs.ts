@@ -24,6 +24,12 @@ export async function createProgramCs(
         const camelCaseEntity = `${entity.charAt(0).toLowerCase()}${entity.slice(1)}`;
 
         if (entityDef.type === 'stored-procedure') {
+            const restMethods = entityDef.rest?.methods || [];
+            const includeMethod = !restMethods.includes('get') && restMethods.includes('post');
+            const methodLine = includeMethod
+                ? `\n        Method = Api.Logic.Options.ApiProcedureOptions.ApiMethod.POST,`
+                : '';
+
             const parameters = entityDef.source.parameters
                 ? Object.entries(entityDef.source.parameters)
                     .map(([key, type]) => {
@@ -45,8 +51,7 @@ export async function createProgramCs(
 var ${camelCaseEntity}Repository = new Api.${entity}Repository(${camelCaseEntity}Uri);
 var ${camelCaseEntity}Items = await ${camelCaseEntity}Repository.ExecuteProcedureAsync(
     options: new()
-    {
-        Method = Api.Logic.ApiStoredProcedureExecOptions.ApiMethod.GET,
+    {${methodLine}
         ${parametersCode}
     }
 );
@@ -67,8 +72,9 @@ foreach (var item in ${camelCaseEntity}Items)
         }
     }
 
-    const apiCheckCode = `
-if (!await Api.Logic.Utility.IsApiAvailableAsync("http://localhost:5000"))
+    const apiCheckCode = `var baseUrl = "http://localhost:5000/";
+
+if (!await Api.Logic.Utility.IsApiAvailableAsync(baseUrl))
 {
     var message = "API is not available. Is Data API builder started?";
     System.Diagnostics.Debug.WriteLine(message);
@@ -76,7 +82,7 @@ if (!await Api.Logic.Utility.IsApiAvailableAsync("http://localhost:5000"))
     return;
 }
 
-var baseUrl = "http://localhost:5000/api/";`;
+baseUrl += "api/";`;
 
     const programCode = `${apiCheckCode}
 

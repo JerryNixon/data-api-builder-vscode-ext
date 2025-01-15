@@ -3,7 +3,7 @@
   "displayName": "DAB Poco Gen (Data API builder)",
   "description": "Generate C# POCO (Plain Old CLR Object) models from a configuration file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
