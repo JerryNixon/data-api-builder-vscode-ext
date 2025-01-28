@@ -16,8 +16,6 @@ call vsce package
 move /Y *.vsix ../out
 cd ..
 
-GOTO EXIT
-
 cd ./init-data-api-builder
 ECHO STARTING ./init-data-api-builder
 call vsce package

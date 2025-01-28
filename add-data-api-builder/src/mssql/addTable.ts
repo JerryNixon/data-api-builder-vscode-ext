@@ -11,9 +11,36 @@ import { runCommand } from '../runTerminal';
  * @param connectionString - The SQL Server connection string.
  */
 export async function addTable(configPath: string, connectionString: string) {
-  let validTables: { schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[] = [];
+  const metadata = await fetchTableMetadata(connectionString);
+  if (!metadata || metadata.length === 0) {
+    vscode.window.showInformationMessage('No user-defined tables found.');
+    return;
+  }
 
-  const pool = await vscode.window.withProgress(
+  const existingEntities = loadExistingEntities(configPath);
+  const validTables = filterValidTables(metadata, existingEntities);
+
+  if (validTables.length === 0) {
+    vscode.window.showErrorMessage('No new tables with primary keys found. Operation canceled.');
+    return;
+  }
+
+  const selectedTables = await chooseTables(validTables);
+  if (!selectedTables || selectedTables.length === 0) {
+    vscode.window.showInformationMessage('No tables selected.');
+    return;
+  }
+
+  processTables(selectedTables, validTables, configPath);
+}
+
+/**
+ * Fetches metadata of tables from the database.
+ * @param connectionString - The SQL Server connection string.
+ * @returns An array of table metadata or undefined in case of failure.
+ */
+async function fetchTableMetadata(connectionString: string): Promise<{ schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[] | undefined> {
+  return await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: 'Loading Table Metadata...',
@@ -21,8 +48,8 @@ export async function addTable(configPath: string, connectionString: string) {
     },
     async (progress) => {
       progress.report({ message: 'Connecting to the database...' });
-
       const pool = await openConnection(connectionString);
+
       if (!pool) {
         vscode.window.showErrorMessage('Failed to connect to the database.');
         return undefined;
@@ -31,63 +58,31 @@ export async function addTable(configPath: string, connectionString: string) {
       try {
         progress.report({ message: 'Fetching table metadata...' });
         const metadata = await getTableMetadata(pool);
-        if (metadata.length === 0) {
-          vscode.window.showInformationMessage('No user-defined tables found.');
-          await pool.close();
-          return undefined;
-        }
-
-        progress.report({ message: 'Loading configuration...' });
-        const existingEntities = getExistingEntities(configPath);
-
-        // Filter out tables with no primary keys or tables already in the configuration
-        validTables = metadata.filter(
-          table =>
-            table.primaryKeys &&
-            table.primaryKeys.trim() !== '' &&
-            !existingEntities.includes(`${table.schemaName}.${table.tableName}`)
-        );
-
-        if (validTables.length === 0) {
-          vscode.window.showErrorMessage('No new tables with primary keys found. Operation canceled.');
-          await pool.close();
-          return undefined;
-        }
-
-        return pool;
-      } catch (error) {
-        vscode.window.showErrorMessage(`Error adding tables: ${error}`);
         await pool.close();
+        return metadata;
+      } catch (error) {
+        vscode.window.showErrorMessage(`Error fetching table metadata: ${error}`);
         return undefined;
       }
     }
   );
+}
 
-  if (!pool) {
-    return;
-  }
-
-  // At this point, the progress dialog is gone, and we can show the table selection dialog
-  const selectedTables = await chooseTable(validTables);
-  if (!selectedTables || selectedTables.length === 0) {
-    vscode.window.showInformationMessage('No tables selected.');
-    await pool.close();
-    return;
-  }
-
-  selectedTables.forEach(table => {
-    const [schema, tableName] = table.split('.');
-    const entityName = tableName;
-    const source = `${schema}.${tableName}`;
-    const primaryKeys = validTables.find(t => `${t.schemaName}.${t.tableName}` === table)?.primaryKeys || '';
-    const allColumns = validTables.find(t => `${t.schemaName}.${t.tableName}` === table)?.allColumns || '';
-
-    callAddTable(configPath, entityName, source, primaryKeys);
-    callUpdateTable(configPath, entityName, allColumns);
-  });
-
-  vscode.window.showInformationMessage(`Added and updated tables: ${selectedTables.join(', ')}`);
-  await pool.close();
+/**
+ * Filters valid tables based on primary keys and existing entities.
+ * @param metadata - The table metadata fetched from the database.
+ * @param existingEntities - List of schema-qualified table names already in the configuration.
+ * @returns An array of valid tables.
+ */
+function filterValidTables(
+  metadata: { schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[],
+  existingEntities: string[]
+): { schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[] {
+  return metadata.filter(
+    table =>
+      table.primaryKeys?.trim() &&
+      !existingEntities.includes(`${table.schemaName}.${table.tableName}`)
+  );
 }
 
 /**
@@ -95,7 +90,7 @@ export async function addTable(configPath: string, connectionString: string) {
  * @param configPath - The path to the configuration file.
  * @returns An array of schema-qualified table names already in the configuration.
  */
-function getExistingEntities(configPath: string): string[] {
+function loadExistingEntities(configPath: string): string[] {
   try {
     const configContent = fs.readFileSync(configPath, 'utf8');
     const config = JSON.parse(configContent);
@@ -107,7 +102,7 @@ function getExistingEntities(configPath: string): string[] {
     return Object.values(config.entities)
       .map((entity: any) => entity.source?.object)
       .filter((source: string | undefined) => source)
-      .map((source: string) => source.replace(/[\[\]]/g, '')); // Remove brackets from source names
+      .map((source: string) => source.replace(/[\[\]]/g, ''));
   } catch (error) {
     vscode.window.showErrorMessage(`Error reading configuration file: ${error}`);
     return [];
@@ -119,7 +114,7 @@ function getExistingEntities(configPath: string): string[] {
  * @param metadata - The metadata of tables containing schemaName and tableName.
  * @returns An array of selected tables in the format "schemaName.tableName".
  */
-async function chooseTable(metadata: { schemaName: string; tableName: string }[]): Promise<string[] | undefined> {
+async function chooseTables(metadata: { schemaName: string; tableName: string }[]): Promise<string[] | undefined> {
   const tableOptions = metadata.map(row => `${row.schemaName}.${row.tableName}`);
 
   return await vscode.window.showQuickPick(tableOptions, {
@@ -129,27 +124,54 @@ async function chooseTable(metadata: { schemaName: string; tableName: string }[]
 }
 
 /**
- * Calls the `dab add` command to add a table entity.
- * @param configPath - The path to the configuration file.
- * @param entityName - The name of the entity.
- * @param source - The schema-qualified table name.
- * @param primaryKeys - The primary key fields for the table.
+ * Processes the selected tables and executes the add and update commands.
+ * @param selectedTables - The selected tables in "schemaName.tableName" format.
+ * @param validTables - The valid tables metadata.
+ * @param configPath - The configuration file path.
  */
-function callAddTable(configPath: string, entityName: string, source: string, primaryKeys: string) {
-  const command = `dab add ${entityName} -c "${configPath}" --source ${source} --source.key-fields "${primaryKeys}" --rest "${entityName}" --permissions "anonymous:*"`;
-  runCommand(command);
+function processTables(
+  selectedTables: string[],
+  validTables: { schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[],
+  configPath: string
+) {
+  selectedTables.forEach(table => {
+    const [schema, tableName] = table.split('.');
+    const entityName = tableName;
+    const source = `${schema}.${tableName}`;
+    const tableMetadata = validTables.find(t => `${t.schemaName}.${t.tableName}` === table);
+
+    if (tableMetadata) {
+      const addCommand = buildAddCommand(entityName, configPath, source, tableMetadata.primaryKeys);
+      runCommand(addCommand);
+
+      const updateCommand = buildUpdateCommand(entityName, configPath, tableMetadata.allColumns);
+      runCommand(updateCommand);
+    }
+  });
+
+  vscode.window.showInformationMessage(`Added and updated tables: ${selectedTables.join(', ')}`);
 }
 
 /**
- * Calls the `dab update` command to add mappings to the table entity.
- * @param configPath - The path to the configuration file.
+ * Builds the `dab add` command to add a table entity.
  * @param entityName - The name of the entity.
- * @param allColumns - A comma-separated string of all column names.
+ * @param configPath - The path to the configuration file.
+ * @param source - The schema-qualified table name.
+ * @param primaryKeys - The primary key fields for the table.
+ * @returns The constructed `dab add` command.
  */
-function callUpdateTable(configPath: string, entityName: string, allColumns: string) {
-  // Generate the mapping string: "column1:column1,column2:column2"
-  const mappings = allColumns.split(',').map(column => `${column}:${column}`).join(',');
-  const command = `dab update ${entityName} -c "${configPath}" --map "${mappings}"`;
-  runCommand(command);
+function buildAddCommand(entityName: string, configPath: string, source: string, primaryKeys: string): string {
+  return `dab add ${entityName} -c "${configPath}" --source ${source} --source.key-fields "${primaryKeys}" --rest "${entityName}" --permissions "anonymous:*"`;
 }
 
+/**
+ * Builds the `dab update` command to add mappings to the table entity.
+ * @param entityName - The name of the entity.
+ * @param configPath - The path to the configuration file.
+ * @param allColumns - A comma-separated string of all column names.
+ * @returns The constructed `dab update` command.
+ */
+function buildUpdateCommand(entityName: string, configPath: string, allColumns: string): string {
+  const mappings = allColumns.split(',').map(column => `${column}:${column}`).join(',');
+  return `dab update ${entityName} -c "${configPath}" --map "${mappings}"`;
+}

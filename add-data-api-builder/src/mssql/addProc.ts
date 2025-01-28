@@ -1,53 +1,7 @@
 import * as vscode from 'vscode';
 import { openConnection, getProcedureMetadata } from './querySql';
 import { runCommand } from '../runTerminal';
-import { validateConfigPath, isProcedureInConfig } from '../readConfig'; 
-
-/**
- * Parses the stored procedure script to extract default parameter values.
- * @param script - The full T-SQL script of the stored procedure.
- * @param paramInfo - The comma-separated list of parameters.
- * @returns An object mapping parameter names to their default values or null if there's a mismatch.
- */
-function parseParamDefaults(script: string, paramInfo: string): { [key: string]: string | number | boolean | null } | null {
-  if (!paramInfo.trim()) {
-    return {};
-  }
-
-  // Extract parameter names without converting to lowercase
-  const params = paramInfo.split(',').map(p => p.trim().replace('@', ''));
-
-  // Initialize defaults with all parameters set to null
-  const defaults: { [key: string]: string | number | boolean | null } = {};
-  for (const param of params) {
-    defaults[param] = null;
-  }
-
-  // Build dynamic regex to match exact parameter names with optional default values
-  const paramRegex = new RegExp(`(@\\w+)\\s+([\\w\\(\\)]+)\\s*=\\s*('[^']*'|\\d+)`, 'g');
-
-  let match: RegExpExecArray | null;
-
-  while ((match = paramRegex.exec(script)) !== null) {
-    const paramName = match[1].replace('@', '');
-    let paramValue: string | number | boolean | null = match[3];
-
-    if (/^\d+$/.test(paramValue)) {
-      paramValue = Number(paramValue);
-    } else if (/^(true|false)$/i.test(paramValue)) {
-      paramValue = paramValue.toLowerCase() === 'true';
-    } else {
-      paramValue = paramValue.replace(/'/g, '');
-    }
-
-    // Update the defaults dictionary with the found value
-    if (paramName in defaults) {
-      defaults[paramName] = paramValue;
-    }
-  }
-
-  return defaults;
-}
+import { validateConfigPath, isProcedureInConfig } from '../readConfig';
 
 /**
  * Adds stored procedures to the configuration by presenting a list of user-defined procedures to select from
@@ -95,14 +49,9 @@ export async function addProc(configPath: string, connectionString: string) {
     return;
   }
 
-  // Filter out procedures already in the config
-  const filteredMetadata = [];
-  for (const proc of metadata) {
-    const existsInConfig = await isProcedureInConfig(configPath, proc.name);
-    if (!existsInConfig) {
-      filteredMetadata.push(proc);
-    }
-  }
+  const filteredMetadata = await Promise.all(
+    metadata.filter(async (proc) => !(await isProcedureInConfig(configPath, proc.name)))
+  );
 
   if (filteredMetadata.length === 0) {
     vscode.window.showInformationMessage('All stored procedures are already in the configuration.');
@@ -115,82 +64,7 @@ export async function addProc(configPath: string, connectionString: string) {
     return;
   }
 
-  let successCount = 0;
-  let failedProcedures: string[] = [];
-
-  await vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title: 'Updating configuration...',
-      cancellable: false,
-    },
-    async (progress) => {
-      for (const proc of selectedProcs) {
-        const entityName = proc.name.split('.').pop() || proc.name;
-        const source = proc.name;
-        const params = proc.paramInfo || '';
-        const script = proc.script || '';
-
-        if (!script) {
-          vscode.window.showErrorMessage(`Cannot parse parameters for encrypted or invalid procedure: ${entityName}`);
-          failedProcedures.push(entityName);
-          continue;
-        }
-
-        const paramDefaults = parseParamDefaults(script, params);
-        if (!paramDefaults) {
-          vscode.window.showErrorMessage(`Failed to parse parameters for: ${entityName}. The declared parameters do not match the parsed parameters.`);
-          failedProcedures.push(entityName);
-          continue;
-        }
-
-        const paramDictEntries = Object.entries(paramDefaults)
-          .filter(([_, value]) => value !== null) // Only include parameters with default values
-          .map(([key, value]) => `${key}:${value}`);
-
-        const paramDict = paramDictEntries.join(',');
-
-        // Determine REST method based on the presence of parameters
-        const restMethod = paramDictEntries.length === 0 ? 'GET, POST' : 'POST';
-
-        try {
-          progress.report({ message: `Adding stored procedure: ${entityName}` });
-
-          const addCommand = `dab add ${entityName} -c "${configPath}" --source ${source} --source.type "stored-procedure" ${
-            paramDict ? `--source.params "${paramDict}"` : ''
-          } --permissions "anonymous:*" --rest "${entityName}" --rest.methods "${restMethod}"`;
-
-          runCommand(addCommand);
-
-          if (proc.colInfo) {
-            const mappings = proc.colInfo
-              .split(',')
-              .map((column) => `${column.trim()}:${column.trim()}`)
-              .join(',');
-
-            progress.report({ message: `Updating stored procedure: ${entityName}` });
-            const updateCommand = `dab update ${entityName} -c "${configPath}" --map "${mappings}"`;
-            runCommand(updateCommand);
-          } else {
-            vscode.window.showWarningMessage(`No result columns found for stored procedure: ${entityName}. Skipping update.`);
-          }
-
-          successCount++;
-        } catch (error) {
-          vscode.window.showErrorMessage(`Error processing stored procedure ${entityName}: ${error}`);
-          failedProcedures.push(entityName);
-        }
-      }
-    }
-  );
-
-  if (successCount > 0) {
-    vscode.window.showInformationMessage(`Successfully added and updated ${successCount} stored procedure(s).`);
-  }
-
-  if (failedProcedures.length > 0) {
-    vscode.window.showErrorMessage(`Failed to process the following procedures: ${failedProcedures.join(', ')}`);
-  }
+  await processProcedures(selectedProcs, configPath);
 }
 
 /**
@@ -211,9 +85,100 @@ async function chooseProcedures(metadata: { name: string; paramInfo: string; col
     placeHolder: 'Select one or more stored procedures to add',
   });
 
-  if (selected) {
-    return selected.map((item) => item.value);
-  }
+  return selected?.map((item) => item.value);
+}
 
-  return undefined;
+/**
+ * Processes the stored procedures and executes the add and update commands.
+ * @param selectedProcs - The selected procedures metadata.
+ * @param configPath - The configuration file path.
+ */
+async function processProcedures(selectedProcs: any[], configPath: string) {
+  let successCount = 0;
+  const failedProcedures: string[] = [];
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Updating configuration...',
+      cancellable: false,
+    },
+    async (progress) => {
+      for (const proc of selectedProcs) {
+        const entityName = proc.name.split('.').pop() || proc.name;
+        const source = proc.name;
+        const paramInfo = sanitizeParams(proc.paramInfo || '');
+        const restMethod = paramInfo ? 'POST' : 'GET, POST';
+
+        try {
+          progress.report({ message: `Adding stored procedure: ${entityName}` });
+
+          const addCommand = buildAddCommand(entityName, configPath, source, paramInfo, restMethod);
+          runCommand(addCommand);
+
+          if (proc.colInfo) {
+            progress.report({ message: `Updating stored procedure: ${entityName}` });
+            const updateCommand = buildUpdateCommand(entityName, configPath, proc.colInfo);
+            runCommand(updateCommand);
+          } else {
+            vscode.window.showWarningMessage(`No result columns found for stored procedure: ${entityName}. Skipping update.`);
+          }
+
+          successCount++;
+        } catch (error) {
+          const errorMessage = (error as Error).message || 'Unknown error occurred';
+          vscode.window.showErrorMessage(`Error processing stored procedure ${entityName}: ${errorMessage}`);
+          failedProcedures.push(entityName);
+        }
+      }
+    }
+  );
+
+  if (failedProcedures.length > 0) {
+    vscode.window.showErrorMessage(`Failed to process the following procedures: ${failedProcedures.join(', ')}`);
+  }
+}
+
+/**
+ * Removes "@" & " " from parameter strings.
+ * @param paramInfo - The comma-separated list of parameters.
+ * @returns A sanitized parameter string.
+ */
+function sanitizeParams(paramInfo: string): string {
+  return paramInfo.replace(/@/g, '').replace(/\s+/g, '');
+}
+
+/**
+ * Builds the CLI command for adding a stored procedure.
+ * @param entityName - The name of the entity.
+ * @param configPath - The configuration file path.
+ * @param source - The source procedure name.
+ * @param paramInfo - The sanitized parameter info.
+ * @param restMethod - The HTTP methods.
+ * @returns The constructed CLI command string.
+ */
+function buildAddCommand(
+  entityName: string,
+  configPath: string,
+  source: string,
+  paramInfo: string,
+  restMethod: string
+): string {
+  return `dab add ${entityName} -c "${configPath}" --source ${source} --source.type "stored-procedure" ${paramInfo ? `--source.params "${paramInfo}"` : ''} --permissions "anonymous:*" --rest "${entityName}" --rest.methods "${restMethod}"`;
+}
+
+/**
+ * Builds the CLI command for updating a stored procedure.
+ * @param entityName - The name of the entity.
+ * @param configPath - The configuration file path.
+ * @param colInfo - Column information.
+ * @returns The constructed CLI command string.
+ */
+function buildUpdateCommand(entityName: string, configPath: string, colInfo: string): string {
+  const mappings = colInfo
+    .split(',')
+    .map((column) => `${column.trim()}:${column.trim()}`)
+    .join(',');
+
+  return `dab update ${entityName} -c "${configPath}" --map "${mappings}"`;
 }

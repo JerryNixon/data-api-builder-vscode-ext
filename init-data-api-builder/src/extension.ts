@@ -1,17 +1,17 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { runCommand } from './runTerminal';
 
 export function activate(context: vscode.ExtensionContext) {
   const initDabCommand = vscode.commands.registerCommand('dabExtension.initDab', async (uri: vscode.Uri) => {
     const folderPath = uri.fsPath;
 
     try {
-      // Step 0: Present Checklist for Initialization Preferences
       const defaultPreferences = [
         { label: 'Store secrets in an .env file', picked: true },
         { label: 'Generates dotnet tool manifest file', picked: true },
-        { label: 'This configuration will be used in a Static Web App', picked: false }, // Not selected by default
+        { label: 'This configuration will be used in a Static Web App', picked: false },
       ];
 
       const userSelections = await vscode.window.showQuickPick(defaultPreferences, {
@@ -37,32 +37,28 @@ export function activate(context: vscode.ExtensionContext) {
           : folderPath,
       };
 
-      // Step 1: Handle configuration file
       const configResult = await handleDabConfig(initConfig.folder, initConfig.path);
       if (!configResult.success) {
         vscode.window.showInformationMessage(configResult.message || 'Configuration file handling failed.');
         return;
       }
 
-      // Step 2: Select database type
       const dbType = await selectDatabaseType();
       if (!dbType) {
         vscode.window.showErrorMessage('Database type selection was cancelled or invalid.');
         return;
       }
 
-      // Step 3: Get connection string
       const connectionString = await getConnectionString();
       if (!connectionString) {
         vscode.window.showErrorMessage('Connection string input was cancelled or invalid.');
         return;
       }
 
-      // Step 4: Write configuration based on user selections
       if (selectedPreferences.includes('Store secrets in an .env file')) {
         try {
           writeEnvFile(initConfig.folder, connectionString);
-          updateGitIgnore(initConfig.folder); // Automatically generate `.gitignore` if `.env` is used
+          updateGitIgnore(initConfig.folder);
         } catch (error) {
           vscode.window.showWarningMessage('Failed to write .env or .gitignore file. Continuing...');
         }
@@ -76,7 +72,6 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
 
-      // Step 5: Ensure `dataapibuilder` is installed and run `dab init` command
       try {
         const isInstalled = checkDataApiBuilderInstallation();
         if (!isInstalled) {
@@ -90,14 +85,13 @@ export function activate(context: vscode.ExtensionContext) {
           selectedPreferences.includes('Store secrets in an .env file')
             ? `@env('my-connection-string')`
             : connectionString,
-          initConfig.path,
+          initConfig.path
         );
       } catch (error) {
         vscode.window.showErrorMessage(`Failed to ensure Data API Builder is installed or to run dab init: ${(error as Error).message}`);
         return;
       }
 
-      // Step 6: Open configuration file
       try {
         await openDabConfig(initConfig.path);
       } catch (error) {
@@ -111,8 +105,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(initDabCommand);
 }
 
-// Helper Functions
-
 async function handleDabConfig(folderPath: string, configPath: string): Promise<{ success: boolean; message?: string }> {
   if (fs.existsSync(configPath)) {
     const overwriteOptions = [
@@ -122,7 +114,7 @@ async function handleDabConfig(folderPath: string, configPath: string): Promise<
 
     const overwriteSelection = await vscode.window.showQuickPick(
       overwriteOptions.map(option => option.label),
-      { placeHolder: 'Configuration file exists. Overwrite it?' },
+      { placeHolder: 'Configuration file exists. Overwrite it?' }
     );
 
     const overwrite = overwriteOptions.find(option => option.label === overwriteSelection)?.value;
@@ -192,7 +184,7 @@ function updateDotnetToolsConfig(folderPath: string): void {
   }
 
   if (configContent.tools && configContent.tools['microsoft.dataapibuilder']) {
-    return; // Leave it alone if already exists
+    return;
   }
 
   configContent.tools['microsoft.dataapibuilder'] = {
@@ -227,10 +219,8 @@ function installDataApiBuilder(): void {
 }
 
 function runDabInit(folderPath: string, dbType: string, connectionString: string, configPath: string): void {
-  const terminal = vscode.window.createTerminal('DAB Init');
-  terminal.show();
-  terminal.sendText(`cd "${folderPath}"`);
-  terminal.sendText(`dab init --database-type ${dbType} --connection-string "${connectionString}" --host-mode development -c "${configPath}"`);
+  const command = `cd "${folderPath}" && dab init --database-type ${dbType} --connection-string "${connectionString}" --host-mode development -c "${configPath}"`;
+  runCommand(command);
 }
 
 async function openDabConfig(configPath: string): Promise<void> {

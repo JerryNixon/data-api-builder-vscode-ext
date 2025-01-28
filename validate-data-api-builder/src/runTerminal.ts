@@ -1,13 +1,12 @@
 import * as vscode from 'vscode';
 
-const TERMINAL_NAME = 'DAB Add';
+const TERMINAL_NAME = 'DAB Validate';
 const TERMINAL_TIMEOUT = 5000; // Timeout in milliseconds
 
 let dabTerminal: vscode.Terminal | undefined;
 let lastCommandTime: number | null = null;
 
 /**
- * Gets or creates a terminal named "DAB Add". If the existing terminal is available, it continues to use it.
  * If the terminal has exited or timed out, creates a new one.
  * @returns The terminal instance.
  */

@@ -4,13 +4,56 @@ import { openConnection, getViewMetadata } from './querySql';
 import { runCommand } from '../runTerminal';
 
 /**
- * Adds views to the configuration by presenting a list of user-defined views to select from,
- * prompts the user for primary key fields, and runs the `dab add` and `dab update` CLI commands.
+ * Adds views to the configuration by presenting a list of user-defined views to select from.
+ * Prompts the user for primary key fields and runs the `dab add` and `dab update` CLI commands.
  * @param configPath - The path to the configuration file.
  * @param connectionString - The SQL Server connection string.
  */
 export async function addView(configPath: string, connectionString: string) {
-  await vscode.window.withProgress(
+  const metadata = await fetchViewMetadata(connectionString);
+  if (!metadata || metadata.length === 0) {
+    vscode.window.showInformationMessage('No user-defined views found.');
+    return;
+  }
+
+  const selectedView = await chooseView(metadata);
+  if (!selectedView) {
+    vscode.window.showInformationMessage('No view selected.');
+    return;
+  }
+
+  const [schema, viewName] = selectedView.split('.');
+  const entityName = viewName;
+  const source = `${schema}.${viewName}`;
+
+  const viewColumns = metadata.find(v => `${v.schemaName}.${v.viewName}` === selectedView)?.columns || '';
+  const columnList = viewColumns.split(',');
+
+  const selectedKeys = await choosePrimaryKeys(columnList);
+  if (!selectedKeys || selectedKeys.length === 0) {
+    vscode.window.showErrorMessage('No primary keys selected. Operation canceled.');
+    return;
+  }
+
+  const primaryKeys = selectedKeys.join(',');
+  const allColumns = columnList.join(',');
+
+  const addCommand = buildAddCommand(entityName, configPath, source, primaryKeys);
+  runCommand(addCommand);
+
+  const updateCommand = buildUpdateCommand(entityName, configPath, allColumns);
+  runCommand(updateCommand);
+
+  vscode.window.showInformationMessage(`Added and updated view: ${entityName}`);
+}
+
+/**
+ * Fetches metadata of views from the database.
+ * @param connectionString - The SQL Server connection string.
+ * @returns An array of view metadata or undefined in case of failure.
+ */
+async function fetchViewMetadata(connectionString: string): Promise<{ schemaName: string; viewName: string; columns: string }[] | undefined> {
+  return await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
       title: 'Loading View Metadata...',
@@ -18,82 +61,24 @@ export async function addView(configPath: string, connectionString: string) {
     },
     async (progress) => {
       progress.report({ message: 'Connecting to the database...' });
-
       const pool = await openConnection(connectionString);
+
       if (!pool) {
         vscode.window.showErrorMessage('Failed to connect to the database.');
-        return;
+        return undefined;
       }
 
       try {
         progress.report({ message: 'Fetching view metadata...' });
         const metadata = await getViewMetadata(pool);
-        if (metadata.length === 0) {
-          vscode.window.showInformationMessage('No user-defined views found.');
-          return;
-        }
-
-        // Prompt user to select a view
-        const selectedView = await chooseView(metadata);
-        if (!selectedView) {
-          vscode.window.showInformationMessage('No view selected.');
-          return;
-        }
-
-        const [schema, viewName] = selectedView.split('.');
-        const entityName = viewName;
-        const source = `${schema}.${viewName}`;
-
-        // Get the columns for the selected view
-        const viewColumns = metadata.find(v => `${v.schemaName}.${v.viewName}` === selectedView)?.columns || '';
-        const columnList = viewColumns.split(',');
-
-        // Prompt user to select primary key fields
-        const selectedKeys = await choosePrimaryKeys(columnList);
-        if (!selectedKeys || selectedKeys.length === 0) {
-          vscode.window.showErrorMessage('No primary keys selected. Operation canceled.');
-          return;
-        }
-
-        // Generate the primary keys and mappings
-        const primaryKeys = selectedKeys.join(',');
-        const allColumns = columnList.join(',');
-
-        callAddView(configPath, entityName, source, primaryKeys);
-        callUpdateView(configPath, entityName, allColumns);
-
-        vscode.window.showInformationMessage(`Added and updated view: ${entityName}`);
-      } catch (error) {
-        vscode.window.showErrorMessage(`Error adding views: ${error}`);
-      } finally {
         await pool.close();
+        return metadata;
+      } catch (error) {
+        vscode.window.showErrorMessage(`Error fetching view metadata: ${error}`);
+        return undefined;
       }
     }
   );
-}
-
-/**
- * Calls the `dab add` command to add a view entity.
- * @param configPath - The path to the configuration file.
- * @param entityName - The name of the entity.
- * @param source - The schema-qualified view name.
- * @param primaryKeys - The primary key fields for the view.
- */
-function callAddView(configPath: string, entityName: string, source: string, primaryKeys: string) {
-  const command = `dab add ${entityName} -c "${configPath}" --source ${source} --source.type "view" --source.key-fields "${primaryKeys}" --rest "${entityName}" --permissions "anonymous:*"`;
-  runCommand(command);
-}
-
-/**
- * Calls the `dab update` command to add mappings to the view entity.
- * @param configPath - The path to the configuration file.
- * @param entityName - The name of the entity.
- * @param allColumns - A comma-separated string of all column names.
- */
-function callUpdateView(configPath: string, entityName: string, allColumns: string) {
-  const mappings = allColumns.split(',').map(column => `${column}:${column}`).join(',');
-  const command = `dab update ${entityName} -c "${configPath}" --map "${mappings}"`;
-  runCommand(command);
 }
 
 /**
@@ -121,3 +106,26 @@ async function choosePrimaryKeys(columns: string[]): Promise<string[] | undefine
   });
 }
 
+/**
+ * Builds the `dab add` command to add a view entity.
+ * @param entityName - The name of the entity.
+ * @param configPath - The path to the configuration file.
+ * @param source - The schema-qualified view name.
+ * @param primaryKeys - The primary key fields for the view.
+ * @returns The constructed `dab add` command.
+ */
+function buildAddCommand(entityName: string, configPath: string, source: string, primaryKeys: string): string {
+  return `dab add ${entityName} -c "${configPath}" --source ${source} --source.type "view" --source.key-fields "${primaryKeys}" --rest "${entityName}" --permissions "anonymous:*"`;
+}
+
+/**
+ * Builds the `dab update` command to add mappings to the view entity.
+ * @param entityName - The name of the entity.
+ * @param configPath - The path to the configuration file.
+ * @param allColumns - A comma-separated string of all column names.
+ * @returns The constructed `dab update` command.
+ */
+function buildUpdateCommand(entityName: string, configPath: string, allColumns: string): string {
+  const mappings = allColumns.split(',').map(column => `${column}:${column}`).join(',');
+  return `dab update ${entityName} -c "${configPath}" --map "${mappings}"`;
+}

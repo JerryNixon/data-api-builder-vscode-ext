@@ -3,7 +3,7 @@
   "displayName": "DAB Poco Gen (Data API builder)",
   "description": "Generate C# POCO (Plain Old CLR Object) models from a configuration file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -17,11 +17,10 @@
     "type": "git",
     "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
   },
-  "categories": [
-    "Programming Languages"
-  ],
+  "categories": [ "Other" ],
   "activationEvents": [
-    "workspaceContains:**/dab-config.json"
+    "workspaceContains:**/dab-*.json",
+    "workspaceContains:**/staticwebapp.database.config.json"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -65,18 +64,7 @@
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
-  "keywords": [
-    "Data API Builder",
-    "dab",
-    "poco",
-    "c#",
-    "csharp",
-    "configuration",
-    "json",
-    "tools",
-    "automation",
-    "code generation"
-  ],
+  "keywords": [ "Data API builder" ],
   "author": "Jerry Nixon",
   "license": "MIT",
   "dependencies": {
