@@ -15,9 +15,7 @@ export function getOrCreateDabTerminal(): vscode.Terminal {
 
   // Check if the terminal exists and is still active
   if (!dabTerminal || dabTerminal.exitStatus || (lastCommandTime && now - lastCommandTime > TERMINAL_TIMEOUT)) {
-    if (dabTerminal) {
-      dabTerminal.dispose();
-    }
+    dabTerminal?.dispose(); // Ensure any old terminal is removed
     dabTerminal = vscode.window.createTerminal(TERMINAL_NAME);
   }
 

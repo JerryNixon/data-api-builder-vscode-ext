@@ -1,58 +1,59 @@
-  {
+{
     "name": "validate-data-api-builder",
     "displayName": "DAB Validate (Data API Builder)",
     "description": "Validate a Data API Builder configuration file.",
     "publisher": "jerry-nixon",
-    "version": "0.0.7",
+    "version": "0.0.9",
     "icon": "images/icon.png",
     "engines": {
-      "vscode": "^1.95.0"
+        "vscode": "^1.95.0"
     },
     "galleryBanner": {
-      "color": "#0078d7",
-      "theme": "dark",
-      "background": "images/dab-logo.png"
+        "color": "#0078d7",
+        "theme": "dark",
+        "background": "images/dab-logo.png"
     },
     "repository": {
-      "type": "git",
-      "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
+        "type": "git",
+        "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
     },
     "categories": [
-      "Other",
-      "Programming Languages",
-      "Debuggers"
+        "Other",
+        "Programming Languages",
+        "Debuggers"
     ],
     "activationEvents": [
-      "workspaceContains:**/dab-*.json",
-      "workspaceContains:**/staticwebapp.database.config.json"
+        "workspaceContains:**/dab-*.json",
+        "workspaceContains:**/staticwebapp.database.config.json"
     ],
     "main": "./out/extension.js",
     "contributes": {
-      "commands": [
-        {
-          "command": "dabExtension.validateDab",
-          "title": "DAB Validate",
-          "category": "DAB"
+        "commands": [
+            {
+                "command": "dabExtension.validateDab",
+                "title": "DAB Validate",
+                "category": "DAB"
+            }
+        ],
+        "menus": {
+            "explorer/context": [
+                {
+                    "command": "dabExtension.validateDab",
+                    "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
+                    "group": "1_dab"
+                }
+            ]
         }
-      ],
-      "menus": {
-        "explorer/context": [
-          {
-            "command": "dabExtension.validateDab",
-            "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-            "group": "1_dab"
-          }
-        ]
-      },
-      "scripts": {
+    },
+    "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "pretest": "npm run compile && npm run lint",
         "lint": "eslint src",
         "test": "vscode-test"
-      },
-      "devDependencies": {
+    },
+    "devDependencies": {
         "@types/vscode": "^1.95.0",
         "@types/mocha": "^10.0.9",
         "@types/node": "20.x",
@@ -62,16 +63,13 @@
         "typescript": "^5.6.3",
         "@vscode/test-cli": "^0.0.10",
         "@vscode/test-electron": "^2.4.1"
-      },
-      "keywords": [
-        "Data API Builder",
-        "dab",
-        "configuration",
-        "json",
-        "tools",
-        "automation"
-      ],
-      "author": "Jerry Nixon",
-      "license": "MIT"
-    }
-  }
+    },
+    "dependencies": {
+        "typescript": "^5.7.3"
+    },
+    "keywords": [
+        "Data API Builder"
+    ],
+    "author": "Jerry Nixon",
+    "license": "MIT"
+}

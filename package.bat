@@ -1,58 +1,68 @@
-:: Create the 'out' directory if it doesn't exist
 @echo off
+:: Create 'out' directory if it doesn't exist
 rd out /s /q
 md out
 
-cd ./omnibus-data-api-builder
-ECHO STARTING ./omnibus-data-api-builder
+:MENU
+cls
+echo ==========================================
+echo   Data API Builder - VS Code Extensions
+echo ==========================================
+echo [0]  PACKAGE -All-
+echo [1]  PACKAGE omnibus-data-api-builder
+echo [2]  PACKAGE poco-data-api-builder
+echo [3]  PACKAGE init-data-api-builder
+echo [4]  PACKAGE config-data-api-builder
+echo [5]  PACKAGE start-data-api-builder
+echo [6]  PACKAGE add-data-api-builder
+echo [7]  PACKAGE validate-data-api-builder
+echo [8]  PACKAGE visualize-data-api-builder
+echo ==========================================
+echo [a]  Open Out Folder in File Explorer
+echo [b]  Open VS Marketplace Publisher Page
+echo [x]  Exit this script
+echo ==========================================
+set /p choice="Select an option: "
+
+:: Execute based on choice
+if "%choice%"=="1" call :RUN omnibus-data-api-builder
+if "%choice%"=="2" call :RUN poco-data-api-builder npx webpack
+if "%choice%"=="3" call :RUN init-data-api-builder
+if "%choice%"=="4" call :RUN config-data-api-builder
+if "%choice%"=="5" call :RUN start-data-api-builder
+if "%choice%"=="6" call :RUN add-data-api-builder npx webpack
+if "%choice%"=="7" call :RUN validate-data-api-builder
+if "%choice%"=="8" call :RUN visualize-data-api-builder
+if "%choice%"=="0" call :RUN_ALL
+if /I "%choice%"=="a" start "" explorer "%cd%\out"
+if /I "%choice%"=="b" start "" "https://marketplace.visualstudio.com/manage/publishers/jerry-nixon"
+if /I "%choice%"=="x" goto EXIT
+goto MENU
+
+:: Function to process builds
+:RUN
+cd ./%1
+echo ------------------------------------------
+echo   BUILDING: %1
+echo ------------------------------------------
+if not "%2"=="" call %2
 call vsce package
 move /Y *.vsix ../out
 cd ..
+goto :eof
 
-cd ./poco-data-api-builder
-ECHO STARTING ./poco-data-api-builder
-call npx webpack
-call vsce package
-move /Y *.vsix ../out
-cd ..
+:: Run all extensions
+:RUN_ALL
+for %%E in (
+    omnibus-data-api-builder
+    "poco-data-api-builder npx webpack"
+    init-data-api-builder
+    config-data-api-builder
+    start-data-api-builder
+    "add-data-api-builder npx webpack"
+    validate-data-api-builder
+    visualize-data-api-builder
+) do call :RUN %%E
+goto MENU
 
-cd ./init-data-api-builder
-ECHO STARTING ./init-data-api-builder
-call vsce package
-move /Y *.vsix ../out
-cd ..
-
-cd ./config-data-api-builder
-ECHO STARTING ./config-data-api-builder
-call vsce package
-move /Y *.vsix ../out
-cd ..
-
-cd ./start-data-api-builder
-ECHO STARTING ./start-data-api-builder
-call vsce package
-move /Y *.vsix ../out
-cd ..
-
-cd ./add-data-api-builder
-ECHO STARTING ./add-data-api-builder
-call npx webpack
-call vsce package
-move /Y *.vsix ../out
-cd ..
-
-cd ./validate-data-api-builder
-ECHO STARTING ./validate-data-api-builder
-call vsce package
-move /Y *.vsix ../out
-cd ..
-
-cd ./visualize-data-api-builder
-ECHO STARTING ./visualize-data-api-builder
-call vsce package
-move /Y *.vsix ../out
-cd ..
-
-
-GOTO EXIT
 :EXIT
