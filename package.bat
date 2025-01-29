@@ -26,11 +26,11 @@ set /p choice="Select an option: "
 
 :: Execute based on choice
 if "%choice%"=="1" call :RUN omnibus-data-api-builder
-if "%choice%"=="2" call :RUN poco-data-api-builder npx webpack
+if "%choice%"=="2" call :RUN poco-data-api-builder "npx webpack"
 if "%choice%"=="3" call :RUN init-data-api-builder
 if "%choice%"=="4" call :RUN config-data-api-builder
 if "%choice%"=="5" call :RUN start-data-api-builder
-if "%choice%"=="6" call :RUN add-data-api-builder npx webpack
+if "%choice%"=="6" call :RUN add-data-api-builder "npx webpack"
 if "%choice%"=="7" call :RUN validate-data-api-builder
 if "%choice%"=="8" call :RUN visualize-data-api-builder
 if "%choice%"=="0" call :RUN_ALL
@@ -53,16 +53,15 @@ goto :eof
 
 :: Run all extensions
 :RUN_ALL
-for %%E in (
-    omnibus-data-api-builder
-    "poco-data-api-builder npx webpack"
-    init-data-api-builder
-    config-data-api-builder
-    start-data-api-builder
-    "add-data-api-builder npx webpack"
-    validate-data-api-builder
-    visualize-data-api-builder
-) do call :RUN %%E
+call :RUN omnibus-data-api-builder
+call :RUN poco-data-api-builder "npx webpack"
+call :RUN init-data-api-builder
+call :RUN config-data-api-builder
+call :RUN start-data-api-builder
+call :RUN add-data-api-builder "npx webpack"
+call :RUN validate-data-api-builder
+call :RUN visualize-data-api-builder
 goto MENU
 
 :EXIT
+exit
