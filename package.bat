@@ -45,7 +45,7 @@ cd ./%1
 echo ------------------------------------------
 echo   BUILDING: %1
 echo ------------------------------------------
-if not "%2"=="" call %2
+if not "%~2"=="" call %~2
 call vsce package
 move /Y *.vsix ../out
 cd ..

@@ -47,7 +47,7 @@ using System.Text.Json.Serialization;
         const content = header + poco;
 
         // Write the POCO to a file
-        const filePath = path.join(modelsFolderPath, `${selected.label}.cs`);
+        const filePath = path.join(modelsFolderPath, `${selected.label}.g.cs`);
         fs.writeFileSync(filePath, content.trim());
       }
     }

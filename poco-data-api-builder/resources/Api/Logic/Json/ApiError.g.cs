@@ -2,7 +2,7 @@ namespace Api.Logic.Json;
 
 using System.Text.Json.Serialization;
 
-public class ApiError
+public partial class ApiError
 {
     [JsonPropertyName("code")]
     public string Code { get; set; } = string.Empty;

@@ -2,7 +2,7 @@ namespace Api.Logic.Json;
 
 using System.Text.Json.Serialization;
 
-public class ApiRoot<T>
+public partial class ApiRoot<T>
 {
     [JsonPropertyName("value")]
     public T[]? Results { get; set; }

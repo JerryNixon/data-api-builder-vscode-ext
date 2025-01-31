@@ -47,8 +47,8 @@ export async function createProgramCs(
                 ? `Parameters = new Dictionary<string, string>\n        {\n        ${parameters}\n        }`
                 : "";
 
-            programCodeParts.push(`var ${camelCaseEntity}Uri = new Uri($"{baseUrl}${restPath}");
-var ${camelCaseEntity}Repository = new Api.${entity}Repository(${camelCaseEntity}Uri);
+            programCodeParts.push(`var ${camelCaseEntity}Uri = $"{baseUrl.Trim('/')}/api/${restPath}";
+var ${camelCaseEntity}Repository = new Api.${entity}Repository(new(${camelCaseEntity}Url));
 var ${camelCaseEntity}Items = await ${camelCaseEntity}Repository.ExecuteProcedureAsync(
     options: new()
     {${methodLine}
@@ -61,8 +61,8 @@ foreach (var item in ${camelCaseEntity}Items)
     Console.WriteLine(item.ToString());
 }`);
         } else {
-            programCodeParts.push(`var ${camelCaseEntity}Uri = new Uri($"{baseUrl}${restPath}");
-var ${camelCaseEntity}Repository = new Api.${entity}Repository(${camelCaseEntity}Uri);
+            programCodeParts.push(`var ${camelCaseEntity}Url = $"{baseUrl.Trim('/')}/api/${restPath}";
+var ${camelCaseEntity}Repository = new Api.${entity}Repository(new(${camelCaseEntity}Url));
 var ${camelCaseEntity}Items = await ${camelCaseEntity}Repository.GetAsync(options: new() { First = 1 });
 Console.WriteLine($"\\n{${camelCaseEntity}Items.Length} item(s) returned from /${entity}.");
 foreach (var item in ${camelCaseEntity}Items)
@@ -80,9 +80,7 @@ if (!await Api.Logic.Utility.IsApiAvailableAsync(baseUrl))
     System.Diagnostics.Debug.WriteLine(message);
     Console.WriteLine(message);
     return;
-}
-
-baseUrl += "api/";`;
+}`;
 
     const programCode = `${apiCheckCode}
 

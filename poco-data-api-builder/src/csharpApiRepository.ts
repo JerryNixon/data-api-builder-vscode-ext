@@ -32,7 +32,7 @@ export async function createApiCs(
         continue;
     }
 
-    const filePath = path.join(apiFolderPath, `${selected.label}Repository.cs`);
+    const filePath = path.join(apiFolderPath, `${selected.label}Repository.g.cs`);
     fs.writeFileSync(filePath, repositoryCode.trim());
   }
 }
@@ -63,7 +63,8 @@ using Api.Logic.Abstractions;
 using Api.Logic.Options;
 using Api.Models;
 
-public class ${className}Repository : ApiTableViewRepository<${className}>
+public partial class ${className}Repository 
+    : ApiTableViewRepository<${className}>
 {
     public ${className}Repository(Uri baseUri) : base(baseUri) { }
 
@@ -108,7 +109,8 @@ using Api.Logic.Abstractions;
 using Api.Logic.Options;
 using Api.Models;
 
-public class ${className}Repository : ApiTableViewRepository<${className}>
+public partial class ${className}Repository 
+    : ApiTableViewRepository<${className}>
 {
     public ${className}Repository(Uri baseUri) : base(baseUri) { }
 
@@ -143,7 +145,7 @@ using Api.Logic.Abstractions;
 using Api.Logic.Options;
 using Api.Models;
 
-public class ${className}Repository(Uri baseUri) 
+public partial class ${className}Repository(Uri baseUri) 
     : ApiProcedureRepository<${className}>(baseUri)
 {
     public async Task<${className}[]> ExecAsync(${methodParams})
