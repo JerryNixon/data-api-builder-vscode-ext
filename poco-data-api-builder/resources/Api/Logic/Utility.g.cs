@@ -9,7 +9,7 @@ using System.Text.Json.Serialization;
 using Api.Logic.Json;
 using Api.Logic.Options;
 
-public partial static class Utility
+public static partial class Utility
 {
     public static async Task<bool> IsApiAvailableAsync(string url, int timeoutInSeconds = 30)
     {

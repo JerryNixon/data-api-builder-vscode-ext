@@ -16,6 +16,36 @@ export function validateConfigPath(configPath: string): boolean {
 }
 
 /**
+ * Retrieves the list of entities that are already defined in the DAB configuration file.
+ * @param configPath The path to the DAB configuration file.
+ * @returns A list of entities in the format "schema.table".
+ */
+export async function getExistingEntities(configPath: string): Promise<string[]> {
+    const fs = require('fs');
+    
+    if (!fs.existsSync(configPath)) {
+        return [];
+    }
+
+    try {
+        const configContent = fs.readFileSync(configPath, 'utf8');
+        const config = JSON.parse(configContent);
+        
+        if (!config || !config.entities) {
+            return [];
+        }
+
+        return Object.keys(config.entities).map(entity => {
+            const schema = config.entities[entity].source.schema || 'dbo';
+            return `${schema}.${config.entities[entity].source.object}`;
+        });
+    } catch (error) {
+        console.error('Error reading DAB configuration:', error);
+        return [];
+    }
+}
+
+/**
  * Checks if a stored procedure already exists in the configuration file.
  * @param configPath - The path to the configuration file.
  * @param procedureName - The name of the stored procedure (e.g., 'dbo.SampleProcedure').

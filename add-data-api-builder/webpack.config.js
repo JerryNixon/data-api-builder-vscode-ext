@@ -7,10 +7,12 @@ module.exports = {
         path: path.resolve(__dirname, 'dist'),
         filename: 'extension.js',
         libraryTarget: 'commonjs2',
+        devtoolModuleFilenameTemplate: "../[resource-path]" // ✅ Fixes breakpoint mapping
     },
     resolve: {
         extensions: ['.ts', '.js'],
     },
+    devtool: 'source-map', // ✅ Enables source map generation
     module: {
         rules: [
             {

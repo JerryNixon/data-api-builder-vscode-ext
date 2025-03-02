@@ -3,7 +3,7 @@
   "displayName": "DAB Add (Data API Builder)",
   "description": "Adds entities to a Data API Builder configuration file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -42,6 +42,10 @@
       {
         "command": "dabExtension.addRelationship",
         "title": "Relationship"
+      },
+      {
+        "command": "dabExtension.addLinkingTable",
+        "title": "Linking Table"
       }
     ],
     "submenus": [
@@ -74,6 +78,10 @@
         {
           "command": "dabExtension.addRelationship",
           "group": "1_add@4"
+        },
+        {
+          "command": "dabExtension.addLinkingTable",
+          "group": "1_add@5"
         }
       ]
     }

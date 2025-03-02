@@ -93,9 +93,10 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       try {
+        await delay(2000);
         await openDabConfig(initConfig.path);
       } catch (error) {
-        vscode.window.showErrorMessage(`Failed to open configuration file: ${(error as Error).message}`);
+        // ignore error
       }
     } catch (error) {
       vscode.window.showErrorMessage(`Unknown error occurred during initialization: ${(error as Error).message}`);
@@ -103,6 +104,10 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   context.subscriptions.push(initDabCommand);
+}
+
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function handleDabConfig(folderPath: string, configPath: string): Promise<{ success: boolean; message?: string }> {
@@ -226,7 +231,6 @@ function runDabInit(folderPath: string, dbType: string, connectionString: string
 async function openDabConfig(configPath: string): Promise<void> {
   const document = await vscode.workspace.openTextDocument(configPath);
   await vscode.window.showTextDocument(document);
-  vscode.window.showInformationMessage('Data API Builder initialized and configuration file opened successfully!');
 }
 
 export function deactivate() {}

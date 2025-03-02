@@ -3,6 +3,7 @@ import { addTable } from './mssql/addTable';
 import { addView } from './mssql/addView';
 import { addProc } from './mssql/addProc';
 import { addRelationship } from './mssql/addRelationship';
+import { addLinkingTable } from './mssql/addLinkingTable';
 import { readDatabaseType, getConnectionString } from './readConfig';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -22,7 +23,17 @@ export function activate(context: vscode.ExtensionContext) {
     await handleAddEntity(uri, addRelationship, 'Add Relationship');
   });
 
-  context.subscriptions.push(addTableCommand, addViewCommand, addProcCommand, addRelationshipCommand);
+  const addLinkingTableCommand = vscode.commands.registerCommand('dabExtension.addLinkingTable', async (uri: vscode.Uri) => {
+    await handleAddEntity(uri, addLinkingTable, 'Add Linking Table');
+  });
+
+  context.subscriptions.push(
+    addTableCommand,
+    addViewCommand,
+    addProcCommand,
+    addRelationshipCommand,
+    addLinkingTableCommand
+  );
 }
 
 async function handleAddEntity(uri: vscode.Uri, action: (configPath: string, connectionString: string) => Promise<void>, entityType: string) {

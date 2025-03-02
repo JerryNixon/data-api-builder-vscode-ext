@@ -9,10 +9,141 @@ import * as sql from 'mssql';
 export async function openConnection(connectionString: string): Promise<sql.ConnectionPool | undefined> {
   try {
     return await sql.connect(connectionString);
-  } catch (connectionError) {
-    vscode.window.showErrorMessage(`Database connection failed: ${connectionError}`);
+  } catch (connectionError: any) {
+    let errorMessage = 'Database connection failed.';
+
+    if (connectionError.code) {
+      errorMessage += ` Error Code: ${connectionError.code}.`;
+    }
+
+    if (connectionError.message) {
+      errorMessage += ` Message: ${connectionError.message}.`;
+    }
+
+    if (connectionError.originalError?.message) {
+      errorMessage += ` Details: ${connectionError.originalError.message}.`;
+    }
+
+    console.error(errorMessage);
+    vscode.window.showErrorMessage("!" + errorMessage);
     return undefined;
   }
+}
+
+interface Relationship {
+  LeftTable: string;          // e.g., "dbo.authors"
+  LeftName: string;           // e.g., "authors"
+  LeftKeys: string;           // e.g., "id" (comma-separated if multiple)
+  MiddleTable: string;        // e.g., "dbo.books_authors"
+  MiddleLeftKeys: string;     // e.g., "author_id" (comma-separated if multiple)
+  MiddleRightKeys: string;    // e.g., "book_id" (comma-separated if multiple)
+  RightTable: string;         // e.g., "dbo.books"
+  RightName: string;          // e.g., "books"
+  RightKeys: string;          // e.g., "id" (comma-separated if multiple)
+  PresentationString: string; // Formatted string describing the relationship
+  DabCliCommand: string;      // Generated DAB CLI command
+}
+
+/**
+ * Retrieves potential many-to-many relationships from the database using foreign key constraints.
+ * @param connection SQL Server connection pool
+ * @returns Array of relationships with source, junction, and target table details, including DAB CLI commands
+ */
+export async function getPotentialLinkedTables(
+  connection: sql.ConnectionPool
+): Promise<Relationship[]> {
+  const query = `
+    WITH ForeignKeyRelationships AS (
+        -- Find tables that have foreign keys pointing to other tables (Right side of the relationship)
+        SELECT 
+          CONCAT(fk.TABLE_SCHEMA, '.', fk.TABLE_NAME) AS MiddleTable,
+          CONCAT(pk.TABLE_SCHEMA, '.', pk.TABLE_NAME) AS RightTable,
+          pk.TABLE_NAME AS RightName,
+          fk.COLUMN_NAME AS MiddleRightKey, 
+          pk.COLUMN_NAME AS RightKey
+        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE fk
+        JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
+          ON fk.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE pk
+          ON rc.UNIQUE_CONSTRAINT_NAME = pk.CONSTRAINT_NAME 
+          AND fk.ORDINAL_POSITION = pk.ORDINAL_POSITION
+    ),
+    GroupedRelationships AS (
+        -- Find tables that the MiddleTable itself references (Left side of the relationship)
+        SELECT 
+          CONCAT(fk.TABLE_SCHEMA, '.', fk.TABLE_NAME) AS LeftTable,
+          CONCAT(pk.TABLE_SCHEMA, '.', pk.TABLE_NAME) AS MiddleTable,
+          fk.TABLE_NAME AS LeftName,
+          fk.COLUMN_NAME AS LeftKey, 
+          pk.COLUMN_NAME AS MiddleLeftKey
+        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE fk
+        JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
+          ON fk.CONSTRAINT_NAME = rc.UNIQUE_CONSTRAINT_NAME
+        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE pk
+          ON rc.CONSTRAINT_NAME = pk.CONSTRAINT_NAME 
+          AND fk.ORDINAL_POSITION = pk.ORDINAL_POSITION
+    )
+    , Reciprocal AS (
+      SELECT 
+        g.LeftTable,
+        g.LeftName,
+        STRING_AGG(g.LeftKey, ',') AS LeftKeys,
+        g.MiddleTable,
+        STRING_AGG(g.MiddleLeftKey, ',') AS MiddleLeftKeys,
+        STRING_AGG(f.MiddleRightKey, ',') AS MiddleRightKeys,
+        f.RightTable,
+        f.RightName,
+        STRING_AGG(f.RightKey, ',') AS RightKeys
+      FROM GroupedRelationships g
+      JOIN ForeignKeyRelationships f ON g.MiddleTable = f.MiddleTable
+      -- Ensure we only pick MiddleTables that have exactly 2 outbound relationships
+      GROUP BY g.LeftTable, g.MiddleTable, f.RightTable, g.LeftName, f.RightName
+
+      UNION
+
+      SELECT 
+        f.RightTable AS LeftTable,
+        f.RightName AS LeftName,
+        STRING_AGG(f.RightKey, ',') AS LeftKeys,
+        g.MiddleTable,
+        STRING_AGG(f.MiddleRightKey, ',') AS MiddleLeftKeys,
+        STRING_AGG(g.MiddleLeftKey, ',') AS MiddleRightKeys,
+        g.LeftTable AS RightTable,
+        g.LeftName AS RightName,
+        STRING_AGG(g.LeftKey, ',') AS RightKeys
+      FROM GroupedRelationships g
+      JOIN ForeignKeyRelationships f ON g.MiddleTable = f.MiddleTable
+      GROUP BY g.LeftTable, g.MiddleTable, f.RightTable, f.RightName, g.LeftName
+    )
+    SELECT *,
+        CONCAT (
+            LeftTable, ' [',
+            LeftKeys, '] <- [',
+            MiddleLeftKeys, '] ',
+            MiddleTable, ' [', 
+            MiddleRightKeys, '] -> ',
+            RightTable, ' [',
+            RightKeys, ']'
+        ) AS PresentationString,
+      CONCAT('dab update "', LeftName, '" ') + 
+      CONCAT(' --relationship "', RightName, '" ') + 
+      CONCAT(' --target.entity "', RightName, '" ') + 
+      ' --cardinality many ' +
+      CONCAT(' --relationship.fields "', LeftKeys, ':', RightKeys, '" ') + 
+      CONCAT(' --linking.object "', MiddleTable, '" ') + 
+      CONCAT(' --linking.source.fields "', MiddleLeftKeys, '" ') + 
+      CONCAT(' --linking.target.fields "', MiddleRightKeys, '"') AS DabCliCommand
+    FROM Reciprocal
+    WHERE LeftTable != RightTable
+    ORDER BY 4, 2
+  `;
+
+  const request = connection.request();
+  const result = await request.query<Relationship>(query); // Type the query result
+  if (!result.recordset.length) {
+    return [];
+  }
+  return result.recordset;
 }
 
 /**
