@@ -1,6 +1,34 @@
 import * as vscode from 'vscode';
 import * as sql from 'mssql';
 
+interface Relationship { //delete?
+  LeftTable: string;          // e.g., "dbo.authors"
+  LeftName: string;           // e.g., "authors"
+  LeftKeys: string;           // e.g., "id" (comma-separated if multiple)
+  MiddleTable: string;        // e.g., "dbo.books_authors"
+  MiddleLeftKeys: string;     // e.g., "author_id" (comma-separated if multiple)
+  MiddleRightKeys: string;    // e.g., "book_id" (comma-separated if multiple)
+  RightTable: string;         // e.g., "dbo.books"
+  RightName: string;          // e.g., "books"
+  RightKeys: string;          // e.g., "id" (comma-separated if multiple)
+  PresentationString: string; // Formatted string describing the relationship
+  DabCliCommand: string;      // Generated DAB CLI command
+}
+
+export interface LinkingTable {
+  leftSchema: string;
+  leftTable: string;
+  leftKeyColumn: string;
+  centerSchema: string;
+  centerTable: string;
+  centerLeftKeyColumn: string;
+  centerRightKeyColumn: string;
+  rightSchema: string;
+  rightTable: string;
+  rightKeyColumn: string;
+  text: string;
+}
+
 /**
  * Opens a connection to the SQL Server database.
  * @param connectionString - The SQL Server connection string.
@@ -30,18 +58,81 @@ export async function openConnection(connectionString: string): Promise<sql.Conn
   }
 }
 
-interface Relationship {
-  LeftTable: string;          // e.g., "dbo.authors"
-  LeftName: string;           // e.g., "authors"
-  LeftKeys: string;           // e.g., "id" (comma-separated if multiple)
-  MiddleTable: string;        // e.g., "dbo.books_authors"
-  MiddleLeftKeys: string;     // e.g., "author_id" (comma-separated if multiple)
-  MiddleRightKeys: string;    // e.g., "book_id" (comma-separated if multiple)
-  RightTable: string;         // e.g., "dbo.books"
-  RightName: string;          // e.g., "books"
-  RightKeys: string;          // e.g., "id" (comma-separated if multiple)
-  PresentationString: string; // Formatted string describing the relationship
-  DabCliCommand: string;      // Generated DAB CLI command
+export async function getPotentialLinkingTables(connection: sql.ConnectionPool): Promise<LinkingTable[]> {
+  const query = `
+    WITH ForeignKeys AS (
+        SELECT 
+            fk.name AS FKName,
+            sch.name AS SchemaName,
+            parent.name AS TableName,
+            col.name AS ColumnName,
+            ref_sch.name AS RefSchemaName,
+            ref.name AS RefTableName,
+            ref_col.name AS RefColumnName
+        FROM sys.foreign_keys fk
+        JOIN sys.foreign_key_columns fkc ON fkc.constraint_object_id = fk.object_id
+        JOIN sys.tables parent ON parent.object_id = fk.parent_object_id
+        JOIN sys.schemas sch ON sch.schema_id = parent.schema_id
+        JOIN sys.columns col ON col.column_id = fkc.parent_column_id AND col.object_id = parent.object_id
+        JOIN sys.tables ref ON ref.object_id = fk.referenced_object_id
+        JOIN sys.schemas ref_sch ON ref_sch.schema_id = ref.schema_id
+        JOIN sys.columns ref_col ON ref_col.column_id = fkc.referenced_column_id AND ref_col.object_id = ref.object_id
+    ),
+    PrimaryKeys AS (
+        SELECT 
+            sch.name AS SchemaName,
+            t.name AS TableName,
+            c.name AS ColumnName
+        FROM sys.indexes i
+        JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+        JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+        JOIN sys.tables t ON t.object_id = i.object_id
+        JOIN sys.schemas sch ON sch.schema_id = t.schema_id
+        WHERE i.is_primary_key = 1
+    ),
+    CompositePrimaryKeys AS (
+        SELECT SchemaName, TableName
+        FROM PrimaryKeys
+        GROUP BY SchemaName, TableName
+        HAVING COUNT(*) = 2
+    ),
+    FKPairs AS (
+        SELECT
+            f1.SchemaName AS CenterSchema,
+            f1.TableName AS CenterTable,
+            f1.ColumnName AS CenterLeftKeyColumn,
+            f2.ColumnName AS CenterRightKeyColumn,
+            f1.RefSchemaName AS LeftSchema,
+            f1.RefTableName AS LeftTable,
+            f1.RefColumnName AS LeftKeyColumn,
+            f2.RefSchemaName AS RightSchema,
+            f2.RefTableName AS RightTable,
+            f2.RefColumnName AS RightKeyColumn
+        FROM ForeignKeys f1
+        JOIN ForeignKeys f2 ON
+            f1.SchemaName = f2.SchemaName AND
+            f1.TableName = f2.TableName AND
+            f1.ColumnName < f2.ColumnName
+    )
+    SELECT
+        fp.LeftSchema AS leftSchema,
+        fp.LeftTable AS leftTable,
+        fp.LeftKeyColumn AS leftKeyColumn,
+        fp.CenterSchema AS centerSchema,
+        fp.CenterTable AS centerTable,
+        fp.CenterLeftKeyColumn AS centerLeftKeyColumn,
+        fp.CenterRightKeyColumn AS centerRightKeyColumn,
+        fp.RightSchema AS rightSchema,
+        fp.RightTable AS rightTable,
+        fp.RightKeyColumn AS rightKeyColumn,
+        CONCAT(fp.LeftSchema, '.', fp.LeftTable, ' <-> ', fp.RightSchema, '.', fp.RightTable, ' via ', fp.CenterSchema, '.', fp.CenterTable) AS text
+    FROM FKPairs fp
+    JOIN CompositePrimaryKeys pk 
+        ON pk.SchemaName = fp.CenterSchema AND pk.TableName = fp.CenterTable
+  `;
+
+  const result = await connection.request().query(query);
+  return result.recordset as LinkingTable[];
 }
 
 /**

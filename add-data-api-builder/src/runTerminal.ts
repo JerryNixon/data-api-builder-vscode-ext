@@ -30,8 +30,8 @@ export function getOrCreateDabTerminal(): vscode.Terminal {
  * Sends a command to the terminal, appending it to the CLI history without resetting the terminal.
  * @param command - The command string to be executed.
  */
-export function runCommand(command: string) {
+export async function runCommand(command: string): Promise<void> {
   const terminal = getOrCreateDabTerminal();
-  terminal.sendText(command, true); // `true` appends the command to the terminal history
+  terminal.sendText(command, true);
   terminal.show();
 }
