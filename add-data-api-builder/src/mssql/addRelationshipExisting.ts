@@ -1,81 +1,101 @@
 import * as vscode from 'vscode';
 import * as sql from 'mssql';
+import * as path from 'path';
+import * as process from 'process';
 import { openConnection } from './querySql';
 import {
   getConfiguredEntities,
-  getDatabaseRelationships,
-  filterValidRelationships,
-  isRelationshipInConfig,
-  addRelationshipToConfig,
-  chooseMultipleRelationships,
+  validateConfigPath
+} from '../readConfig';
+import {
+  getDatabaseRelationships
 } from './relationshipHelpers';
+import { runCommand } from '../runTerminal';
 
 /**
- * Adds relationships from existing database definitions to the configuration.
- * @param configPath - The path to the configuration file.
- * @param connectionString - The SQL Server connection string.
+ * Adds one-to-many or one-to-one relationships based on foreign keys.
+ * Only includes relationships between configured entities (by alias).
  */
 export async function addRelationshipExisting(configPath: string, connectionString: string) {
-  let pool: sql.ConnectionPool | undefined;
-
-  try {
-    await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: 'Loading Relationship Metadata...',
-        cancellable: false,
-      },
-      async (progress) => {
-        // Step 1: Connect to the database
-        progress.report({ message: 'Connecting to the database...' });
-        pool = await openConnection(connectionString);
-        if (!pool) {
-          throw new Error('Failed to connect to the database.');
-        }
-
-        // Step 2: Fetch all relationships from the database
-        progress.report({ message: 'Fetching all relationships...' });
-        const allRelationships = await getDatabaseRelationships(pool, configPath);
-        if (allRelationships.length === 0) {
-          throw new Error('No relationships found in the database.');
-        }
-
-        // Step 3: Fetch entities from the configuration file
-        progress.report({ message: 'Fetching entities from the configuration...' });
-        const entities = await getConfiguredEntities(configPath);
-        if (entities.length === 0) {
-          throw new Error('No entities found in the configuration file.');
-        }
-
-        // Step 4: Filter valid relationships based on the configuration
-        progress.report({ message: 'Filtering valid relationships...' });
-        const validRelationships = await filterValidRelationships(entities, configPath, allRelationships);
-        if (validRelationships.length === 0) {
-          throw new Error('No valid relationships found in the database.');
-        }
-
-        // Step 5: Allow user to choose multiple relationships
-        const selectedRelationships = await chooseMultipleRelationships(validRelationships);
-        if (!selectedRelationships || selectedRelationships.length === 0) {
-          vscode.window.showInformationMessage('No relationships selected.');
-          return;
-        }
-
-        // Step 6: Add selected relationships to the configuration
-        for (const rel of selectedRelationships) {
-          if (!(await isRelationshipInConfig(configPath, rel.sourceTableName, rel))) {
-            await addRelationshipToConfig(configPath, rel.sourceTableName, rel);
-          }
-        }
-
-        vscode.window.showInformationMessage('Selected relationships have been added successfully.');
-      }
-    );
-  } catch (error) {
-    vscode.window.showErrorMessage(error instanceof Error ? error.message : `Error adding relationships: ${error}`);
-  } finally {
-    if (pool) {
-      await pool.close();
-    }
+  if (!validateConfigPath(configPath)) {
+    vscode.window.showErrorMessage("❌ Configuration file not found.");
+    return;
   }
+
+  const pool = await openConnection(connectionString);
+  if (!pool) {
+    vscode.window.showErrorMessage("❌ Failed to connect to the database.");
+    return;
+  }
+
+  const [dbRelationships, aliasMap] = await Promise.all([
+    getDatabaseRelationships(pool, configPath),
+    getConfiguredEntities(configPath)
+  ]);
+
+  const valid = dbRelationships.filter(r => {
+    const sourceKey = r.sourceTableName.toLowerCase();
+    const targetKey = r.targetTableName.toLowerCase();
+    return aliasMap.has(sourceKey) && aliasMap.has(targetKey);
+  });
+
+  if (!valid.length) {
+    vscode.window.showInformationMessage("No valid 1:N relationships found.");
+    return;
+  }
+
+  const selected = await vscode.window.showQuickPick(
+    valid.map(r => {
+      const sourceKey = r.sourceTableName.toLowerCase();
+      const targetKey = r.targetTableName.toLowerCase();
+      const sourceAlias = aliasMap.get(sourceKey) ?? r.sourceTableName;
+      const targetAlias = aliasMap.get(targetKey) ?? r.targetTableName;
+      
+      return {
+        label: `${sourceAlias} → ${targetAlias}`,
+        description: `1:N relationship`,
+        detail: `Linking: ${sourceAlias}.${r.sourceColumnNames} → ${targetAlias}.${r.targetColumnNames}`,
+        relationship: r,
+        sourceAlias,
+        targetAlias
+      };
+    }),
+    {
+      title: "Select one-to-many relationships to add",
+      canPickMany: true
+    }
+  );
+
+  if (!selected || !selected.length) { return; }
+
+  for (const item of selected) {
+    const { sourceAlias, targetAlias } = item;
+    const { sourceColumnNames, targetColumnNames } = item.relationship;
+    await applyRelationship(configPath, sourceAlias, targetAlias, sourceColumnNames, targetColumnNames);
+  }
+
+  vscode.window.showInformationMessage("✅ Relationships added successfully.");
+}
+
+/**
+ * Executes the CLI command to add a one-to-many relationship.
+ */
+async function applyRelationship(
+  configPath: string,
+  sourceAlias: string,
+  targetAlias: string,
+  sourceColumns: string,
+  targetColumns: string
+) {
+  const configDir = path.dirname(configPath);
+  const configFile = path.basename(configPath);
+  process.chdir(configDir);
+
+  const cmd = `dab update ${sourceAlias} ` +
+    `--relationship ${targetAlias} --cardinality one ` +
+    `--target.entity ${targetAlias} ` +
+    `--relationship.fields ${sourceColumns}:${targetColumns} ` +
+    `--config ${configFile}`;
+
+  await runCommand(cmd);
 }

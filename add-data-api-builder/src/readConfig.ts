@@ -15,6 +15,29 @@ export function validateConfigPath(configPath: string): boolean {
     return true;
 }
 
+export async function getConfiguredEntities(configPath: string): Promise<Map<string, string>> {
+    const fs = require('fs');
+    const aliasMap = new Map<string, string>();
+
+    if (!fs.existsSync(configPath)) { return aliasMap; }
+
+    try {
+        const configContent = fs.readFileSync(configPath, 'utf8');
+        const config = JSON.parse(configContent);
+        const entities = config.entities || {};
+
+        for (const [alias, definition] of Object.entries<any>(entities)) {
+            if (definition.source?.type === "table" && definition.source?.object) {
+                aliasMap.set(definition.source.object.toLowerCase(), alias);
+            }
+        }
+
+        return aliasMap;
+    } catch {
+        return aliasMap;
+    }
+}
+
 /**
  * Gets a set of defined many-to-many relationships using linking objects.
  * Format: `${source}->${target}->${linkingObject}`
@@ -84,7 +107,7 @@ export async function getTableAliasMap(configPath: string): Promise<Map<string, 
  */
 export async function getExistingEntities(configPath: string): Promise<string[]> {
     const fs = require('fs');
-    
+
     if (!fs.existsSync(configPath)) {
         return [];
     }
@@ -92,7 +115,7 @@ export async function getExistingEntities(configPath: string): Promise<string[]>
     try {
         const configContent = fs.readFileSync(configPath, 'utf8');
         const config = JSON.parse(configContent);
-        
+
         if (!config || !config.entities) {
             return [];
         }
