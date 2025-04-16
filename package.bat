@@ -17,6 +17,7 @@ echo [5]  PACKAGE start-data-api-builder
 echo [6]  PACKAGE add-data-api-builder
 echo [7]  PACKAGE validate-data-api-builder
 echo [8]  PACKAGE visualize-data-api-builder
+echo [9]  PACKAGE health-data-api-builder
 echo ==========================================
 echo [a]  Open Out Folder in File Explorer
 echo [b]  Open VS Marketplace Publisher Page
@@ -33,6 +34,7 @@ if "%choice%"=="5" call :RUN start-data-api-builder
 if "%choice%"=="6" call :RUN add-data-api-builder "npx webpack"
 if "%choice%"=="7" call :RUN validate-data-api-builder
 if "%choice%"=="8" call :RUN visualize-data-api-builder
+if "%choice%"=="9" call :RUN health-data-api-builder
 if "%choice%"=="0" call :RUN_ALL
 if /I "%choice%"=="a" start "" explorer "%cd%\out"
 if /I "%choice%"=="b" start "" "https://marketplace.visualstudio.com/manage/publishers/jerry-nixon"
@@ -61,6 +63,7 @@ call :RUN start-data-api-builder
 call :RUN add-data-api-builder "npx webpack"
 call :RUN validate-data-api-builder
 call :RUN visualize-data-api-builder
+call :RUN health-data-api-builder
 goto MENU
 
 :EXIT
