@@ -3,7 +3,7 @@
   "displayName": "DAB Add (Data API Builder)",
   "description": "Adds entities to a Data API Builder configuration file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.9",
+  "version": "0.0.12",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -98,7 +98,6 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.9",
-    "@types/mssql": "^9.1.6",
     "@types/node": "20.x",
     "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
@@ -106,15 +105,16 @@
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
     "eslint": "^9.13.0",
-    "mssql": "^11.0.1",
     "ts-loader": "^9.5.2",
     "typescript": "^5.6.3",
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
-  "keywords": [
-    "Data API builder"
-  ],
+  "keywords": [ "Data API builder" ],
   "author": "Jerry Nixon",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@types/mssql": "^9.1.6",
+    "mssql": "^9.3.2"
+  }
 }
