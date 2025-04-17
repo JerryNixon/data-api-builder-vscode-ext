@@ -3,54 +3,90 @@ import * as sql from 'mssql';
 import * as path from 'path';
 import * as process from 'process';
 import { openConnection } from './querySql';
-import {
-  getConfiguredEntities,
-  validateConfigPath
-} from '../readConfig';
-import {
-  getDatabaseRelationships
-} from './relationshipHelpers';
+import { getConfiguredEntities, validateConfigPath } from '../readConfig';
+import { getDatabaseRelationships } from './relationshipHelpers';
 import { runCommand } from '../runTerminal';
 
-/**
- * Adds one-to-many or one-to-one relationships based on foreign keys.
- * Only includes relationships between configured entities (by alias).
- */
 export async function addRelationshipExisting(configPath: string, connectionString: string) {
   if (!validateConfigPath(configPath)) {
-    vscode.window.showErrorMessage("❌ Configuration file not found.");
-    return;
+    return vscode.window.showErrorMessage("❌ Configuration file not found.");
   }
 
   const pool = await openConnection(connectionString);
   if (!pool) {
-    vscode.window.showErrorMessage("❌ Failed to connect to the database.");
-    return;
+    return vscode.window.showErrorMessage("❌ Failed to connect to the database.");
   }
 
-  const [dbRelationships, aliasMap] = await Promise.all([
+  const [dbRelationships, aliasMap, config] = await Promise.all([
     getDatabaseRelationships(pool, configPath),
-    getConfiguredEntities(configPath)
+    getConfiguredEntities(configPath),
+    import(configPath)
   ]);
 
-  const valid = dbRelationships.filter(r => {
-    const sourceKey = r.sourceTableName.toLowerCase();
-    const targetKey = r.targetTableName.toLowerCase();
-    return aliasMap.has(sourceKey) && aliasMap.has(targetKey);
-  });
-
-  if (!valid.length) {
-    vscode.window.showInformationMessage("No valid 1:N relationships found.");
-    return;
+  const existingRelationships = extractExistingRelationships(config);
+  const available = filterNewRelationships(dbRelationships, aliasMap, existingRelationships);
+  if (!available.length) {
+    return vscode.window.showInformationMessage("No valid 1:N relationships found.");
   }
 
-  const selected = await vscode.window.showQuickPick(
+  const selected = await promptUserForRelationships(available, aliasMap);
+  if (!selected?.length) return;
+
+  await Promise.all(
+    selected.map(({ sourceAlias, targetAlias, relationship }) =>
+      applyRelationship(
+        configPath,
+        sourceAlias,
+        targetAlias,
+        relationship.sourceColumnNames,
+        relationship.targetColumnNames
+      )
+    )
+  );
+
+  vscode.window.showInformationMessage("✅ Relationships added successfully.");
+}
+
+function extractExistingRelationships(config: any) {
+  return config.entities as {
+    name: string;
+    relationships?: {
+      cardinality: string;
+      target: string;
+      sourceFields: string[];
+      targetFields: string[];
+    }[];
+  }[];
+}
+
+function filterNewRelationships(
+  dbRelationships: any[],
+  aliasMap: Map<string, string>,
+  entities: any[]
+) {
+  return dbRelationships.filter(({ sourceTableName, targetTableName, sourceColumnNames, targetColumnNames }) => {
+    const sourceAlias = aliasMap.get(sourceTableName.toLowerCase());
+    const targetAlias = aliasMap.get(targetTableName.toLowerCase());
+    if (!sourceAlias || !targetAlias) return false;
+
+    return !entities.some(entity =>
+      entity.name === sourceAlias &&
+      entity.relationships?.some(r =>
+        r.cardinality === 'one' &&
+        r.target === targetAlias &&
+        r.sourceFields.join(',') === sourceColumnNames &&
+        r.targetFields.join(',') === targetColumnNames
+      )
+    );
+  });
+}
+
+async function promptUserForRelationships(valid: any[], aliasMap: Map<string, string>) {
+  return await vscode.window.showQuickPick(
     valid.map(r => {
-      const sourceKey = r.sourceTableName.toLowerCase();
-      const targetKey = r.targetTableName.toLowerCase();
-      const sourceAlias = aliasMap.get(sourceKey) ?? r.sourceTableName;
-      const targetAlias = aliasMap.get(targetKey) ?? r.targetTableName;
-      
+      const sourceAlias = aliasMap.get(r.sourceTableName.toLowerCase()) ?? r.sourceTableName;
+      const targetAlias = aliasMap.get(r.targetTableName.toLowerCase()) ?? r.targetTableName;
+
       return {
         label: `${sourceAlias} → ${targetAlias}`,
         description: `1:N relationship`,
@@ -65,21 +101,8 @@ export async function addRelationshipExisting(configPath: string, connectionStri
       canPickMany: true
     }
   );
-
-  if (!selected || !selected.length) { return; }
-
-  for (const item of selected) {
-    const { sourceAlias, targetAlias } = item;
-    const { sourceColumnNames, targetColumnNames } = item.relationship;
-    await applyRelationship(configPath, sourceAlias, targetAlias, sourceColumnNames, targetColumnNames);
-  }
-
-  vscode.window.showInformationMessage("✅ Relationships added successfully.");
 }
 
-/**
- * Executes the CLI command to add a one-to-many relationship.
- */
 async function applyRelationship(
   configPath: string,
   sourceAlias: string,
@@ -91,11 +114,18 @@ async function applyRelationship(
   const configFile = path.basename(configPath);
   process.chdir(configDir);
 
-  const cmd = `dab update ${sourceAlias} ` +
-    `--relationship ${targetAlias} --cardinality one ` +
-    `--target.entity ${targetAlias} ` +
-    `--relationship.fields ${sourceColumns}:${targetColumns} ` +
-    `--config ${configFile}`;
+  const forwardCmd = `dab update ${sourceAlias} ` +
+                     `--relationship ${targetAlias} --cardinality one ` +
+                     `--target.entity ${targetAlias} ` +
+                     `--relationship.fields ${sourceColumns}:${targetColumns} ` +
+                     `--config ${configFile}`;
 
-  await runCommand(cmd);
+  const reverseCmd = `dab update ${targetAlias} ` +
+                     `--relationship ${sourceAlias} --cardinality many ` +
+                     `--target.entity ${sourceAlias} ` +
+                     `--relationship.fields ${targetColumns}:${sourceColumns} ` +
+                     `--config ${configFile}`;
+
+  await runCommand(forwardCmd);
+  await runCommand(reverseCmd);
 }
