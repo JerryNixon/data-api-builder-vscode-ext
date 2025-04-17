@@ -3,9 +3,25 @@ import * as sql from 'mssql';
 import * as path from 'path';
 import * as process from 'process';
 import { openConnection } from './querySql';
-import { getConfiguredEntities, validateConfigPath } from '../readConfig';
+import {
+  getConfiguredEntities,
+  validateConfigPath,
+  getExistingRelationships
+} from '../readConfig';
 import { getDatabaseRelationships } from './relationshipHelpers';
 import { runCommand } from '../runTerminal';
+
+interface Relationship {
+  cardinality: string;
+  target: string;
+  sourceFields: string[];
+  targetFields: string[];
+}
+
+interface EntityConfig {
+  name: string;
+  relationships?: Relationship[];
+}
 
 export async function addRelationshipExisting(configPath: string, connectionString: string) {
   if (!validateConfigPath(configPath)) {
@@ -17,71 +33,61 @@ export async function addRelationshipExisting(configPath: string, connectionStri
     return vscode.window.showErrorMessage("❌ Failed to connect to the database.");
   }
 
-  const [dbRelationships, aliasMap, config] = await Promise.all([
-    getDatabaseRelationships(pool, configPath),
-    getConfiguredEntities(configPath),
-    import(configPath)
-  ]);
+  const dbRelationships = await getDatabaseRelationships(pool, configPath);
+  const aliasMap = await getConfiguredEntities(configPath);
+  const existingRelationships = await getExistingRelationships(configPath);
 
-  const existingRelationships = extractExistingRelationships(config);
-  const available = filterNewRelationships(dbRelationships, aliasMap, existingRelationships);
+  const available = getFilteredRelationshipsFromDatabase(dbRelationships, aliasMap, existingRelationships);
   if (!available.length) {
     return vscode.window.showInformationMessage("No valid 1:N relationships found.");
   }
 
-  const selected = await promptUserForRelationships(available, aliasMap);
+  const selected = await userSelectRelationships(available, aliasMap);
   if (!selected?.length) return;
 
-  await Promise.all(
-    selected.map(({ sourceAlias, targetAlias, relationship }) =>
-      applyRelationship(
-        configPath,
-        sourceAlias,
-        targetAlias,
-        relationship.sourceColumnNames,
-        relationship.targetColumnNames
-      )
-    )
-  );
+  for (const item of selected) {
+    const { sourceAlias, targetAlias, relationship } = item;
+    const { sourceColumnNames, targetColumnNames } = relationship;
+
+    await applyRelationship(
+      configPath,
+      sourceAlias,
+      targetAlias,
+      sourceColumnNames,
+      targetColumnNames
+    );
+  }
 
   vscode.window.showInformationMessage("✅ Relationships added successfully.");
 }
 
-function extractExistingRelationships(config: any) {
-  return config.entities as {
-    name: string;
-    relationships?: {
-      cardinality: string;
-      target: string;
-      sourceFields: string[];
-      targetFields: string[];
-    }[];
-  }[];
+function arraysMatch(a: string[], b: string[]) {
+  return a.length === b.length && a.every((val, i) => val === b[i]);
 }
 
-function filterNewRelationships(
+function getFilteredRelationshipsFromDatabase(
   dbRelationships: any[],
   aliasMap: Map<string, string>,
-  entities: any[]
+  entities: EntityConfig[]
 ) {
-  return dbRelationships.filter(({ sourceTableName, targetTableName, sourceColumnNames, targetColumnNames }) => {
-    const sourceAlias = aliasMap.get(sourceTableName.toLowerCase());
-    const targetAlias = aliasMap.get(targetTableName.toLowerCase());
+  return dbRelationships.filter((r: any) => {
+    const sourceAlias = aliasMap.get(r.sourceTableName.toLowerCase());
+    const targetAlias = aliasMap.get(r.targetTableName.toLowerCase());
     if (!sourceAlias || !targetAlias) return false;
 
     return !entities.some(entity =>
       entity.name === sourceAlias &&
-      entity.relationships?.some(r =>
-        r.cardinality === 'one' &&
-        r.target === targetAlias &&
-        r.sourceFields.join(',') === sourceColumnNames &&
-        r.targetFields.join(',') === targetColumnNames
+      (entity.relationships)?.some((rel) =>
+        rel.cardinality === 'one' &&
+        rel.target === targetAlias &&
+        arraysMatch(rel.sourceFields, r.sourceColumnNames.split(',')) &&
+        arraysMatch(rel.targetFields, r.targetColumnNames.split(','))
       )
     );
   });
 }
 
-async function promptUserForRelationships(valid: any[], aliasMap: Map<string, string>) {
+async function userSelectRelationships(valid: any[], aliasMap: Map<string, string>) {
   return await vscode.window.showQuickPick(
     valid.map(r => {
       const sourceAlias = aliasMap.get(r.sourceTableName.toLowerCase()) ?? r.sourceTableName;
