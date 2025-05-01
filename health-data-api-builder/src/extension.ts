@@ -23,7 +23,6 @@ export function activate(context: vscode.ExtensionContext) {
 				vscode.window.showErrorMessage(`❌ Unable to fetch from ${url}`);
 			}
 		});
-
 	});
 
 	context.subscriptions.push(disposable);
@@ -62,79 +61,60 @@ function showHealthWebView(data: any, url: string) {
 
 	const sections = Object.entries(groups).map(([tag, checks]) => `
 		<h3>${tag.toUpperCase()}</h3>
-		<div class="group">
+		<div class="row">
 			${checks.map((c: HealthCheck) => `
-				<div class="card ${c.status.toLowerCase()}">
-					<div class="top">
-						<span class="status">${c.status === 'Healthy' ? '✅' : '❌'}</span>
-						<span class="name">${c.name}</span>
+				<div class="col-md-4">
+					<div class="card border-${c.status === 'Healthy' ? 'success' : 'danger'} mb-3">
+						<div class="card-header d-flex justify-content-between">
+							<span>${c.name}</span>
+							<span>${c.status === 'Healthy' ? '✅' : '❌'}</span>
+						</div>
+						<div class="card-body">
+							<p class="card-text">${c.data?.['response-ms'] ?? '-'}ms / ${c.data?.['threshold-ms'] ?? '-'}ms</p>
+							${c.exception ? `<div class="alert alert-danger" role="alert">${c.exception}</div>` : ''}
+						</div>
 					</div>
-					<div class="meta">
-						<span>${c.data?.['response-ms'] ?? '-'}ms / ${c.data?.['threshold-ms'] ?? '-'}ms</span>
-					</div>
-					${c.exception ? `<div class="exception">${c.exception}</div>` : ''}
 				</div>
 			`).join('')}
 		</div>
 	`).join('');
 
+	const configurationSection = data.configuration ? `
+		<h3>Configuration</h3>
+		<table class="table table-bordered">
+			<thead class="table-light">
+				<tr><th>Key</th><th>Value</th></tr>
+			</thead>
+			<tbody>
+				${Object.entries(data.configuration).map(([key, value]) => `
+					<tr><td>${key}</td><td>${value === true ? '✅ true' : value === false ? '❌ false' : value}</td></tr>
+				`).join('')}
+			</tbody>
+		</table>
+	` : '';
+
+	const dateStr = new Date().toLocaleString();
+	const infoSection = `
+		<ul class="list-group mb-4">
+			<li class="list-group-item"><strong>App Name:</strong> ${data['app-name']}</li>
+			<li class="list-group-item"><strong>Version:</strong> ${data.version}</li>
+			<li class="list-group-item"><strong>Checked:</strong> ${dateStr}</li>
+			<li class="list-group-item"><strong>Source:</strong> <a href="${url}" target="_blank">${url}</a></li>
+		</ul>
+	`;
+
 	panel.webview.html = `
 		<html>
 			<head>
-				<style>
-					body {
-						font-family: sans-serif;
-						padding: 16px;
-					}
-					.group {
-						display: flex;
-						flex-wrap: wrap;
-						gap: 12px;
-						margin-bottom: 24px;
-					}
-					.card {
-						border: 1px solid #ccc;
-						border-left: 6px solid transparent;
-						padding: 12px;
-						width: 280px;
-						background: #f9f9f9;
-						display: flex;
-						flex-direction: column;
-						gap: 4px;
-					}
-					.card.healthy {
-						border-left-color: green;
-					}
-					.card.unhealthy {
-						border-left-color: red;
-						background: #fff5f5;
-					}
-					.card .top {
-						display: flex;
-						justify-content: space-between;
-						font-weight: bold;
-					}
-					.card .meta {
-						font-size: 0.9em;
-						color: #555;
-					}
-					.card .exception {
-						font-size: 0.85em;
-						color: #a00;
-						background: #fee;
-						padding: 4px;
-						border-radius: 3px;
-						white-space: pre-wrap;
-					}
-					h2, h3 {
-						margin-bottom: 8px;
-					}
-				</style>
+				<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 			</head>
-			<body>
-				<h2>Status: ${data.status === 'Healthy' ? '✅' : '❌'} ${data.status}</h2>
-				<p><small>Source: <code>${url}</code></small></p>
-				${sections}
+			<body class="p-4">
+				<div class="container">
+					<h2>Status: ${data.status === 'Healthy' ? '✅' : '❌'} ${data.status}</h2>
+					${infoSection}
+					${configurationSection}
+					${sections}
+				</div>
 			</body>
 		</html>
 	`;

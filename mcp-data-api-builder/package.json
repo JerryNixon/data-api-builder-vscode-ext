@@ -1,9 +1,9 @@
 {
-  "name": "add-data-api-builder",
-  "displayName": "DAB Add (Data API Builder)",
-  "description": "Adds entities to a Data API Builder configuration file.",
+  "name": "mcp-data-api-builder",
+  "displayName": "DAB MCP (Data API Builder)",
+  "description": "Create MCP Server from a Data API Builder configuration file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.13",
+  "version": "0.0.1",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -28,60 +28,16 @@
   "contributes": {
     "commands": [
       {
-        "command": "dabExtension.addTable",
-        "title": "Table"
-      },
-      {
-        "command": "dabExtension.addView",
-        "title": "View"
-      },
-      {
-        "command": "dabExtension.addProc",
-        "title": "Stored Procedure"
-      },
-      {
-        "command": "dabExtension.addRelationship",
-        "title": "Relationship"
-      },
-      {
-        "command": "dabExtension.addLinkingTable",
-        "title": "Linking Table"
-      }
-    ],
-    "submenus": [
-      {
-        "id": "dabExtension.addSubMenu",
-        "label": "DAB Add"
+        "command": "dabMcp.generateMcp",
+        "title": "Generate MCP"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "submenu": "dabExtension.addSubMenu",
+          "command": "dabMcp.generateMcp",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-          "group": "1_dab"
-        }
-      ],
-      "dabExtension.addSubMenu": [
-        {
-          "command": "dabExtension.addTable",
-          "group": "1_add@1"
-        },
-        {
-          "command": "dabExtension.addView",
-          "group": "1_add@2"
-        },
-        {
-          "command": "dabExtension.addProc",
-          "group": "1_add@3"
-        },
-        {
-          "command": "dabExtension.addRelationship",
-          "group": "1_add@4"
-        },
-        {
-          "command": "dabExtension.addLinkingTable",
-          "group": "1_add@5"
+          "group": "2_dabMcp"
         }
       ]
     }
@@ -104,13 +60,16 @@
     "@typescript-eslint/parser": "^8.7.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
+    "copy-webpack-plugin": "^13.0.0",
     "eslint": "^9.13.0",
     "ts-loader": "^9.5.2",
     "typescript": "^5.6.3",
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
-  "keywords": [ "Data API builder" ],
+  "keywords": [
+    "Data API builder"
+  ],
   "author": "Jerry Nixon",
   "license": "MIT",
   "dependencies": {
