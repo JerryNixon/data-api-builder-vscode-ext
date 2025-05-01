@@ -5,9 +5,13 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-
+using System.Text.Json.Nodes;
 using Microsoft.DataApiBuilder.Rest.Json;
 using Microsoft.DataApiBuilder.Rest.Options;
+using System.Collections.Specialized;
+using System.Reflection;
+using static System.Text.Json.JsonNamingPolicy;
+using static System.Text.Json.Serialization.JsonIgnoreCondition;
 
 public static partial class Utility
 {
@@ -19,7 +23,7 @@ public static partial class Utility
         };
         try
         {
-            var response = await httpClient.GetAsync(url);
+            var response = await httpClient.GetAsync(url).ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
@@ -36,17 +40,21 @@ public static partial class Utility
 
     public static string? BuildQueryStringFromOptions(this TableOptions options)
     {
-        var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        if (options is null)
+        {
+            return null;
+        }
 
-        AddQueryParameter(query, "$select", options.Select);
-        AddQueryParameter(query, "$filter", options.Filter);
-        AddQueryParameter(query, "$orderby", options.OrderBy);
-        AddQueryParameter(query, "$first", options.First?.ToString());
-        AddQueryParameter(query, "$after", options.After);
+        var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        Add(query, "$select", options.Select);
+        Add(query, "$filter", options.Filter);
+        Add(query, "$orderby", options.OrderBy);
+        Add(query, "$first", options.First?.ToString());
+        Add(query, "$after", options.After);
 
         return query.ToString();
 
-        static void AddQueryParameter(System.Collections.Specialized.NameValueCollection query, string key, string? value)
+        static void Add(NameValueCollection query, string key, string? value)
         {
             if (!string.IsNullOrEmpty(value))
             {
@@ -57,14 +65,14 @@ public static partial class Utility
 
     public static JsonContent ToJsonContent(this ProcedureOptions options)
     {
-        var filteredParameters = options.Parameters
+        var filtered = options.Parameters
             .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
-            .ToDictionary(kv => kv.Key, kv => kv.Value);
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
-        return JsonContent.Create(filteredParameters, options: new JsonSerializerOptions
+        return JsonContent.Create(filtered, options: new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            PropertyNamingPolicy = CamelCase,
+            DefaultIgnoreCondition = WhenWritingNull
         });
     }
 
@@ -85,16 +93,16 @@ public static partial class Utility
 
     public static void AddHeadersToHttpClient(this OptionsBase options, HttpClient httpClient)
     {
-        AddHttpHeader(httpClient, "x-ms-api-role", options.XMsApiRole);
-        AddHttpHeader(httpClient, "Bearer", options.Authorization);
+        Add("x-ms-api-role", options.XMsApiRole);
+        Add("Bearer", options.Authorization);
 
-        static void AddHttpHeader(HttpClient httpClient, string key, string? value)
+        void Add(string key, string? value)
         {
             if (!string.IsNullOrEmpty(value))
             {
                 httpClient.DefaultRequestHeaders.Add(key, value);
             }
-            else if (string.IsNullOrEmpty(value) && httpClient.DefaultRequestHeaders.Contains(key))
+            else if (httpClient.DefaultRequestHeaders.Contains(key))
             {
                 httpClient.DefaultRequestHeaders.Remove(key);
             }
@@ -109,73 +117,63 @@ public static partial class Utility
             throw new KeyNotFoundException($"No key properties defined for type {typeof(T).Name}.");
         }
 
-        var pathSegments = keyProperties.Select(kp => $"{kp.Name}/{Uri.EscapeDataString(kp.Value)}");
-        var pathFragment = string.Join("/", pathSegments);
+        var path = string.Join("/", keyProperties.Select(kp => $"{kp.Name}/{Uri.EscapeDataString(kp.Value)}"));
         baseUri = new Uri(baseUri.ToString().TrimEnd('/'), UriKind.Absolute);
-
-        return new Uri(baseUri, pathFragment);
+        return new Uri(baseUri, path);
 
         static List<(string Name, string Value)> ReflectKeyProperties(T item)
         {
             return typeof(T)
-                .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
-                .Where(prop => Attribute.IsDefined(prop, typeof(KeyAttribute)))
-                .Select(prop =>
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => Attribute.IsDefined(p, typeof(KeyAttribute)))
+                .Select(p =>
                 {
-                    var jsonPropertyNameAttribute = prop
-                        .GetCustomAttributes(typeof(JsonPropertyNameAttribute), true)
-                        .FirstOrDefault() as JsonPropertyNameAttribute;
+                    var jsonName = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? p.Name;
+                    var value = p.GetValue(item)?.ToString();
+                    if (string.IsNullOrEmpty(value))
+                    {
+                        throw new InvalidOperationException($"Key field '{p.Name}' cannot have a null or empty value.");
+                    }
 
-                    var jsonPropertyName = jsonPropertyNameAttribute?.Name ?? prop.Name;
-                    var propertyValue = prop.GetValue(item)?.ToString();
-
-                    if (string.IsNullOrEmpty(propertyValue))
-                        throw new InvalidOperationException($"Key field '{prop.Name}' cannot have a null or empty value.");
-
-                    return (jsonPropertyName, propertyValue);
+                    return (jsonName, value);
                 }).ToList();
         }
     }
 
     public static JsonContent SerializeWithoutKeyProperties<T>(this T item)
     {
-        var keyProperties = ReflectKeyProperties();
-        if (keyProperties.Count == 0)
+        var keyProps = ReflectKeyProperties();
+        if (keyProps.Count == 0)
         {
             throw new KeyNotFoundException($"No key properties defined for type {typeof(T).Name}.");
         }
 
-        var jsonNode = JsonSerializer.SerializeToNode(item, new JsonSerializerOptions
+        var json = JsonSerializer.SerializeToNode(item, new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            PropertyNamingPolicy = CamelCase,
+            DefaultIgnoreCondition = WhenWritingNull
         });
 
-        if (jsonNode is System.Text.Json.Nodes.JsonObject jsonObject)
+        if (json is JsonObject obj)
         {
-            foreach (var keyField in keyProperties)
+            foreach (var key in keyProps)
             {
-                jsonObject.Remove(keyField);
+                obj.Remove(key);
             }
         }
 
-        return JsonContent.Create(jsonNode, options: new JsonSerializerOptions
+        return JsonContent.Create(json, options: new JsonSerializerOptions
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            PropertyNamingPolicy = CamelCase,
+            DefaultIgnoreCondition = WhenWritingNull
         });
 
         static HashSet<string> ReflectKeyProperties()
         {
             return typeof(T)
-                .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
-                .Where(prop => Attribute.IsDefined(prop, typeof(KeyAttribute)))
-                .Select(prop =>
-                {
-                    var jsonPropertyNameAttribute = prop.GetCustomAttributes(typeof(JsonPropertyNameAttribute), true)
-                        .FirstOrDefault() as JsonPropertyNameAttribute;
-                    return jsonPropertyNameAttribute?.Name ?? prop.Name;
-                })
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => Attribute.IsDefined(p, typeof(KeyAttribute)))
+                .Select(p => p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? p.Name)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
     }
@@ -188,7 +186,13 @@ public static partial class Utility
             var url = response.RequestMessage?.RequestUri?.ToString() ?? "unknown";
             Debug.WriteLine($"{method} {url.Replace("%24", "$")} returned {response.StatusCode}.");
 
-            var root = await response.Content.ReadFromJsonAsync<ResponseRoot<T>>()
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                throw new HttpRequestException($"{url} returned {response.StatusCode}. Body: {errorText}", null, response.StatusCode);
+            }
+
+            var root = await response.Content.ReadFromJsonAsync<ResponseRoot<T>>().ConfigureAwait(false)
                 ?? throw new InvalidOperationException("The response deserialized as null.");
 
             if (root.Error is not null)
@@ -196,11 +200,7 @@ public static partial class Utility
                 Debug.WriteLine($"Code: {root.Error.Code}, Message: {root.Error.Message}, Status: {root.Error.Status}");
             }
 
-            return !response.IsSuccessStatusCode
-                ? throw new HttpRequestException($"{url} returned {response.StatusCode} with {root?.Error?.Message}.", null, response.StatusCode)
-                : root.Results is null
-                ? throw new Exception("The response did not contain any results.")
-                : root.Results;
+            return root.Results ?? throw new Exception("The response did not contain any results.");
         }
         finally
         {

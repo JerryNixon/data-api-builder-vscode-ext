@@ -1,20 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
 
-  <PropertyGroup>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageId>Microsoft.DataApiBuilder.Rest</PackageId>
-    <Version>0.0.1</Version>
-    <Authors>jerrynixon</Authors>
-    <Description>Helper library for DAB REST API.</Description>
-    <PackageTags>API;DAB;REST</PackageTags>
-    <RepositoryUrl>https://github.com/jerrynixon/repo</RepositoryUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-  </PropertyGroup>
+	<PropertyGroup>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageId>DataApiBuilder.Rest</PackageId>
+		<Version>0.0.1</Version>
+		<Authors>jerrynixon</Authors>
+		<Description>Helper library for DAB REST API.</Description>
+		<PackageTags>API;DAB;REST</PackageTags>
+		<RepositoryUrl>https://github.com/JerryNixon/data-api-builder-vscode-ext/tree/master/classlib-dab-rest</RepositoryUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>readme.md</PackageReadmeFile>
+		<PackageIcon>dab-logo.png</PackageIcon>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="ClassDiagram.png" Pack="true" PackagePath="" />
+		<None Include="readme.md" Pack="true" PackagePath="" />
+		<None Include="dab-logo.png" Pack="true" PackagePath="" />
+	</ItemGroup>
 
 </Project>

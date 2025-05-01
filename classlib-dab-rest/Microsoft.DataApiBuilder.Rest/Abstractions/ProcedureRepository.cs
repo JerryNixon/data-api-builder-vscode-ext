@@ -4,7 +4,7 @@ using Microsoft.DataApiBuilder.Rest.Options;
 
 using static Microsoft.DataApiBuilder.Rest.Options.ProcedureOptions;
 
-public abstract class ProcedureRepositoryBase<T>(Uri entityUri, HttpClient? httpClient = null) 
+public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? httpClient = null) 
     : IProcedureRepository<T> where T : class
 {
     public async Task<T[]> ExecuteProcedureAsync(ProcedureOptions options)
