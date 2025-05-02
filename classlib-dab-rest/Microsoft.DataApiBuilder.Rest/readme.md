@@ -39,9 +39,9 @@ Fetch data from your API.
 
 
 ```csharp
-var actors = await repository.GetAsync();
+var response = await repository.GetAsync();
 
-foreach (var actor in actors)
+foreach (var actor in response.Result)
 {
     Console.WriteLine(actor);
 }

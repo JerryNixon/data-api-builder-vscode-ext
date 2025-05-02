@@ -1,0 +1,133 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/download/v1.5.29/dab.draft.schema.json",
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "Server=localhost;Database=trek;User ID=sa;Password=P@ssw0rd!;TrustServerCertificate=True;",
+    "options": {
+      "set-session-context": false
+    }
+  },
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api",
+      "request-body-strict": false
+    },
+    "graphql": {
+      "enabled": true,
+      "path": "/graphql",
+      "allow-introspection": true
+    },
+    "host": {
+      "cors": {
+        "origins": [],
+        "allow-credentials": false
+      },
+      "authentication": {
+        "provider": "StaticWebApps"
+      },
+      "mode": "development"
+    }
+  },
+  "entities": {
+    "Actor": {
+      "source": {
+        "object": "dbo.Actor",
+        "type": "table",
+        "key-fields": [
+          "Id"
+        ]
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Actor",
+          "plural": "Actors"
+        }
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/Actor"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
+        }
+      ],
+      "mappings": {
+        "BirthYear": "BirthYear",
+        "Id": "Id",
+        "Name": "Name"
+      },
+      "relationships": {
+        "Character": {
+          "cardinality": "many",
+          "target.entity": "Character",
+          "source.fields": [
+            "Id"
+          ],
+          "target.fields": [
+            "ActorId"
+          ],
+          "linking.source.fields": [],
+          "linking.target.fields": []
+        }
+      }
+    },
+    "Character": {
+      "source": {
+        "object": "dbo.Character",
+        "type": "table",
+        "key-fields": [
+          "Id"
+        ]
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Character",
+          "plural": "Characters"
+        }
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/Character"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
+        }
+      ],
+      "mappings": {
+        "ActorId": "ActorId",
+        "Id": "Id",
+        "Name": "Name",
+        "Stardate": "Stardate"
+      },
+      "relationships": {
+        "Actor": {
+          "cardinality": "one",
+          "target.entity": "Actor",
+          "source.fields": [
+            "ActorId"
+          ],
+          "target.fields": [
+            "Id"
+          ],
+          "linking.source.fields": [],
+          "linking.target.fields": []
+        }
+      }
+    }
+  }
+}
