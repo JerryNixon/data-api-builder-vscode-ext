@@ -1,6 +1,6 @@
 namespace Microsoft.DataApiBuilder.Rest.Options;
 
-public class ProcedureOptions : OptionsBase
+public class ProcedureOptions : CommonOptions
 {
     public enum ApiMethod { GET, POST }
 

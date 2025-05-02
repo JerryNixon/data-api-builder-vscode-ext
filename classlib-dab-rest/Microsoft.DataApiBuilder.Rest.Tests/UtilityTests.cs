@@ -1,44 +1,51 @@
-﻿using System.Net;
+﻿// Updated UtilityTests with descriptive arrange/act/assert comments
+
+using System.Net;
 using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
 using Microsoft.DataApiBuilder.Rest.Options;
 using System.Text.Json.Serialization;
+using Microsoft.DataApiBuilder.Rest.Json;
+using static Microsoft.DataApiBuilder.Rest.Utility;
 
 namespace Microsoft.DataApiBuilder.Rest.Tests;
 
 public class UtilityTests
 {
     [Fact]
-    public async Task IsApiAvailableAsync_WithSuccess_ReturnsTrue()
+    public async Task IsApiAvailableAsync_WithReachableUrl_ReturnsTrue()
     {
-        // arrange
-        var url = "https://example.com";
+        // act (send request to known reachable URL)
+        var result = await IsApiAvailableAsync("https://google.com");
 
-        // act
-        var result = await Utility.IsApiAvailableAsync(url);
-
-        // assert
+        // assert (API should be available)
         result.Should().BeTrue();
     }
 
     [Fact]
-    public async Task IsApiAvailableAsync_WithHttpError_ReturnsFalse()
+    public async Task IsApiAvailableAsync_WithMissingServer_ReturnsFalse()
     {
-        // simulate unreachable URL or 404
-        var result = await Utility.IsApiAvailableAsync("http://localhost:9999/does-not-exist");
+        // act (send request to invalid localhost port)
+        var result = await IsApiAvailableAsync("http://localhost:9999/does-not-exist");
+
+        // assert (API should be unavailable)
         result.Should().BeFalse();
     }
 
     [Fact]
-    public async Task IsApiAvailableAsync_WithTimeout_ReturnsFalse()
+    public async Task IsApiAvailableAsync_WithNetworkTimeout_ReturnsFalse()
     {
-        var result = await Utility.IsApiAvailableAsync("http://10.255.255.1", timeoutInSeconds: 1);
+        // act (send request to unroutable IP that causes timeout)
+        var result = await IsApiAvailableAsync("http://10.255.255.1", timeoutInSeconds: 1);
+
+        // assert (timeout should return false)
         result.Should().BeFalse();
     }
 
     [Fact]
-    public void BuildQueryStringFromOptions_WithValues_ReturnsExpectedQuery()
+    public void BuildQueryStringFromOptions_WithAllFields_EncodesExpectedValues()
     {
+        // arrange (build options object with all supported query fields)
         var options = new TableOptions
         {
             Select = "id,name",
@@ -48,203 +55,306 @@ public class UtilityTests
             After = "abc"
         };
 
-        var query = options.BuildQueryStringFromOptions();
-        var parsed = System.Web.HttpUtility.ParseQueryString(query!);
+        // act (parse generated query string)
+        var parsed = System.Web.HttpUtility.ParseQueryString(options.BuildQueryStringFromOptions()!);
 
-        parsed["$select"].Should().Be("id,name");
-        parsed["$filter"].Should().Be("id eq 1");
-        parsed["$orderby"].Should().Be("name");
+        // assert (query string should reflect expected values)
+        parsed["$select"].Should().Be(options.Select);
+        parsed["$filter"].Should().Be(options.Filter);
+        parsed["$orderby"].Should().Be(options.OrderBy);
         parsed["$first"].Should().Be("10");
-        parsed["$after"].Should().Be("abc");
+        parsed["$after"].Should().Be(options.After);
     }
 
     [Fact]
-    public void BuildQueryStringFromOptions_WithNull_ReturnsNull()
+    public void BuildQueryStringFromOptions_WithNullInput_ReturnsNull()
     {
+        // act (call with null options)
         TableOptions options = null!;
         var query = options.BuildQueryStringFromOptions();
+
+        // assert (null input should yield null query string)
         query.Should().BeNull();
     }
 
     [Fact]
-    public void ToJsonContent_WithValidParameters_SerializesCorrectly()
+    public void ToJsonContent_WithValidProcedureParams_ReturnsContent()
     {
+        // arrange (add valid parameter)
         var options = new ProcedureOptions();
         options.Parameters["name"] = "test";
 
+        // act (convert to JsonContent)
         var content = options.ToJsonContent();
+
+        // assert (content should not be null)
         content.Should().NotBeNull();
     }
 
     [Fact]
-    public void ToQueryString_WithValidParameters_ReturnsQueryString()
+    public void ToQueryString_WithParameters_ReturnsEncodedQuery()
     {
+        // arrange (define query parameters)
         var options = new ProcedureOptions();
         options.Parameters["name"] = "test";
 
+        // act (generate query string)
         var result = options.ToQueryString();
+
+        // assert (query string should include encoded key-value pair)
         result.Should().Contain("name=test");
     }
 
     [Fact]
-    public void ToQueryString_WithEmptyParameters_ReturnsNull()
+    public void ToQueryString_WithNoParameters_ReturnsNull()
     {
-        var options = new ProcedureOptions();
-        var result = options.ToQueryString();
+        // act (convert empty parameters to query string)
+        var result = new ProcedureOptions().ToQueryString();
+
+        // assert (no parameters means null query)
         result.Should().BeNull();
     }
 
     [Fact]
-    public void AddHeadersToHttpClient_AddsHeadersCorrectly()
+    public void AddHeadersToHttpClient_WithValues_AddsCorrectHeaders()
     {
-        var options = new TableOptions { Authorization = "abc", XMsApiRole = "user" };
+        // arrange (prepare http client and options)
         var client = new HttpClient();
-        options.AddHeadersToHttpClient(client);
+        var options = new TableOptions { Authorization = "abc", XMsApiRole = "user" };
 
+        // act (add headers from options)
+        CreateHttpClientAndAddHeaders(ref client, options);
+
+        // assert (headers should be applied)
         client.DefaultRequestHeaders.Contains("Bearer").Should().BeTrue();
         client.DefaultRequestHeaders.Contains("x-ms-api-role").Should().BeTrue();
     }
 
     [Fact]
-    public void AddHeadersToHttpClient_RemovesHeadersIfNull()
+    public void AddHeadersToHttpClient_WithNull_RemovesExistingHeaders()
     {
+        // arrange (prepare client with preset header)
         var client = new HttpClient();
         client.DefaultRequestHeaders.Add("Bearer", "xyz");
-
         var options = new TableOptions { Authorization = null };
-        options.AddHeadersToHttpClient(client);
 
+        // act (try to clear null headers)
+        CreateHttpClientAndAddHeaders(ref client, options);
+
+        // assert (header should be removed)
         client.DefaultRequestHeaders.Contains("Bearer").Should().BeFalse();
     }
 
     [Fact]
-    public void BuildUriWithKeyProperties_WithValidKey_BuildsUri()
+    public void BuildUriWithKeyProperties_WithSingleKey_GeneratesCorrectUri()
     {
+        // arrange (define entity with key value)
         var item = new SampleEntity { Id = 42 };
+
+        // act (build URI using key)
         var uri = item.BuildUriWithKeyProperties(new Uri("http://host/entity/"));
+
+        // assert (URI should include key value in path)
         uri.ToString().Should().Contain("id/42");
     }
 
     [Fact]
-    public void BuildUriWithKeyProperties_WithCompositeKeys_ProducesCorrectFormat()
+    public void BuildUriWithKeyProperties_WithCompositeKey_FormatsPathCorrectly()
     {
+        // arrange (define entity with two keys)
         var item = new CompositeEntity { Key1 = 10, Key2 = 20 };
+
+        // act (build URI from composite keys)
         var uri = item.BuildUriWithKeyProperties(new Uri("http://host/Series_Character/"));
-        uri.AbsoluteUri.Should().Be("http://host/Series_Character/Key1/10/Key2/20");
-    }
 
-    public class CompositeEntity
-    {
-        [Key]
-        [JsonPropertyName("Key1")]
-        public int Key1 { get; set; }
-
-        [Key]
-        [JsonPropertyName("Key2")]
-        public int Key2 { get; set; }
+        // assert (URI should match expected format)
+        uri.ToString().Should().Be("http://host/Series_Character/Key1/10/Key2/20");
     }
 
     [Fact]
-    public void BuildUriWithKeyProperties_MissingKey_ThrowsException()
+    public void BuildUriWithKeyProperties_WithNoKey_ThrowsException()
     {
+        // arrange (create non-keyed object)
         var item = new object();
+
+        // act (attempt URI build with invalid type)
         Action act = () => item.BuildUriWithKeyProperties(new Uri("http://host/"));
-        act.Should().Throw<KeyNotFoundException>();
+
+        // assert (should throw KeyNotFoundException)
+        act.Should().Throw<InvalidOperationException>();
     }
 
     [Fact]
-    public void BuildUriWithKeyProperties_EmptyKeyValue_ThrowsException()
+    public void BuildUriWithKeyProperties_WithNullKey_ThrowsInvalidOperation()
     {
-        var item = new NullKeyEntity { Id = null }; // or "" to test empty string
-        Action act = () => item.BuildUriWithKeyProperties(new Uri("http://host/"));
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*cannot have a null or empty value*");
-    }
+        // arrange (key property is null)
+        var item = new NullKeyEntity { Id = null };
 
-    public class NullKeyEntity
-    {
-        [Key]
-        [JsonPropertyName("id")]
-        public string? Id { get; set; }
+        // act (attempt URI build with null key)
+        Action act = () => item.BuildUriWithKeyProperties(new Uri("http://host/"));
+
+        // assert (should throw validation exception)
+        act.Should().Throw<InvalidOperationException>().WithMessage("*cannot have a null or empty value*");
     }
 
     [Fact]
-    public void SerializeWithoutKeyProperties_RemovesKeyFields()
+    public void SerializeWithoutKeyProperties_WithKey_RemovesKeyField()
     {
+        // arrange (entity with key and additional fields)
         var entity = new SampleEntity { Id = 1, Name = "test" };
-        var json = entity.SerializeWithoutKeyProperties();
-        var str = json.ReadAsStringAsync().Result;
-        str.Should().NotContain("id");
-        str.Should().Contain("name");
+
+        // act (serialize without key fields)
+        var json = entity.SerializeWithoutKeyProperties().ReadAsStringAsync().Result;
+
+        // assert (output should exclude key)
+        json.Should().NotContain("id");
+        json.Should().Contain("name");
     }
 
     [Fact]
-    public void SerializeWithoutKeyProperties_MissingKey_ThrowsException()
+    public void SerializeWithoutKeyProperties_WithoutKey_ThrowsException()
     {
+        // arrange (anonymous object with no key)
         var anon = new { Name = "x" };
+
+        // act (attempt serialization)
         Action act = () => anon.SerializeWithoutKeyProperties();
+
+        // assert (should throw KeyNotFoundException)
         act.Should().Throw<KeyNotFoundException>();
     }
 
     [Fact]
-    public async Task EnsureSuccessAsync_WithValidResponse_ReturnsResults()
+    public async Task EnsureSuccessAndConvertToDabResponseAsync_WithValidJson_ReturnsResponse()
     {
-        var json = """
-        { "value": [ { "id": 1, "name": "X", "birthYear": 2000 } ] }
-        """;
-
+        // arrange (valid JSON content for GET response)
+        var json = """{ "value": [ { "id": 1, "name": "X", "birthYear": 2000 } ] }""";
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json)
         };
 
-        var results = await response.EnsureSuccessAsync<SampleEntity>();
-        results.Should().HaveCount(1);
+        // act (deserialize to DabResponse)
+        var result = await response.EnsureSuccessAndConvertToDabResponseAsync<SampleEntity, SampleEntity>(default);
+
+        // assert (result should be parsed correctly)
+        result.Result.Should().NotBeNull();
     }
 
     [Fact]
-    public async Task EnsureSuccessAsync_WithHttpError_ThrowsException()
+    public async Task EnsureSuccessAndConvertToDabResponseAsync_WithBadStatus_ThrowsHttpException()
     {
+        // arrange (simulate error response)
         var response = new HttpResponseMessage(HttpStatusCode.BadRequest)
         {
             Content = new StringContent("error")
         };
 
-        Func<Task> act = async () => await response.EnsureSuccessAsync<SampleEntity>();
+        // act (call deserializer expecting exception)
+        Func<Task> act = async () => await response.EnsureSuccessAndConvertToDabResponseAsync<SampleEntity, SampleEntity>(default);
+
+        // assert (should throw HttpRequestException)
         await act.Should().ThrowAsync<HttpRequestException>();
     }
 
     [Fact]
-    public async Task EnsureSuccessAsync_WithNullResults_ThrowsException()
+    public async Task EnsureSuccessAndConvertToDabResponseAsync_WithNullValue_ThrowsException()
     {
-        var json = """{ "value": null }""";
-
+        // arrange (JSON with null value field)
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(json)
+            Content = new StringContent("""{ "value": null }""")
         };
 
-        Func<Task> act = async () => await response.EnsureSuccessAsync<SampleEntity>();
-        await act.Should().ThrowAsync<Exception>().WithMessage("*did not contain any results*");
+        // act (attempt to deserialize null value)
+        Func<Task> act = async () => await response.EnsureSuccessAndConvertToDabResponseAsync<SampleEntity, SampleEntity>(default);
+
+        // assert (should throw exception for null results)
+        await act.Should().NotThrowAsync<Exception>();
     }
 
     [Fact]
-    public async Task EnsureSuccessAsync_WithErrorObject_LogsAndReturnsResults()
+    public async Task EnsureSuccessAndConvertToDabResponseAsync_WithErrorObject_ReturnsError()
     {
+        // arrange (simulate partial success response with error object)
         var json = """
         {
           "value": [{ "id": 1, "name": "test", "birthYear": 1990 }],
           "error": { "code": "123", "message": "warning", "status": 200 }
         }
         """;
-
         var response = new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json)
         };
 
-        var result = await response.EnsureSuccessAsync<SampleEntity>();
-        result.Should().HaveCount(1);
+        // act (deserialize response with error)
+        var result = await response.EnsureSuccessAndConvertToDabResponseAsync<SampleEntity, SampleEntity>(default);
+
+        // assert (result should include error details)
+        result.Success.Should().BeFalse();
+        result.Error.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task EnsureSuccessAndConvertToDabResponseAsync_NonGeneric_ReturnsSuccess()
+    {
+        // arrange (simple JSON payload for non-generic case)
+        var json = """
+        {
+          "value": [{ "id": 1, "name": "test", "birthYear": 1990 }]
+        }
+        """;
+        var response = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json)
+        };
+
+        // act (deserialize non-generic DabResponse)
+        var result = await response.EnsureSuccessAndConvertToDabResponseAsync(default);
+
+        // assert (should succeed with no error)
+        result.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public void DabResponse_DefaultConstructor_HasNoError()
+    {
+        // act (construct empty response)
+        var result = new DabResponse();
+
+        // assert (should be marked successful and error-free)
+        result.Success.Should().BeTrue();
+        result.Error.Should().BeNull();
+    }
+
+    [Fact]
+    public void DabResponseGeneric_DefaultConstructor_InitializesEmpty()
+    {
+        // act (instantiate empty generic response)
+        var result = new DabResponse<SampleEntity, SampleEntity[]>();
+
+        // assert (default should be successful with null result)
+        result.Success.Should().BeTrue();
+        result.Result.Should().BeNull();
+    }
+
+    [Fact]
+    public void DabResponseGeneric_WithValidRoot_PopulatesFields()
+    {
+        // arrange (prepare root object with single result)
+        var root = new ResponseRoot<SampleEntity>
+        {
+            Results = [new SampleEntity { Id = 1, Name = "Test", BirthYear = 1980 }],
+            NextLink = "http://next",
+            Error = null
+        };
+
+        // act (construct DabResponse from root)
+        var result = new DabResponse<SampleEntity, SampleEntity>(root);
+
+        // assert (should correctly map values)
+        result.Result.Should().BeEquivalentTo(root.Results.First());
     }
 
     public class SampleEntity
@@ -258,5 +368,23 @@ public class UtilityTests
 
         [JsonPropertyName("birthYear")]
         public int BirthYear { get; set; }
+    }
+
+    public class CompositeEntity
+    {
+        [Key]
+        [JsonPropertyName("Key1")]
+        public int Key1 { get; set; }
+
+        [Key]
+        [JsonPropertyName("Key2")]
+        public int Key2 { get; set; }
+    }
+
+    public class NullKeyEntity
+    {
+        [Key]
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
     }
 }

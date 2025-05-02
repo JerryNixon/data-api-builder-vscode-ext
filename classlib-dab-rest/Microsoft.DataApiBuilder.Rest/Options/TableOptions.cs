@@ -1,6 +1,6 @@
 namespace Microsoft.DataApiBuilder.Rest.Options;
 
-public class TableOptions : OptionsBase
+public class TableOptions : CommonOptions
 {
     public string? Select { get; set; }
     

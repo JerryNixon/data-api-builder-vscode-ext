@@ -1,12 +1,15 @@
-namespace Microsoft.DataApiBuilder.Rest.Json;
 
 using System.Text.Json.Serialization;
 
-public partial class ResponseRoot<T>
+namespace Microsoft.DataApiBuilder.Rest.Json;
+public partial class ResponseRoot<T> : ResponseRoot
 {
     [JsonPropertyName("value")]
-    public T[]? Results { get; set; }
+    public T[] Results { get; set; } = [];
+}
 
+public partial class ResponseRoot
+{
     [JsonPropertyName("nextLink")]
     public string? NextLink { get; set; }
 

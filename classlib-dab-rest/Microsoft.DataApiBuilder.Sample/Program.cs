@@ -12,9 +12,9 @@ if (!await Utility.IsApiAvailableAsync(URL))
     return;
 }
 
-var actors = await repository.GetAsync();
+var response = await repository.GetAsync();
 
-foreach (var actor in actors)
+foreach (var actor in response.Result)
 {
     Console.WriteLine(actor);
 }
@@ -22,9 +22,9 @@ foreach (var actor in actors)
 Console.ReadKey();
 Console.Clear();
 
-actors = await repository.GetAsync(new() { First = 5 });
+response = await repository.GetAsync(new() { First = 5 });
 
-foreach (var actor in actors)
+foreach (var actor in response.Result)
 {
     Console.WriteLine(actor);
 }
@@ -32,9 +32,9 @@ foreach (var actor in actors)
 Console.ReadKey();
 Console.Clear();
 
-actors = await repository.GetAsync(new() { Filter = "Id eq 1" });
+response = await repository.GetAsync(new() { Filter = "Id eq 1" });
 
-foreach (var actor in actors)
+foreach (var actor in response.Result)
 {
     Console.WriteLine(actor);
 }
@@ -42,9 +42,9 @@ foreach (var actor in actors)
 Console.ReadKey();
 Console.Clear();
 
-actors = await repository.GetAsync(new() { OrderBy = "Name" });
+response = await repository.GetAsync(new() { OrderBy = "Name" });
 
-foreach (var actor in actors)
+foreach (var actor in response.Result)
 {
     Console.WriteLine(actor);
 }

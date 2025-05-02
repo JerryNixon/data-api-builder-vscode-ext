@@ -1,4 +1,3 @@
-namespace Microsoft.DataApiBuilder.Rest;
 
 using System.ComponentModel.DataAnnotations;
 using System.Diagnostics;
@@ -13,6 +12,7 @@ using System.Reflection;
 using static System.Text.Json.JsonNamingPolicy;
 using static System.Text.Json.Serialization.JsonIgnoreCondition;
 
+namespace Microsoft.DataApiBuilder.Rest;
 public static partial class Utility
 {
     public static async Task<bool> IsApiAvailableAsync(string url, int timeoutInSeconds = 30)
@@ -91,16 +91,28 @@ public static partial class Utility
         return query.Count > 0 ? query.ToString() : null;
     }
 
-    public static void AddHeadersToHttpClient(this OptionsBase options, HttpClient httpClient)
+    public static void CreateHttpClientAndAddHeaders(ref HttpClient? httpClient, params CommonOptions?[] options)
     {
-        Add("x-ms-api-role", options.XMsApiRole);
-        Add("Bearer", options.Authorization);
+        httpClient ??= new();
 
-        void Add(string key, string? value)
+        // allow multiple for GetAsync() that has previous response for paging
+        var option = options.FirstOrDefault(o => o is not null);
+        if (option is null)
+        {
+            return;
+        }
+
+        Add(httpClient, "x-ms-api-role", option.XMsApiRole);
+        Add(httpClient, "Bearer", option.Authorization);
+
+        void Add(HttpClient httpClient, string key, string? value)
         {
             if (!string.IsNullOrEmpty(value))
             {
-                httpClient.DefaultRequestHeaders.Add(key, value);
+                if (!httpClient.DefaultRequestHeaders.Contains(key))
+                {
+                    httpClient.DefaultRequestHeaders.Add(key, value);
+                }
             }
             else if (httpClient.DefaultRequestHeaders.Contains(key))
             {
@@ -114,14 +126,19 @@ public static partial class Utility
         var keySegments = ReflectKeyProperties(item);
         if (keySegments.Count == 0)
         {
-            throw new KeyNotFoundException($"No key properties defined for type {typeof(T).Name}.");
+            throw new InvalidOperationException($"No key properties defined for type {typeof(T).Name}.");
+        }
+
+        if (keySegments.Any(x => string.IsNullOrWhiteSpace(x.Name) || string.IsNullOrWhiteSpace(x.Value)))
+        {
+            throw new InvalidOperationException($"Key properties cannot have null or empty values. {typeof(T).Name}.");
         }
 
         // Format: /Entity/Key1Name/Key1Value/Key2Name/Key2Value
         var path = string.Join("/", keySegments.SelectMany(kp => new[]
         {
-            Uri.EscapeDataString(kp.Name),
-            Uri.EscapeDataString(kp.Value)
+            Uri.EscapeDataString(kp.Name ?? throw new InvalidOperationException("Key name cannot be null.")),
+            Uri.EscapeDataString(kp.Value ?? throw new InvalidOperationException("Key value cannot be null."))
         }));
 
         baseUri = new Uri(baseUri.ToString().TrimEnd('/'), UriKind.Absolute);
@@ -137,7 +154,10 @@ public static partial class Utility
                     var name = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? p.Name;
                     var value = p.GetValue(item)?.ToString();
                     if (string.IsNullOrEmpty(value))
+                    {
                         throw new InvalidOperationException($"Key field '{p.Name}' cannot have a null or empty value.");
+                    }
+
                     return (name, value);
                 }).ToList();
         }
@@ -181,33 +201,48 @@ public static partial class Utility
         }
     }
 
-    public static async Task<T[]> EnsureSuccessAsync<T>(this HttpResponseMessage response)
+    public static async Task<DabResponse<TItem, TResult>> EnsureSuccessAndConvertToDabResponseAsync<TItem, TResult>(this HttpResponseMessage response, CommonOptions? options)
     {
-        try
+        await ValidateIsSuccessStatusCode(response).ConfigureAwait(false);
+
+        var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        var root = JsonSerializer.Deserialize<ResponseRoot<TItem>>(json);
+        if (root is null)
+        {
+            throw new InvalidOperationException("The response deserialized as null.");
+        }
+
+        return new DabResponse<TItem, TResult>(root) { Options = options };
+    }
+
+    public static async Task<DabResponse> EnsureSuccessAndConvertToDabResponseAsync(this HttpResponseMessage response, CommonOptions? options)
+    {
+        await ValidateIsSuccessStatusCode(response).ConfigureAwait(false);
+
+        var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new DabResponse() { Options = options }; ;
+        }
+
+        var root = JsonSerializer.Deserialize<ResponseRoot>(json);
+        if (root is null)
+        {
+            throw new InvalidOperationException("The response deserialized as null.");
+        }
+
+        return new DabResponse(root) { Options = options }; ;
+    }
+
+    private static async Task ValidateIsSuccessStatusCode(HttpResponseMessage response)
+    {
+        if (!response.IsSuccessStatusCode)
         {
             var method = response.RequestMessage?.Method?.ToString() ?? "UNKNOWN_METHOD";
-            var url = response.RequestMessage?.RequestUri?.ToString() ?? "unknown";
-            Debug.WriteLine($"{method} {url.Replace("%24", "$")} returned {response.StatusCode}.");
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                throw new HttpRequestException($"{url} returned {response.StatusCode}. Body: {errorText}", null, response.StatusCode);
-            }
-
-            var root = await response.Content.ReadFromJsonAsync<ResponseRoot<T>>().ConfigureAwait(false)
-                ?? throw new InvalidOperationException("The response deserialized as null.");
-
-            if (root.Error is not null)
-            {
-                Debug.WriteLine($"Code: {root.Error.Code}, Message: {root.Error.Message}, Status: {root.Error.Status}");
-            }
-
-            return root.Results ?? throw new Exception("The response did not contain any results.");
-        }
-        finally
-        {
-            response?.Dispose();
+            var url = response.RequestMessage?.RequestUri?.ToString() ?? "UNKNOWN_URL";
+            var errorText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            var errorMessage = $"{method} {url} returned {response.StatusCode}. Body: {errorText}";
+            throw new HttpRequestException(errorMessage, null, response.StatusCode);
         }
     }
 }

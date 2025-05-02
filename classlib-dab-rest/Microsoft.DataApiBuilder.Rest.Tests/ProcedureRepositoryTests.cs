@@ -6,7 +6,6 @@ using System.Text.Json.Serialization;
 using FluentAssertions;
 using Microsoft.DataApiBuilder.Rest.Abstractions;
 using Microsoft.DataApiBuilder.Rest.Options;
-using Xunit;
 using static Microsoft.DataApiBuilder.Rest.Options.ProcedureOptions;
 
 namespace Microsoft.DataApiBuilder.Rest.Tests;
@@ -30,8 +29,8 @@ public class ProcedureRepositoryTests
     static string MockJson() => JsonSerializer.Serialize(new
     {
         value = new[] {
-        new SampleEntity { Id = 1, Name = "A", BirthYear = 2000 }
-    }
+            new SampleEntity { Id = 1, Name = "A", BirthYear = 2000 }
+        }
     });
 
     class MockHandler(HttpResponseMessage response) : HttpMessageHandler
@@ -54,8 +53,9 @@ public class ProcedureRepositoryTests
     }
 
     [Fact]
-    public async Task ExecuteProcedureAsync_WithGetMethod_ReturnsResults()
+    public async Task ExecuteProcedureAsync_WithGetMethodAndValidParams_ReturnsDabResponseWithResult()
     {
+        // arrange (set method to GET and provide one param)
         var repo = GetRepo(MockJson());
         var options = new ProcedureOptions
         {
@@ -63,13 +63,18 @@ public class ProcedureRepositoryTests
             Parameters = { ["name"] = "test" }
         };
 
+        // act (execute GET)
         var result = await repo.ExecuteProcedureAsync(options);
-        result.Should().HaveCount(1);
+
+        // assert
+        result.Result.Should().HaveCount(1);
+        result.Success.Should().BeTrue();
     }
 
     [Fact]
-    public async Task ExecuteProcedureAsync_WithPostMethod_ReturnsResults()
+    public async Task ExecuteProcedureAsync_WithPostMethodAndValidParams_ReturnsDabResponseWithResult()
     {
+        // arrange (set method to POST with param)
         var repo = GetRepo(MockJson());
         var options = new ProcedureOptions
         {
@@ -77,24 +82,33 @@ public class ProcedureRepositoryTests
             Parameters = { ["name"] = "test" }
         };
 
+        // act (execute POST)
         var result = await repo.ExecuteProcedureAsync(options);
-        result.Should().HaveCount(1);
+
+        // assert
+        result.Result.Should().HaveCount(1);
+        result.Success.Should().BeTrue();
     }
 
     [Fact]
-    public async Task ExecuteProcedureAsync_WithInvalidMethod_Throws()
+    public async Task ExecuteProcedureAsync_WithInvalidApiMethod_ThrowsInvalidOperation()
     {
+        // arrange (invalid enum value)
         var repo = GetRepo(MockJson());
         var options = new ProcedureOptions { Method = (ApiMethod)999 };
 
+        // act (attempt call)
         Func<Task> act = async () => await repo.ExecuteProcedureAsync(options);
+
+        // assert
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Invalid API method.");
     }
 
     [Fact]
-    public async Task ExecuteProcedurePostAsync_WithHttpError_Throws()
+    public async Task ExecuteProcedureAsync_WithPostMethodAndHttpError_ThrowsHttpRequestException()
     {
+        // arrange (set status to 400 to simulate failure)
         var repo = GetRepo("", HttpStatusCode.BadRequest);
         var options = new ProcedureOptions
         {
@@ -102,33 +116,46 @@ public class ProcedureRepositoryTests
             Parameters = { ["name"] = "fail" }
         };
 
+        // act
         Func<Task> act = async () => await repo.ExecuteProcedureAsync(options);
+
+        // assert
         await act.Should().ThrowAsync<HttpRequestException>();
     }
 
     [Fact]
-    public async Task ExecuteProcedureGetAsync_WithQueryParams_SerializesCorrectly()
+    public async Task ExecuteProcedureAsync_WithGetMethodAndMultipleParams_ReturnsResult()
     {
+        // arrange (add multiple query params)
         var repo = GetRepo(MockJson());
         var options = new ProcedureOptions
         {
             Method = ApiMethod.GET,
-            Parameters = {
+            Parameters =
+            {
                 ["param1"] = "val1",
                 ["param2"] = "val2"
             }
         };
 
+        // act
         var result = await repo.ExecuteProcedureAsync(options);
-        result.Should().HaveCount(1);
+
+        // assert
+        result.Result.Should().HaveCount(1);
     }
 
     [Fact]
-    public async Task ExecuteProcedureGetAsync_WithNoParameters_Succeeds()
+    public async Task ExecuteProcedureAsync_WithGetMethodAndNoParams_ReturnsValidResponse()
     {
+        // arrange (no parameters set)
         var repo = GetRepo(MockJson());
         var options = new ProcedureOptions { Method = ApiMethod.GET };
+
+        // act
         var result = await repo.ExecuteProcedureAsync(options);
-        result.Should().NotBeNull();
+
+        // assert
+        result.Result.Should().HaveCount(1);
     }
 }

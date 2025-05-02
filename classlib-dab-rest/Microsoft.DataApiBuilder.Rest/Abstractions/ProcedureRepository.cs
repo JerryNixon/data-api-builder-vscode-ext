@@ -1,13 +1,14 @@
-namespace Microsoft.DataApiBuilder.Rest.Abstractions;
-
 using Microsoft.DataApiBuilder.Rest.Options;
 
 using static Microsoft.DataApiBuilder.Rest.Options.ProcedureOptions;
 
-public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? httpClient = null)
+using static Microsoft.DataApiBuilder.Rest.Utility;
+
+namespace Microsoft.DataApiBuilder.Rest.Abstractions;
+public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? http = null)
     : IProcedureRepository<T> where T : class
 {
-    public async Task<T[]> ExecuteProcedureAsync(ProcedureOptions options)
+    public async Task<DabResponse<T, T[]>> ExecuteProcedureAsync(ProcedureOptions options)
     {
         return options.Method switch
         {
@@ -17,23 +18,17 @@ public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? httpClie
         };
     }
 
-    private async Task<T[]> ExecuteProcedureGetAsync(ProcedureOptions options)
+    private async Task<DabResponse<T, T[]>> ExecuteProcedureGetAsync(ProcedureOptions options)
     {
-        var http = httpClient ?? new();
-        options.AddHeadersToHttpClient(http);
+        CreateHttpClientAndAddHeaders(ref http, options);
 
         var uriBuilder = new UriBuilder(entityUri)
         {
             Query = BuildQueryStringFromParameters(options)
         };
 
-        var response = await http.GetAsync(uriBuilder.Uri);
-        if (httpClient is null)
-        {
-            http.Dispose();
-        }
-
-        return await response.EnsureSuccessAsync<T>() ?? [];
+        var response = await http!.GetAsync(uriBuilder.Uri);
+        return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T[]>(options);
 
         static string? BuildQueryStringFromParameters(ProcedureOptions options)
         {
@@ -47,17 +42,11 @@ public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? httpClie
         }
     }
 
-    private async Task<T[]> ExecuteProcedurePostAsync(ProcedureOptions options)
+    private async Task<DabResponse<T, T[]>> ExecuteProcedurePostAsync(ProcedureOptions options)
     {
-        var http = httpClient ?? new();
-        options.AddHeadersToHttpClient(http);
+        CreateHttpClientAndAddHeaders(ref http, options);
 
-        var response = await http.PostAsync(entityUri, options.ToJsonContent());
-        if (httpClient is null)
-        {
-            http.Dispose();
-        }
-
-        return await response.EnsureSuccessAsync<T>() ?? [];
+        var response = await http!.PostAsync(entityUri, options.ToJsonContent());
+        return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T[]>(options);
     }
 }

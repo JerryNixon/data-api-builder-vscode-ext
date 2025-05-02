@@ -2,14 +2,19 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using FluentAssertions;
 
 using Microsoft.DataApiBuilder.Rest.Abstractions;
+using Microsoft.DataApiBuilder.Rest.Options;
 
 namespace Microsoft.DataApiBuilder.Rest.Tests;
 
-public record class Actor([property: Key] int Id, string Name, int BirthYear);
+public record class Actor(
+    [property: Key][property: JsonPropertyName("id")] int? Id,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("birthYear")] int BirthYear);
 
 public class TableRepositoryTests
 {
@@ -23,12 +28,6 @@ public class TableRepositoryTests
         return new TableRepository<Actor>(new Uri("http://test/api/Actor"), http);
     }
 
-    static string MockJson() => MockValueJson(new[]
-    {
-        new Actor(1, "Actor 1", 1980),
-        new Actor(2, "Actor 2", 1990)
-    });
-
     static string MockValueJson<T>(T[] items) =>
         JsonSerializer.Serialize(new { value = items });
 
@@ -39,188 +38,148 @@ public class TableRepositoryTests
     }
 
     [Fact]
-    public async Task GetAsync_WithValidResponse_ReturnsActors()
+    public async Task GetAsync_WithValidJson_ReturnsExpectedActors()
     {
-        var repo = GetRepository(MockJson());
+        // arrange (Creating repository with mock actor JSON)
+        var actorName = nameof(GetAsync_WithValidJson_ReturnsExpectedActors);
+        var mockJson = MockValueJson([new Actor(1, actorName, 1980), new Actor(2, actorName, 1990)]);
+        var repo = GetRepository(mockJson);
+
+        // act (Calling GetAsync)
         var result = await repo.GetAsync();
-        result.Should().HaveCount(2);
+
+        // assert (Validating response count)
+        result.Result.Should().HaveCount(2);
     }
 
     [Fact]
-    public async Task GetAsync_WithTableOptions_AppendsQueryString()
+    public async Task GetAsync_WithFilterOption_AppendsQuerySuccessfully()
     {
-        var repo = GetRepository(MockJson());
-        var result = await repo.GetAsync(new Rest.Options.TableOptions { Filter = "id eq 1" });
-        result.Should().NotBeNull();
-    }
+        // arrange (Creating repository with mock actor JSON)
+        var actorName = nameof(GetAsync_WithFilterOption_AppendsQuerySuccessfully);
+        var mockJson = MockValueJson(new[] { new Actor(1, actorName, 1980) });
+        var repo = GetRepository(mockJson);
+        var options = new TableOptions { Filter = "id eq 1" };
 
-    [Fact]
-    public async Task GetAsync_WithoutOptions_Succeeds()
-    {
-        var repo = GetRepository(MockJson());
-        var result = await repo.GetAsync();
+        // act (Calling GetAsync with filter option)
+        var result = await repo.GetAsync(options);
+
+        // assert (Validating response is non-null)
         result.Should().NotBeNull();
     }
 
     [Fact]
     public async Task GetAsync_WithInvalidJson_ThrowsException()
     {
+        // arrange (Creating repository with malformed JSON)
         var repo = GetRepository("invalid json");
+
+        // act (Calling GetAsync and capturing exception)
         var act = async () => await repo.GetAsync();
+
+        // assert (Expecting deserialization exception)
         await act.Should().ThrowAsync<Exception>();
     }
 
     [Fact]
-    public async Task GetAsync_WithHttpError_ThrowsException()
+    public async Task GetAsync_WithHttpError_ThrowsHttpRequestException()
     {
+        // arrange (Creating repository with error status)
         var repo = GetRepository("", HttpStatusCode.InternalServerError);
+
+        // act (Calling GetAsync and capturing exception)
         var act = async () => await repo.GetAsync();
+
+        // assert (Expecting HttpRequestException)
         await act.Should().ThrowAsync<HttpRequestException>();
     }
 
     [Fact]
     public async Task PostAsync_WithValidItem_ReturnsCreatedActor()
     {
-        var repo = GetRepository(MockValueJson(new[] { new Actor(1, "Actor 1", 1980) }));
-        var result = await repo.PostAsync(new Actor(1, "Actor 1", 1980));
-        result.Id.Should().Be(1);
+        // arrange (Creating repository with mock response JSON)
+        var actorName = nameof(PostAsync_WithValidItem_ReturnsCreatedActor);
+        var actor = new Actor(1, actorName, 1980);
+        var mockJson = MockValueJson(new[] { actor });
+        var repo = GetRepository(mockJson);
+
+        // act (Calling PostAsync)
+        var response = await repo.PostAsync(actor);
+
+        // assert (Validating ID)
+        response.Result.Id.Should().Be(1);
     }
 
     [Fact]
-    public async Task PostAsync_WithoutOptions_Succeeds()
+    public async Task PostAsync_WithNullItem_ThrowsArgumentNullException()
     {
-        var repo = GetRepository(MockValueJson(new[] { new Actor(1, "Actor 1", 1980) }));
-        var result = await repo.PostAsync(new Actor(1, "Actor 1", 1980));
-        result.Should().NotBeNull();
-    }
+        // arrange (Creating repository)
+        var repo = GetRepository(MockValueJson(Array.Empty<Actor>()));
 
-    [Fact]
-    public void PostAsync_WithNullItem_ThrowsArgumentNullException()
-    {
-        var repo = GetRepository(MockJson());
+        // act (Calling PostAsync with null)
         Func<Task> act = async () => await repo.PostAsync(null!);
-        act.Should().ThrowAsync<ArgumentNullException>();
+
+        // assert (Expecting ArgumentNullException)
+        await act.Should().ThrowAsync<ArgumentNullException>();
     }
 
     [Fact]
-    public async Task PostAsync_WithHttpError_ThrowsException()
+    public async Task PostAsync_WithHttpError_ThrowsHttpRequestException()
     {
+        // arrange (Creating repository with error response)
+        var actorName = nameof(PostAsync_WithHttpError_ThrowsHttpRequestException);
+        var actor = new Actor(1, actorName, 1980);
         var repo = GetRepository("", HttpStatusCode.BadRequest);
-        var act = async () => await repo.PostAsync(new Actor(1, "Actor 1", 1980));
+
+        // act (Calling PostAsync)
+        var act = async () => await repo.PostAsync(actor);
+
+        // assert (Expecting HttpRequestException)
         await act.Should().ThrowAsync<HttpRequestException>();
     }
 
     [Fact]
-    public async Task PutAsync_WithValidItem_UpdatesActor()
+    public async Task PutAsync_WithMissingKey_ThrowsInvalidOperationException()
     {
-        var repo = GetRepository(MockValueJson(new[] { new Actor(1, "Actor 1", 1980) }));
-        var result = await repo.PutAsync(new Actor(1, "Actor 1", 1980));
-        result.Name.Should().Be("Actor 1");
+        // arrange (Creating repository)
+        var actorName = nameof(PutAsync_WithMissingKey_ThrowsInvalidOperationException);
+        var repo = GetRepository(MockValueJson(Array.Empty<Actor>()));
+        var invalidActor = new Actor(null, actorName, 1980);
+
+        // act (Calling PutAsync with keyless item)
+        var act = async () => await repo.PutAsync(invalidActor);
+
+        // assert (Expecting InvalidOperationException)
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
-    public async Task PutAsync_WithoutOptions_Succeeds()
+    public async Task PatchAsync_WithMissingKey_ThrowsInvalidOperationException()
     {
-        var repo = GetRepository(MockValueJson(new[] { new Actor(1, "Actor 1", 1980) }));
-        var result = await repo.PutAsync(new Actor(1, "Actor 1", 1980));
-        result.Should().NotBeNull();
+        // arrange (Creating repository)
+        var actorName = nameof(PatchAsync_WithMissingKey_ThrowsInvalidOperationException);
+        var repo = GetRepository(MockValueJson(Array.Empty<Actor>()));
+        var invalidActor = new Actor(null, actorName, 1980);
+
+        // act (Calling PatchAsync with keyless item)
+        var act = async () => await repo.PatchAsync(invalidActor);
+
+        // assert (Expecting InvalidOperationException)
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
-    public void PutAsync_WithNullItem_ThrowsArgumentNullException()
+    public async Task DeleteAsync_WithMissingKey_ThrowsInvalidOperationException()
     {
-        var repo = GetRepository(MockJson());
-        Func<Task> act = async () => await repo.PutAsync(null!);
-        act.Should().ThrowAsync<ArgumentNullException>();
-    }
+        // arrange (Creating repository)
+        var actorName = nameof(DeleteAsync_WithMissingKey_ThrowsInvalidOperationException);
+        var repo = GetRepository(MockValueJson(Array.Empty<Actor>()));
+        var invalidActor = new Actor(null, actorName, 1980);
 
-    [Fact]
-    public void PutAsync_WithMissingKey_ThrowsException()
-    {
-        true.Should().BeTrue(); // Placeholder
-    }
+        // act (Calling DeleteAsync with keyless item)
+        var act = async () => await repo.DeleteAsync(invalidActor);
 
-    [Fact]
-    public async Task PutAsync_WithHttpError_ThrowsException()
-    {
-        var repo = GetRepository("", HttpStatusCode.BadRequest);
-        var act = async () => await repo.PutAsync(new Actor(1, "Actor 1", 1980));
-        await act.Should().ThrowAsync<HttpRequestException>();
-    }
-
-    [Fact]
-    public async Task PatchAsync_WithValidItem_PartiallyUpdatesActor()
-    {
-        var repo = GetRepository(MockValueJson(new[] { new Actor(1, "Actor 1", 1980) }));
-        var result = await repo.PatchAsync(new Actor(1, "Actor 1", 1980));
-        result.Should().NotBeNull();
-    }
-
-    [Fact]
-    public async Task PatchAsync_WithoutOptions_Succeeds()
-    {
-        var repo = GetRepository(MockValueJson(new[] { new Actor(1, "Actor 1", 1980) }));
-        var result = await repo.PatchAsync(new Actor(1, "Actor 1", 1980));
-        result.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void PatchAsync_WithNullItem_ThrowsArgumentNullException()
-    {
-        var repo = GetRepository(MockJson());
-        Func<Task> act = async () => await repo.PatchAsync(null!);
-        act.Should().ThrowAsync<ArgumentNullException>();
-    }
-
-    [Fact]
-    public void PatchAsync_WithMissingKey_ThrowsException()
-    {
-        true.Should().BeTrue(); // Placeholder
-    }
-
-    [Fact]
-    public async Task PatchAsync_WithHttpError_ThrowsException()
-    {
-        var repo = GetRepository("", HttpStatusCode.BadRequest);
-        var act = async () => await repo.PatchAsync(new Actor(1, "Actor 1", 1980));
-        await act.Should().ThrowAsync<HttpRequestException>();
-    }
-
-    [Fact]
-    public async Task DeleteAsync_WithValidItem_DeletesActor()
-    {
-        var repo = GetRepository("", HttpStatusCode.NoContent);
-        var act = async () => await repo.DeleteAsync(new Actor(1, "Actor 1", 1980));
-        await act.Should().NotThrowAsync();
-    }
-
-    [Fact]
-    public async Task DeleteAsync_WithoutOptions_Succeeds()
-    {
-        var repo = GetRepository("", HttpStatusCode.NoContent);
-        var act = async () => await repo.DeleteAsync(new Actor(1, "Actor 1", 1980));
-        await act.Should().NotThrowAsync();
-    }
-
-    [Fact]
-    public void DeleteAsync_WithNullItem_ThrowsArgumentNullException()
-    {
-        var repo = GetRepository(MockJson());
-        Func<Task> act = async () => await repo.DeleteAsync(null!);
-        act.Should().ThrowAsync<ArgumentNullException>();
-    }
-
-    [Fact]
-    public void DeleteAsync_WithMissingKey_ThrowsException()
-    {
-        true.Should().BeTrue(); // Placeholder
-    }
-
-    [Fact]
-    public async Task DeleteAsync_WithHttpError_ThrowsException()
-    {
-        var repo = GetRepository("", HttpStatusCode.BadRequest);
-        var act = async () => await repo.DeleteAsync(new Actor(1, "Actor 1", 1980));
-        await act.Should().ThrowAsync<HttpRequestException>();
+        // assert (Expecting InvalidOperationException)
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 }

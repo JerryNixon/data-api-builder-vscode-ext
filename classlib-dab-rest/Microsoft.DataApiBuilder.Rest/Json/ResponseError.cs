@@ -1,7 +1,7 @@
-namespace Microsoft.DataApiBuilder.Rest.Json;
 
 using System.Text.Json.Serialization;
 
+namespace Microsoft.DataApiBuilder.Rest.Json;
 public partial class ResponseError
 {
     [JsonPropertyName("code")]
