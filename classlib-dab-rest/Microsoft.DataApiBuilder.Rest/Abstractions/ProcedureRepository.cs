@@ -4,7 +4,7 @@ using Microsoft.DataApiBuilder.Rest.Options;
 
 using static Microsoft.DataApiBuilder.Rest.Options.ProcedureOptions;
 
-public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? httpClient = null) 
+public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? httpClient = null)
     : IProcedureRepository<T> where T : class
 {
     public async Task<T[]> ExecuteProcedureAsync(ProcedureOptions options)
@@ -37,10 +37,13 @@ public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? httpClie
 
         static string? BuildQueryStringFromParameters(ProcedureOptions options)
         {
-            return options.Parameters?
-                .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
-                .Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}")
-                .Aggregate((a, b) => $"{a}&{b}");
+            if (options.Parameters.Count == 0)
+            {
+                return null;
+            }
+
+            return options.Parameters.Aggregate("?", (q, kv) =>
+                    $"{q}{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}&").TrimEnd('&');
         }
     }
 

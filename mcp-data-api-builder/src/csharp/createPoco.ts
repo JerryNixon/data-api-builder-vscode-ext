@@ -16,10 +16,12 @@ export async function generateMcpModels(
   configPath: string
 ): Promise<void> {
   const baseDir = path.dirname(configPath);
-  const modelsFolder = path.join(baseDir, 'Mcp', 'Mcp.Shared', 'Models');
+  const modelsFolder = path.join(baseDir, 'Mcp', 'Mcp.Server', 'Models');
   fs.mkdirSync(modelsFolder, { recursive: true });
 
-  const header = `namespace Shared.Models;
+  const header = `#nullable enable
+
+namespace Mcp.Models;
 
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;

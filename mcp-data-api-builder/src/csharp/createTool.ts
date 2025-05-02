@@ -29,7 +29,13 @@ export async function generateMcpToolClasses(
       methods.push(generateExecuteEntity(modelType, entity));
     }
 
-    const navigation = (entity.relationships || []).filter(r => r.cardinality !== 'many-to-many');
+    const entityNames = new Set(
+      entities.map(e => e.source?.normalizedObjectName?.toLowerCase()).filter(Boolean)
+    );
+    
+    const navigation = (entity.relationships || [])
+      .filter(r => r.cardinality !== 'many-to-many' && entityNames.has(r.targetEntity.toLowerCase()));
+
     for (const rel of navigation) {
       const relName = toPascalCase(rel.targetEntity);
       methods.push(`    [McpServerTool(
@@ -43,7 +49,9 @@ export async function generateMcpToolClasses(
     public static IEnumerable<${relName}> Get${relName}s(${modelType} parent) => throw new NotImplementedException();`);
     }
 
-    const content = `using System.ComponentModel;
+    const content = `#nullable enable
+
+using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Shared.Models;
 
@@ -55,17 +63,6 @@ ${methods.join('\n\n')}
 
     const filePath = path.join(toolsFolder, `${className}.g.cs`);
     fs.writeFileSync(filePath, content.trim(), 'utf-8');
-  }
-}
-
-function generateTool(verb: string, model: string, entity: EntityDefinition): string {
-  switch (verb) {
-    case 'Get': return generateGetEntity(model, entity);
-    case 'Create': return generateCreateEntity(model);
-    case 'Update': return generateUpdateEntity(model);
-    case 'Delete': return generateDeleteEntity(model, entity);
-    case 'Execute': return generateExecuteEntity(model, entity);
-    default: return '';
   }
 }
 

@@ -99,7 +99,8 @@ function buildProcedureRepository(className: string, parameters: DbParameter[]):
     .map(p => `{ "${p.name}", ${lowerFirst(p.name)}.ToString() }`)
     .join(',\n                ');
 
-  return `
+  return `#nullable enable
+
 namespace Api.Repositories;
 
 using Api.Abstractions;

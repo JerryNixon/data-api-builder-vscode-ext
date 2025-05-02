@@ -8,12 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DataApiBuilder.Rest" Version="0.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.4" />
     <PackageReference Include="ModelContextProtocol" Version="0.1.0-preview.11" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Mcp.Shared\Mcp.Shared.csproj" />
   </ItemGroup>
 
 </Project>

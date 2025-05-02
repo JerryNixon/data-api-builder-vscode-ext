@@ -2,7 +2,7 @@ namespace Microsoft.DataApiBuilder.Rest.Abstractions;
 
 using Microsoft.DataApiBuilder.Rest.Options;
 
-public interface ITableRepository<T> : IRepository where T : class
+public interface ITableRepository<T> where T : class
 {
     Task<T[]> GetAsync(TableOptions? apiGetOptions = null);
 

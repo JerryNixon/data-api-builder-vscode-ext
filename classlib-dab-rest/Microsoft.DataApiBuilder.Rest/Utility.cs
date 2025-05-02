@@ -111,15 +111,21 @@ public static partial class Utility
 
     public static Uri BuildUriWithKeyProperties<T>(this T item, Uri baseUri)
     {
-        var keyProperties = ReflectKeyProperties(item);
-        if (keyProperties.Count == 0)
+        var keySegments = ReflectKeyProperties(item);
+        if (keySegments.Count == 0)
         {
             throw new KeyNotFoundException($"No key properties defined for type {typeof(T).Name}.");
         }
 
-        var path = string.Join("/", keyProperties.Select(kp => $"{kp.Name}/{Uri.EscapeDataString(kp.Value)}"));
+        // Format: /Entity/Key1Name/Key1Value/Key2Name/Key2Value
+        var path = string.Join("/", keySegments.SelectMany(kp => new[]
+        {
+            Uri.EscapeDataString(kp.Name),
+            Uri.EscapeDataString(kp.Value)
+        }));
+
         baseUri = new Uri(baseUri.ToString().TrimEnd('/'), UriKind.Absolute);
-        return new Uri(baseUri, path);
+        return new Uri($"{baseUri}/{path}");
 
         static List<(string Name, string Value)> ReflectKeyProperties(T item)
         {
@@ -128,14 +134,11 @@ public static partial class Utility
                 .Where(p => Attribute.IsDefined(p, typeof(KeyAttribute)))
                 .Select(p =>
                 {
-                    var jsonName = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? p.Name;
+                    var name = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? p.Name;
                     var value = p.GetValue(item)?.ToString();
                     if (string.IsNullOrEmpty(value))
-                    {
                         throw new InvalidOperationException($"Key field '{p.Name}' cannot have a null or empty value.");
-                    }
-
-                    return (jsonName, value);
+                    return (name, value);
                 }).ToList();
         }
     }

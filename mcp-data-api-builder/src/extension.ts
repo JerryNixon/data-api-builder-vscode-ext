@@ -7,6 +7,7 @@ import { EntityDefinition } from './types';
 import { generateMcpModels } from './csharp/createPoco';
 import { generateMcpRepositories } from './csharp/createRepository';
 import { generateMcpToolClasses } from './csharp/createTool';
+import { createMcpJson } from './csharp/createJson';
 
 export function activate(context: vscode.ExtensionContext) {
   const generateMcpCommand = vscode.commands.registerCommand('dabMcp.generateMcp', async (uri: vscode.Uri) => {
@@ -61,9 +62,10 @@ async function handleGenerateMcp(uri: vscode.Uri, context: vscode.ExtensionConte
   );
 
   await generateMcpModels(filtered, selected, configPath);
-  await generateMcpRepositories(filtered, selected, configPath);
   await generateMcpToolClasses(filtered, selected, configPath);
   await copyMcpResources(context.extensionPath, configPath);
+  // await generateMcpRepositories(filtered, selected, configPath);
+  // await createMcpJson(path.join(path.dirname(configPath), 'Mcp', 'Mcp.Server'));
 
   vscode.window.showInformationMessage('MCP generation complete.');
 }
