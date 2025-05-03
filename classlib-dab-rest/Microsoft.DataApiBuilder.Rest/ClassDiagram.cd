@@ -1,38 +1,21 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <ClassDiagram MajorVersion="1" MinorVersion="1" MembersFormat="FullSignature">
-  <Class Name="Microsoft.DataApiBuilder.Rest.Abstractions.ProcedureRepositoryBase&lt;T&gt;">
-    <Position X="5.75" Y="4" Width="5.25" />
-    <TypeIdentifier>
-      <HashCode>AAAAAAAAAAAAAEAAAAAAAAAEAAAAAAAAAAAAIAAAAAA=</HashCode>
-      <FileName>Abstractions\ProcedureRepositoryBase.cs</FileName>
-      <NewMemberFileName>Abstractions\ProcedureRepositoryBAse.cs</NewMemberFileName>
-    </TypeIdentifier>
-    <Lollipop Position="0.2" />
-  </Class>
-  <Class Name="Microsoft.DataApiBuilder.Rest.Abstractions.TableRepository&lt;T&gt;">
-    <Position X="0.5" Y="4.75" Width="4.5" />
-    <TypeIdentifier>
-      <HashCode>AAAABAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAoA=</HashCode>
-      <FileName>Abstractions\TableRepository.cs</FileName>
-    </TypeIdentifier>
-    <Lollipop Position="0.2" />
-  </Class>
   <Class Name="Microsoft.DataApiBuilder.Rest.Json.ResponseError">
-    <Position X="2.75" Y="11.75" Width="2.5" />
+    <Position X="3.25" Y="10.5" Width="2.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAEAAAAAAAAAAAgAAAAAAAAAAAAAAAAIAAAAAA=</HashCode>
       <FileName>Json\ResponseError.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="Microsoft.DataApiBuilder.Rest.Json.ResponseRoot&lt;T&gt;">
-    <Position X="3" Y="9.75" Width="2.25" />
+    <Position X="0.75" Y="10.5" Width="2.25" />
     <TypeIdentifier>
-      <HashCode>AAAQAAAAAAAAAQAAAAAAAAAACAAAAAAAAAAAAAAAAAA=</HashCode>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Json\ResponseRoot.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="Microsoft.DataApiBuilder.Rest.Options.ProcedureOptions">
-    <Position X="7.25" Y="7.25" Width="3.75" />
+    <Position X="8.5" Y="7.25" Width="3.75" />
     <Compartments>
       <Compartment Name="Nested Types" Collapsed="false" />
     </Compartments>
@@ -49,38 +32,53 @@
     </TypeIdentifier>
   </Class>
   <Class Name="Microsoft.DataApiBuilder.Rest.Options.TableOptions">
-    <Position X="0.5" Y="7.25" Width="2.25" />
+    <Position X="0.5" Y="7.25" Width="4" />
+    <InheritanceLine Type="Microsoft.DataApiBuilder.Rest.Options.CommonOptions" FixedFromPoint="true">
+      <Path>
+        <Point X="5.25" Y="8.438" />
+        <Point X="4.5" Y="8.438" />
+      </Path>
+    </InheritanceLine>
     <TypeIdentifier>
       <HashCode>AIAAAAAAAAAAAQAAAAAAAAAAABAAAAAAAAAAQAAAQAA=</HashCode>
       <FileName>Options\TableOptions.cs</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="Microsoft.DataApiBuilder.Rest.Options.OptionsBase">
-    <Position X="3.75" Y="7.25" Width="2.75" />
+  <Class Name="Microsoft.DataApiBuilder.Rest.Options.CommonOptions">
+    <Position X="5.25" Y="7.75" Width="2.75" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAQAAAA=</HashCode>
-      <FileName>Options\OptionsBase.cs</FileName>
+      <FileName>Options\CommonOptions.cs</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="Microsoft.DataApiBuilder.Rest.Utility">
-    <Position X="5.5" Y="10.75" Width="5.5" />
+    <Position X="0.75" Y="12.25" Width="11.5" />
     <TypeIdentifier>
-      <HashCode>AJAAAAAAAAAAAAAAAAACABIAAAAAAAAAAAAIAAACQAA=</HashCode>
+      <HashCode>AJAAAAAAAAAAAAAAAAAKABAAAAAAAIAAAAAAAAACQAA=</HashCode>
       <FileName>Utility.cs</FileName>
     </TypeIdentifier>
   </Class>
+  <Class Name="Microsoft.DataApiBuilder.Rest.ProcedureRepository&lt;T&gt;">
+    <Position X="5.5" Y="2.5" Width="6.25" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAEAAAAAAAAAEAAAAAAAAAAAAIAAAAAA=</HashCode>
+      <FileName>ProcedureRepository.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Microsoft.DataApiBuilder.Rest.TableRepository&lt;T&gt;">
+    <Position X="0.5" Y="4.5" Width="8" />
+    <TypeIdentifier>
+      <HashCode>AAAABAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAoA=</HashCode>
+      <FileName>TableRepository.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
   <Interface Name="Microsoft.DataApiBuilder.Rest.Abstractions.IProcedureRepository&lt;T&gt;">
-    <Position X="5.75" Y="2" Width="5" />
+    <Position X="5.5" Y="1" Width="5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
       <FileName>Abstractions\IProcedureRepository.cs</FileName>
-    </TypeIdentifier>
-  </Interface>
-  <Interface Name="Microsoft.DataApiBuilder.Rest.Abstractions.IRepository">
-    <Position X="4.75" Y="0.5" Width="1.5" />
-    <TypeIdentifier>
-      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
-      <FileName>Abstractions\IRepository.cs</FileName>
     </TypeIdentifier>
   </Interface>
   <Interface Name="Microsoft.DataApiBuilder.Rest.Abstractions.ITableRepository&lt;T&gt;">

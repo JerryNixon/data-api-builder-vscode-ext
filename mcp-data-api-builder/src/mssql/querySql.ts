@@ -1,7 +1,6 @@
 import * as sql from 'mssql';
-import { EntityDefinition } from '../types';
+import { EntityDefinition, DbColumn, DbEntity, DbParameter } from '../types';
 import { normalizeObjectName, buildAliasMap } from '../helpers';
-import { DbColumn, DbEntity } from '../types';
 
 interface SqlMetadataRow {
   fullName: string;
@@ -76,7 +75,6 @@ export async function enrichStoredProcsWithSqlMetadata(
   entities: EntityDefinition[]
 ): Promise<EntityDefinition[]> {
   const storedProcs = entities.filter(e => e.source.type === 'stored-procedure');
-
   if (storedProcs.length === 0) return [];
 
   const enriched: EntityDefinition[] = [];
@@ -84,6 +82,7 @@ export async function enrichStoredProcsWithSqlMetadata(
   for (const e of storedProcs) {
     const name = normalizeObjectName(e.source.object);
     const columns = await getStoredProcResultColumns(pool, name);
+    const parameters = await getStoredProcParameters(pool, name);
 
     enriched.push({
       ...e,
@@ -91,7 +90,7 @@ export async function enrichStoredProcsWithSqlMetadata(
         objectName: name,
         normalizedObjectName: name,
         type: 'stored-procedure',
-        parameters: null,
+        parameters,
         columns
       }
     });
@@ -100,7 +99,7 @@ export async function enrichStoredProcsWithSqlMetadata(
   return enriched;
 }
 
-export async function getStoredProcResultColumns(
+async function getStoredProcResultColumns(
   pool: sql.ConnectionPool,
   procName: string
 ): Promise<DbColumn[]> {
@@ -119,6 +118,34 @@ export async function getStoredProcResultColumns(
     dbType: row.system_type_name.split('(')[0],
     netType: mapDbTypeToNet(row.system_type_name),
     isKey: false
+  }));
+}
+
+async function getStoredProcParameters(
+  pool: sql.ConnectionPool,
+  procName: string
+): Promise<DbParameter[]> {
+  const request = pool.request();
+  const [schema, name] = procName.split('.');
+
+  request.input('schema', sql.NVarChar, schema);
+  request.input('name', sql.NVarChar, name);
+
+  const result = await request.query(`
+    SELECT 
+      p.name,
+      t.name AS type_name
+    FROM sys.parameters p
+    JOIN sys.types t ON p.user_type_id = t.user_type_id
+    JOIN sys.objects o ON p.object_id = o.object_id
+    JOIN sys.schemas s ON o.schema_id = s.schema_id
+    WHERE s.name = @schema AND o.name = @name;
+  `);
+
+  return result.recordset.map((row: any) => ({
+    name: row.name.replace(/^@/, ''),
+    dbType: row.type_name,
+    netType: mapDbTypeToNet(row.type_name)
   }));
 }
 
@@ -151,9 +178,6 @@ async function queryDbColumns(
   return result.recordset;
 }
 
-/**
- * Maps a SQL Server data type to a C#-friendly .NET type.
- */
 function mapDbTypeToNet(dbType: string): string {
   const cleanType = dbType.split('(')[0].toLowerCase();
   const map: Record<string, string> = {
@@ -179,9 +203,6 @@ function mapDbTypeToNet(dbType: string): string {
   return map[cleanType] ?? 'object';
 }
 
-/**
- * Groups a list of items by a derived string key.
- */
 function groupBy<T>(items: T[], keyFn: (item: T) => string): Record<string, T[]> {
   return items.reduce((acc, item) => {
     const key = keyFn(item);

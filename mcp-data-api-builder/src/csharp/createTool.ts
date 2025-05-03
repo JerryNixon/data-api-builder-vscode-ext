@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { EntityDefinition, DbColumn, DbParameter } from '../types';
 import { toPascalCase, lowerFirst } from '../helpers';
+import { sanitizeIdentifier } from '../helpers';
 
 export async function generateMcpToolClasses(
   entities: EntityDefinition[],
@@ -12,9 +13,12 @@ export async function generateMcpToolClasses(
   const toolsFolder = path.join(baseDir, 'Mcp', 'Mcp.Server', 'Tools');
   fs.mkdirSync(toolsFolder, { recursive: true });
 
+  const procMethods: string[] = []; // Collect methods for all stored procedures
+
   for (const entity of entities) {
     const normalizedName = entity.source?.normalizedObjectName?.toLowerCase() || '';
-    const alias = selectedAliases.find(a => normalizedName.includes(a.toLowerCase())) || 'Unknown';
+    const fallback = entity.source?.normalizedObjectName || entity.source?.object || 'Unnamed';
+    const alias = selectedAliases.find(a => normalizedName.includes(a.toLowerCase())) || fallback;
 
     const className = toPascalCase(alias) + 'Tool';
     const modelType = toPascalCase(alias);
@@ -24,14 +28,17 @@ export async function generateMcpToolClasses(
     const parameters = entity.dbMetadata?.parameters ?? [];
     const summary = summarizeEntityMetadata(columns, parameters);
 
+    if (entity.source.type === 'stored-procedure') {
+      // Add stored procedure methods to the shared ProcTool file
+      procMethods.push(generateExecuteEntity(modelType, summary));
+      continue; // Skip individual file creation for stored procedures
+    }
+
+    // Generate methods for tables and views
     methods.push(generateGetEntity(modelType, summary));
     methods.push(generateCreateEntity(modelType, summary));
     methods.push(generateUpdateEntity(modelType, summary));
     methods.push(generateDeleteEntity(modelType, summary));
-
-    if (entity.source.type === 'stored-procedure') {
-      methods.push(generateExecuteEntity(modelType, summary));
-    }
 
     const entityNames = new Set(
       entities.map(e => e.source?.normalizedObjectName?.toLowerCase()).filter(Boolean)
@@ -60,13 +67,34 @@ using Microsoft.DataApiBuilder.Rest.Options;
 public static class ${className}
 {
     private static readonly string BASE_URL = "http://localhost:5000/api${entity.rest?.path}";
-    private static readonly TableRepository<Actor> repository = new(new(BASE_URL));
+    private static readonly TableRepository<${modelType}> repository = new(new(BASE_URL));
 
 ${methods.join('\n\n')}
 }`;
 
     const filePath = path.join(toolsFolder, `${className}.g.cs`);
     fs.writeFileSync(filePath, content.trim(), 'utf-8');
+  }
+
+  // Generate a single file for all stored procedures
+  if (procMethods.length > 0) {
+    const procContent = `#nullable enable
+
+using System.ComponentModel;
+using ModelContextProtocol.Server;
+using Mcp.Models;
+using Microsoft.DataApiBuilder.Rest.Abstractions;
+using System.Threading.Tasks;
+using Microsoft.DataApiBuilder.Rest.Options;
+
+[McpServerToolType]
+public static class ProcTool
+{
+${procMethods.join('\n\n')}
+}`;
+
+    const procFilePath = path.join(toolsFolder, 'ProcTool.g.cs');
+    fs.writeFileSync(procFilePath, procContent.trim(), 'utf-8');
   }
 }
 
@@ -178,7 +206,7 @@ function generateExecuteEntity(model: string, summary: EntityMetadataSummary): s
   return `    [McpServerTool]
     [Description("""
     Executes the stored procedure ${model}.
-    Returns: ${summary.keys}, ${summary.nonKeys}
+    Returns: ${summary.nonKeys}
     Parameters: ${summary.parameters || 'None'}
     """)]
     public static IEnumerable<${model}> Execute${model}(${summary.parametersAsNetParams}) => throw new NotImplementedException();`;
@@ -233,16 +261,16 @@ export function summarizeEntityMetadata(columns: DbColumn[] = [], parameters: Db
 
   const keysAsNetParams = columns
     .filter(c => c.isKey)
-    .map(c => `${c.netType} ${lowerFirst(c.alias)}`)
+    .map(c => `${c.netType} ${lowerFirst(sanitizeIdentifier(c.alias))}`)
     .join(', ');
 
   const nonKeysAsNetParams = columns
     .filter(c => !c.isKey && c.alias)
-    .map(c => `${c.netType} ${lowerFirst(c.alias)}`)
+    .map(c => `${c.netType} ${lowerFirst(sanitizeIdentifier(c.alias))}`)
     .join(', ');
 
   const parametersAsNetParams = parameters
-    .map(p => `${p.netType} ${lowerFirst(p.name)}`)
+    .map(p => `${p.netType} ${lowerFirst(sanitizeIdentifier(p.name))}`)
     .join(', ');
 
   return {
