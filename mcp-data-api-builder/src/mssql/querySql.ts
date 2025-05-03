@@ -7,7 +7,7 @@ interface SqlMetadataRow {
   fullName: string;
   columnName: string;
   dataType: string;
-  isPrimaryKey: number;
+  isPrimaryKey: boolean;
 }
 
 export async function openConnection(connectionString: string): Promise<sql.ConnectionPool | undefined> {
@@ -48,12 +48,14 @@ export async function enrichEntityWithSqlMetadata(
   const grouped = groupBy(rows, (r: SqlMetadataRow) => r.fullName.toLowerCase());
 
   return targets.map(({ object, aliasMap, entity }) => {
-    const columns: DbColumn[] = (grouped[object] || []).map((r: SqlMetadataRow) => ({
+    const rows = grouped[object] ?? [];
+
+    const columns: DbColumn[] = rows.map(r => ({
       name: r.columnName,
       alias: aliasMap?.[r.columnName] ?? r.columnName,
       dbType: r.dataType,
       netType: mapDbTypeToNet(r.dataType),
-      isKey: r.isPrimaryKey === 1
+      isKey: r.isPrimaryKey
     }));
 
     return {

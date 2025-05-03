@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { EntityDefinition } from '../types';
+import { EntityDefinition, DbColumn, DbParameter } from '../types';
 import { toPascalCase, lowerFirst } from '../helpers';
 
 export async function generateMcpToolClasses(
@@ -20,31 +20,29 @@ export async function generateMcpToolClasses(
     const modelType = toPascalCase(alias);
     const methods: string[] = [];
 
-    methods.push(generateGetEntity(modelType, entity));
-    methods.push(generateCreateEntity(modelType));
-    methods.push(generateUpdateEntity(modelType));
-    methods.push(generateDeleteEntity(modelType, entity));
+    const columns = entity.dbMetadata?.columns ?? [];
+    const parameters = entity.dbMetadata?.parameters ?? [];
+    const summary = summarizeEntityMetadata(columns, parameters);
+
+    methods.push(generateGetEntity(modelType, summary));
+    methods.push(generateCreateEntity(modelType, summary));
+    methods.push(generateUpdateEntity(modelType, summary));
+    methods.push(generateDeleteEntity(modelType, summary));
 
     if (entity.source.type === 'stored-procedure') {
-      methods.push(generateExecuteEntity(modelType, entity));
+      methods.push(generateExecuteEntity(modelType, summary));
     }
 
     const entityNames = new Set(
       entities.map(e => e.source?.normalizedObjectName?.toLowerCase()).filter(Boolean)
     );
-    
+
     const navigation = (entity.relationships || [])
       .filter(r => r.cardinality !== 'many-to-many' && entityNames.has(r.targetEntity.toLowerCase()));
 
     for (const rel of navigation) {
       const relName = toPascalCase(rel.targetEntity);
-      methods.push(`    [McpServerTool(
-        Name = nameof(Get${relName}s),
-        Title = "Get related ${relName}s",
-        ReadOnly = true, // this method reads data
-        Idempotent = true, // calling it repeatedly yields same result
-        Destructive = false, // does not mutate data
-        OpenWorld = false)] // internal scope only
+      methods.push(`[McpServerTool]
     [Description("Retrieves related ${rel.targetEntity} entries for the given ${modelType} entity. Useful for navigating one-to-many or one-to-one relationships.")]
     public static IEnumerable<${relName}> Get${relName}s(${modelType} parent) => throw new NotImplementedException();`);
     }
@@ -53,11 +51,17 @@ export async function generateMcpToolClasses(
 
 using System.ComponentModel;
 using ModelContextProtocol.Server;
-using Shared.Models;
+using Mcp.Models;
+using Microsoft.DataApiBuilder.Rest.Abstractions;
+using System.Threading.Tasks;
+using Microsoft.DataApiBuilder.Rest.Options;
 
 [McpServerToolType]
 public static class ${className}
 {
+    private static readonly string BASE_URL = "http://localhost:5000/api${entity.rest?.path}";
+    private static readonly TableRepository<Actor> repository = new(new(BASE_URL));
+
 ${methods.join('\n\n')}
 }`;
 
@@ -66,67 +70,188 @@ ${methods.join('\n\n')}
   }
 }
 
-function generateGetEntity(model: string, entity: EntityDefinition): string {
-  const keys = entity.dbMetadata?.columns?.filter(c => c.isKey) || [];
-  const paramList = keys.map(k => `${k.netType} ${lowerFirst(k.alias)}`).join(', ');
-  return `    [McpServerTool(
-        Name = nameof(Get${model}),
-        Title = "Get ${model} by primary key",
-        ReadOnly = true, // only reads data
-        Idempotent = true, // always returns the same result
-        Destructive = false, // no mutation
-        OpenWorld = false)] // scoped to internal storage
-    [Description("Fetches a single ${model} by its primary keys. Uses the REST API to query the entity by unique identifiers defined in Data API Builder.")]
-    public static ${model}? Get${model}(${paramList}) => throw new NotImplementedException();`;
+function generateGetEntity(model: string, summary: EntityMetadataSummary): string {
+  return `    [McpServerTool]
+    [Description("""
+    Fetches an array of ${model} records.
+    Keys: ${summary.keys}
+    Returns: ${summary.keys}, ${summary.nonKeys}
+    Parameter: filter: An expression to filter the result set.
+      Filter supports operators: eq, ne, gt, lt, ge, le, and/or, and parenthesis.
+      Filter example: "${summary.filterExamples}"
+    """)]
+    public static ${model}[] Get${model}(string? filter = null)
+    {
+      var options = new TableOptions
+      {
+        Filter = filter
+      };
+      return repository.GetAsync(options).GetAwaiter().GetResult().Result ?? [];
+    }`;
 }
 
-function generateCreateEntity(model: string): string {
-  return `    [McpServerTool(
-        Name = nameof(Create${model}),
-        Title = "Create a new ${model}",
-        ReadOnly = false, // modifies state
-        Idempotent = false, // creates new instance
-        Destructive = false, // not a destructive delete
-        OpenWorld = false)] // internal logic only
-    [Description("Creates a new ${model} using the supplied input. Sends a POST to the REST endpoint configured in Data API Builder.")]
-    public static ${model} Create${model}(${model} input) => throw new NotImplementedException();`;
+function generateCreateEntity(model: string, summary: EntityMetadataSummary): string {
+  const assignments = summary.nonKeysAsNetParams
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => {
+      const [type, name] = p.split(' ');
+      return `        ${toPascalCase(name)} = ${name}`;
+    })
+    .join(',\n');
+
+  return `    [McpServerTool]
+    [Description("""
+    Creates a new ${model} using the supplied input.
+    Parameters: ${summary.nonKeys}
+    Returns: ${summary.keys}, ${summary.nonKeys}
+    """)]
+    public static ${model} Create${model}(${summary.nonKeysAsNetParams})
+    {
+      var item = new ${model}
+      {
+${assignments}
+      };
+      return repository.PostAsync(item).GetAwaiter().GetResult().Result ?? null!;
+    }`;
 }
 
-function generateUpdateEntity(model: string): string {
-  return `    [McpServerTool(
-        Name = nameof(Update${model}),
-        Title = "Update existing ${model}",
-        ReadOnly = false, // modifies data
-        Idempotent = true, // repeatable effect
-        Destructive = false, // no deletion
-        OpenWorld = false)] // internal service only
-    [Description("Updates the specified ${model} entity by sending a PATCH to the REST endpoint. Relies on the schema mappings and key fields in the configuration.")]
-    public static ${model} Update${model}(${model} input) => throw new NotImplementedException();`;
+function generateUpdateEntity(model: string, summary: EntityMetadataSummary): string {
+  const paramList = [summary.keysAsNetParams, summary.nonKeysAsNetParams].filter(Boolean).join(', ');
+  const assignments = [summary.keysAsNetParams, summary.nonKeysAsNetParams]
+    .join(',')
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => {
+      const [type, name] = p.split(' ');
+      return `        ${toPascalCase(name)} = ${name}`;
+    })
+    .join(',\n');
+
+  return `    [McpServerTool]
+    [Description("""
+    Updates an existing ${model} entity.
+    Parameters: ${summary.keys}, ${summary.nonKeys}
+    Returns: ${summary.keys}, ${summary.nonKeys}
+    """)]
+    public static ${model} Update${model}(${paramList})
+    {
+      var item = new ${model}
+      {
+${assignments}
+      };
+      return repository.PatchAsync(item).GetAwaiter().GetResult().Result ?? null!;
+    }`;
 }
 
-function generateDeleteEntity(model: string, entity: EntityDefinition): string {
-  const keys = entity.dbMetadata?.columns?.filter(c => c.isKey) || [];
-  const paramList = keys.map(k => `${k.netType} ${lowerFirst(k.alias)}`).join(', ');
-  return `    [McpServerTool(
-        Name = nameof(Delete${model}),
-        Title = "Delete ${model} by key",
-        ReadOnly = false, // mutates storage
-        Idempotent = true, // multiple calls = same result
-        Destructive = true, // removes data
-        OpenWorld = false)] // restricted scope
-    [Description("Deletes the ${model} using the primary key fields. Sends a DELETE call to the REST endpoint defined in Data API Builder.")]
-    public static bool Delete${model}(${paramList}) => throw new NotImplementedException();`;
+function generateDeleteEntity(model: string, summary: EntityMetadataSummary): string {
+  const assignments = [summary.keysAsNetParams]
+    .join(',')
+    .split(',')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .map(p => {
+      const [type, name] = p.split(' ');
+      return `        ${toPascalCase(name)} = ${name}`;
+    })
+    .join(',\n');
+
+  return `    [McpServerTool]
+    [Description("""
+    Deletes the ${model} using the primary key fields.
+    Parameters: ${summary.keys}
+    Returns: true | false
+    """)]
+    public static bool Delete${model}(${summary.keysAsNetParams}) 
+    {
+      var item = new ${model}
+      {
+${assignments}
+      };
+      return repository.DeleteAsync(item).GetAwaiter().GetResult().Success;
+    }`;
 }
 
-function generateExecuteEntity(model: string, entity: EntityDefinition): string {
-  const params = (entity.dbMetadata?.parameters || []).map(p => `${p.netType} ${lowerFirst(p.name)}`).join(', ');
-  return `    [McpServerTool(
-        Name = nameof(Execute${model}),
-        Title = "Execute ${model} stored procedure",
-        ReadOnly = false, // stored procedures may modify state
-        Idempotent = false, // behavior not guaranteed repeatable
-        Destructive = true, // may cause data side effects
-        OpenWorld = false)] // backend-only scope
-    [Description("Executes the stored procedure ${model} with the given parameters. The behavior of the procedure is determined by backend logic, and its effects are considered non-idempotent and potentially state-altering.")]
-    public static IEnumerable<${model}> Execute${model}(${params}) => throw new NotImplementedException();`;
+function generateExecuteEntity(model: string, summary: EntityMetadataSummary): string {
+  return `    [McpServerTool]
+    [Description("""
+    Executes the stored procedure ${model}.
+    Returns: ${summary.keys}, ${summary.nonKeys}
+    Parameters: ${summary.parameters || 'None'}
+    """)]
+    public static IEnumerable<${model}> Execute${model}(${summary.parametersAsNetParams}) => throw new NotImplementedException();`;
+}
+
+export interface EntityMetadataSummary {
+  keys: string;
+  nonKeys: string;
+  filterExamples: string;
+  parameters?: string;
+  keysAsNetParams: string;
+  nonKeysAsNetParams: string;
+  parametersAsNetParams: string;
+}
+
+export function summarizeEntityMetadata(columns: DbColumn[] = [], parameters: DbParameter[] = []): EntityMetadataSummary {
+  const keys = columns
+    .filter(c => c.isKey)
+    .map(c => `${c.alias} (${c.netType})`)
+    .join(', ');
+
+  const nonKeys = columns
+    .filter(c => !c.isKey && c.alias)
+    .map(c => `${c.alias} (${c.netType})`)
+    .join(', ');
+
+  const filterExamples = columns
+    .filter(c => !c.isKey && c.alias)
+    .map(c => {
+      switch (c.netType) {
+        case 'string':
+          return `${c.alias} eq 'value'`;
+        case 'int':
+        case 'long':
+        case 'float':
+        case 'double':
+        case 'decimal':
+          return `${c.alias} eq 123`;
+        case 'bool':
+          return `${c.alias} eq true`;
+        case 'DateTime':
+          return `${c.alias} eq 2024-01-01T00:00:00Z`;
+        default:
+          return `${c.alias} eq <value>`;
+      }
+    })
+    .join(' and ');
+
+  const parameterList = parameters
+    .map(p => `${p.name} (${p.netType})`)
+    .join(', ');
+
+  const keysAsNetParams = columns
+    .filter(c => c.isKey)
+    .map(c => `${c.netType} ${lowerFirst(c.alias)}`)
+    .join(', ');
+
+  const nonKeysAsNetParams = columns
+    .filter(c => !c.isKey && c.alias)
+    .map(c => `${c.netType} ${lowerFirst(c.alias)}`)
+    .join(', ');
+
+  const parametersAsNetParams = parameters
+    .map(p => `${p.netType} ${lowerFirst(p.name)}`)
+    .join(', ');
+
+  return {
+    keys,
+    nonKeys,
+    filterExamples,
+    parameters: parameterList,
+    keysAsNetParams,
+    nonKeysAsNetParams,
+    parametersAsNetParams
+  };
 }

@@ -1,11 +1,12 @@
+using Microsoft.DataApiBuilder.Rest.Abstractions;
 using Microsoft.DataApiBuilder.Rest.Options;
 
 using static Microsoft.DataApiBuilder.Rest.Options.ProcedureOptions;
 
 using static Microsoft.DataApiBuilder.Rest.Utility;
 
-namespace Microsoft.DataApiBuilder.Rest.Abstractions;
-public abstract class ProcedureRepository<T>(Uri entityUri, HttpClient? http = null)
+namespace Microsoft.DataApiBuilder.Rest;
+public class ProcedureRepository<T>(Uri entityUri, HttpClient? http = null)
     : IProcedureRepository<T> where T : class
 {
     public async Task<DabResponse<T, T[]>> ExecuteProcedureAsync(ProcedureOptions options)

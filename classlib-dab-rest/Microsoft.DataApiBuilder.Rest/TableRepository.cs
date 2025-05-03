@@ -1,11 +1,12 @@
 
 using System.Net.Http.Json;
 
+using Microsoft.DataApiBuilder.Rest.Abstractions;
 using Microsoft.DataApiBuilder.Rest.Options;
 
 using static Microsoft.DataApiBuilder.Rest.Utility;
 
-namespace Microsoft.DataApiBuilder.Rest.Abstractions;
+namespace Microsoft.DataApiBuilder.Rest;
 public class TableRepository<T>(Uri entityUri, HttpClient? http = null)
     : ITableRepository<T> where T : class
 {

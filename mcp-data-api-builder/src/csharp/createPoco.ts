@@ -33,7 +33,9 @@ using System.Text.Json.Serialization;
     async (progress) => {
       for (const entity of entities) {
         const meta = entity.dbMetadata;
-        if (!meta) { continue; }
+        if (!meta) {
+          continue;
+        }
 
         const classNameRaw = selectedAliases.find(alias =>
           meta.objectName.toLowerCase().includes(alias.toLowerCase())
@@ -43,13 +45,17 @@ using System.Text.Json.Serialization;
         progress.report({ message: `Generating ${className}...` });
 
         const properties = meta.columns
-          .map((col: DbColumn) =>
-            `    public ${col.netType} ${toPascalCase(sanitizeIdentifier(col.alias))} { get; set; }`)
-          .join('\n');
+          .map((col: DbColumn) => {
+            const originalName = sanitizeIdentifier(col.name);
+            const aliasName = sanitizeIdentifier(col.alias);
+            const propertyName = toPascalCase(aliasName);
+            const jsonName = originalName !== aliasName ? aliasName : originalName;
+            return `    [JsonPropertyName("${jsonName}")]\n    public ${col.netType} ${propertyName} { get; set; } = default!;`;
+          })
+          .join('\n\n');
 
-        const content = `${header}public class ${className} \n{\n${properties}\n}`;
+        const content = `${header}public class ${className}\n{\n${properties}\n}`;
         const filePath = path.join(modelsFolder, `${className}.g.cs`);
-
         fs.writeFileSync(filePath, content.trim(), 'utf-8');
       }
     }
