@@ -6,10 +6,11 @@ using static Microsoft.DataApiBuilder.Rest.Options.ProcedureOptions;
 using static Microsoft.DataApiBuilder.Rest.Utility;
 
 namespace Microsoft.DataApiBuilder.Rest;
+
 public class ProcedureRepository<T>(Uri entityUri, HttpClient? http = null)
-    : IProcedureRepository<T> where T : class
+    : RepositoryBase(entityUri, http), IProcedureRepository<T> where T : class
 {
-    public async Task<DabResponse<T, T[]>> ExecuteProcedureAsync(ProcedureOptions options)
+    public async Task<DabResponse<T, T[]>> ExecuteProcedureAsync(ProcedureOptions options, CancellationToken? cancellationToken = null)
     {
         return options.Method switch
         {
@@ -19,7 +20,7 @@ public class ProcedureRepository<T>(Uri entityUri, HttpClient? http = null)
         };
     }
 
-    private async Task<DabResponse<T, T[]>> ExecuteProcedureGetAsync(ProcedureOptions options)
+    private async Task<DabResponse<T, T[]>> ExecuteProcedureGetAsync(ProcedureOptions options, CancellationToken? cancellationToken = null)
     {
         CreateHttpClientAndAddHeaders(ref http, options);
 
@@ -28,7 +29,7 @@ public class ProcedureRepository<T>(Uri entityUri, HttpClient? http = null)
             Query = BuildQueryStringFromParameters(options)
         };
 
-        var response = await http!.GetAsync(uriBuilder.Uri);
+        var response = await http!.GetAsync(uriBuilder.Uri, cancellationToken ?? CancellationToken.None);
         return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T[]>(options);
 
         static string? BuildQueryStringFromParameters(ProcedureOptions options)
@@ -43,11 +44,11 @@ public class ProcedureRepository<T>(Uri entityUri, HttpClient? http = null)
         }
     }
 
-    private async Task<DabResponse<T, T[]>> ExecuteProcedurePostAsync(ProcedureOptions options)
+    private async Task<DabResponse<T, T[]>> ExecuteProcedurePostAsync(ProcedureOptions options, CancellationToken? cancellationToken = null)
     {
         CreateHttpClientAndAddHeaders(ref http, options);
 
-        var response = await http!.PostAsync(entityUri, options.ToJsonContent());
+        var response = await http!.PostAsync(entityUri, options.ToJsonContent(), cancellationToken ?? CancellationToken.None);
         return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T[]>(options);
     }
 }

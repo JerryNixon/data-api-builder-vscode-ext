@@ -1,3 +1,5 @@
+import { EntityDefinition } from './types';
+
 /**
  * Normalizes object names to schema-qualified, lower-case form.
  * @param name - SQL object name, optionally schema-qualified.
@@ -53,4 +55,15 @@ export function sanitizeIdentifier(name: string): string {
     'object', 'default', 'override'
   ]);
   return reserved.has(prefixed) ? `@${prefixed}` : prefixed;
+}
+
+export function shouldGenerateFor(entity: EntityDefinition, selectedAliases: string[]): boolean {
+  const name = (entity.source?.normalizedObjectName || '').toLowerCase();
+  return selectedAliases.some(a => name.includes(a.toLowerCase()));
+}
+
+export function getClassName(entity: EntityDefinition): string {
+  const rawName = entity.source?.object || 'Unnamed';
+  const shortName = rawName.split('.').pop() || rawName;
+  return toPascalCase(sanitizeIdentifier(shortName));
 }

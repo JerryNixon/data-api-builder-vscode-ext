@@ -2,14 +2,9 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { EntityDefinition, DbColumn } from '../types';
-import { toPascalCase, sanitizeIdentifier } from '../helpers';
+import { toPascalCase, sanitizeIdentifier, lowerFirst } from '../helpers';
+import { getClassName, shouldGenerateFor } from '../helpers';
 
-/**
- * Writes .cs model files based on enriched entity metadata.
- * @param entities - The list of EntityDefinitions enriched with dbMetadata.
- * @param selectedAliases - The aliases selected by the user.
- * @param configPath - The path to the DAB config file that was right-clicked.
- */
 export async function generateMcpModels(
   entities: EntityDefinition[],
   selectedAliases: string[],
@@ -23,25 +18,38 @@ export async function generateMcpModels(
     { location: vscode.ProgressLocation.Notification, title: 'Generating MCP POCOs', cancellable: false },
     async (progress) => {
       for (const entity of entities) {
-        const meta = entity.dbMetadata;
-        if (!meta) continue;
+        if (!shouldGenerateFor(entity, selectedAliases)) continue;
 
-        const rawName = entity.source?.object || meta.objectName;
-        const classNameRaw = rawName.split('.').pop() || rawName;
-        const className = toPascalCase(sanitizeIdentifier(classNameRaw));
+        const className = getClassName(entity);
         progress.report({ message: `Generating ${className}...` });
 
-        const properties = meta.columns
-          .map((col: DbColumn) => {
-            const originalName = sanitizeIdentifier(col.name);
-            const aliasName = sanitizeIdentifier(col.alias);
-            const propertyName = toPascalCase(aliasName);
-            const jsonName = originalName !== aliasName ? aliasName : originalName;
-            return `        [JsonPropertyName("${jsonName}")]\n        public ${col.netType} ${propertyName} { get; set; } = default!;`;
-          })
-          .join('\n\n');
+        const fileContent = buildModelFile(entity, className);
+        const filePath = path.join(modelsFolder, `${className}.cs`);
+        fs.writeFileSync(filePath, fileContent.trim(), 'utf-8');
+      }
+    }
+  );
+}
 
-        const fileContent = `#nullable enable
+function buildModelFile(entity: EntityDefinition, className: string): string {
+  const columns = entity.dbMetadata?.columns ?? [];
+  const properties = columns
+    .map((col: DbColumn) => {
+      const originalName = sanitizeIdentifier(col.name);
+      const aliasName = sanitizeIdentifier(col.alias);
+      const propertyName = toPascalCase(aliasName);
+      const jsonName = originalName !== aliasName ? aliasName : originalName;
+      return `        [JsonPropertyName("${jsonName}")]
+        public ${col.netType} ${propertyName} { get; set; } = default!;`;
+    })
+    .join('\n\n');
+
+  const restPath = (entity.rest?.path || '').replace(/^\/|\/$/g, '');
+  const repoType = entity.source?.type === 'stored-procedure'
+    ? 'ProcedureRepository'
+    : 'TableRepository';
+
+  return `#nullable enable
 
 namespace Mcp.Models
 {
@@ -56,18 +64,13 @@ ${properties}
 namespace Mcp
 {
     using Mcp.Models;
-    using Microsoft.DataApiBuilder.Rest.Abstractions;
+    using Microsoft.DataApiBuilder.Rest;
 
     public static partial class ServiceLocator
     {
-        public readonly static Lazy<TableRepository<${className}>> ${className}Repository =
-            new(() => new(new(string.Format(BASE_URL, "${(entity.rest?.path || '').replace(/^\/|\/$/g, '')}"))));
+        private readonly static Lazy<${repoType}<${className}>> ${lowerFirst(className)}Repository =
+            new(() => new(new(string.Format(BASE_URL, "${restPath}"))));
+        public static ${repoType}<${className}> ${className}Repository => ${lowerFirst(className)}Repository.Value;
     }
 }`;
-
-        const filePath = path.join(modelsFolder, `${className}.cs`);
-        fs.writeFileSync(filePath, fileContent.trim(), 'utf-8');
-      }
-    }
-  );
 }

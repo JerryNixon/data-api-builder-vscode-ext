@@ -29,7 +29,7 @@ var repository = new TableRepository<Actor>(entityUri);
 Verify your API is available.
 
 ```csharp
-if (!await Utility.IsApiAvailableAsync(URL))
+if (!await repository.IsAvailableAsync())
 {
     // handle problem
 }

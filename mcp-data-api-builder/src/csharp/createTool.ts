@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { EntityDefinition, DbColumn, DbParameter } from '../types';
-import { toPascalCase, lowerFirst } from '../helpers';
-import { sanitizeIdentifier } from '../helpers';
+import { toPascalCase, lowerFirst, sanitizeIdentifier } from '../helpers';
+import { getClassName, shouldGenerateFor } from '../helpers';
 
 export async function generateMcpToolClasses(
   entities: EntityDefinition[],
@@ -13,15 +13,13 @@ export async function generateMcpToolClasses(
   const toolsFolder = path.join(baseDir, 'Mcp', 'Mcp.Server', 'Tools');
   fs.mkdirSync(toolsFolder, { recursive: true });
 
-  const procMethods: string[] = []; // Collect methods for all stored procedures
+  const procMethods: string[] = [];
 
   for (const entity of entities) {
-    const normalizedName = entity.source?.normalizedObjectName?.toLowerCase() || '';
-    const fallback = entity.source?.normalizedObjectName || entity.source?.object || 'Unnamed';
-    const alias = selectedAliases.find(a => normalizedName.includes(a.toLowerCase())) || fallback;
+    if (!shouldGenerateFor(entity, selectedAliases)) continue;
 
-    const className = toPascalCase(alias) + 'Tool';
-    const modelType = toPascalCase(alias);
+    const modelType = getClassName(entity);
+    const className = modelType + 'Tool';
     const tableMethods: string[] = [];
 
     const columns = entity.dbMetadata?.columns ?? [];
@@ -29,12 +27,10 @@ export async function generateMcpToolClasses(
     const summary = summarizeEntityMetadata(columns, parameters);
 
     if (entity.source.type === 'stored-procedure') {
-      // Add stored procedure methods to the shared ProcTool file
       procMethods.push(generateExecuteEntity(modelType, summary));
-      continue; // Skip individual file creation for stored procedures
+      continue;
     }
 
-    // Generate methods for tables and views
     tableMethods.push(generateGetEntity(modelType, summary));
     tableMethods.push(generateCreateEntity(modelType, summary));
     tableMethods.push(generateUpdateEntity(modelType, summary));
@@ -72,7 +68,6 @@ ${tableMethods.join('\n\n')}
     fs.writeFileSync(filePath, content.trim(), 'utf-8');
   }
 
-  // Generate a single file for all stored procedures
   if (procMethods.length > 0) {
     const procContent = `#nullable enable
 
@@ -80,7 +75,6 @@ using Mcp;
 using Mcp.Models;
 using System.ComponentModel;
 using ModelContextProtocol.Server;
-using Microsoft.DataApiBuilder.Rest.Options;
 
 [McpServerToolType]
 public static class ProcTool
@@ -108,7 +102,7 @@ function generateGetEntity(model: string, summary: EntityMetadataSummary): strin
       {
         Filter = filter
       };
-      var repository = ServiceLocator.${model}Repository.Value;
+      var repository = ServiceLocator.${model}Repository;
       var response = repository.GetAsync(options).GetAwaiter().GetResult();
       return response.Result ?? [];
     }`;
@@ -138,7 +132,7 @@ function generateCreateEntity(model: string, summary: EntityMetadataSummary): st
       {
 ${assignments}
       };
-      var repository = ServiceLocator.${model}Repository.Value;
+      var repository = ServiceLocator.${model}Repository;
       var response = repository.PostAsync(item).GetAwaiter().GetResult();
       return response.Result ?? null!;
     }`;
@@ -243,27 +237,20 @@ export function summarizeEntityMetadata(columns: DbColumn[] = [], parameters: Db
     .filter(c => !c.isKey && c.alias)
     .map(c => {
       switch (c.netType) {
-        case 'string':
-          return `${c.alias} eq 'value'`;
+        case 'string': return `${c.alias} eq 'value'`;
         case 'int':
         case 'long':
         case 'float':
         case 'double':
-        case 'decimal':
-          return `${c.alias} eq 123`;
-        case 'bool':
-          return `${c.alias} eq true`;
-        case 'DateTime':
-          return `${c.alias} eq 2024-01-01T00:00:00Z`;
-        default:
-          return `${c.alias} eq <value>`;
+        case 'decimal': return `${c.alias} eq 123`;
+        case 'bool': return `${c.alias} eq true`;
+        case 'DateTime': return `${c.alias} eq 2024-01-01T00:00:00Z`;
+        default: return `${c.alias} eq <value>`;
       }
     })
     .join(' and ');
 
-  const parameterList = parameters
-    .map(p => `${p.name} (${p.netType})`)
-    .join(', ');
+  const parameterList = parameters.map(p => `${p.name} (${p.netType})`).join(', ');
 
   const keysAsNetParams = columns
     .filter(c => c.isKey)

@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -22,6 +21,6 @@ namespace Mcp
 {
     public static partial class ServiceLocator
     {
-        public const string BASE_URL = "http://localhost:5000/api/{0}";
+        private const string BASE_URL = "http://localhost:5000/api/{0}";
     }
 }

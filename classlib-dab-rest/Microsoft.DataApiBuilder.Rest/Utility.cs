@@ -13,17 +13,17 @@ using static System.Text.Json.JsonNamingPolicy;
 using static System.Text.Json.Serialization.JsonIgnoreCondition;
 
 namespace Microsoft.DataApiBuilder.Rest;
-public static partial class Utility
+internal static partial class Utility
 {
-    public static async Task<bool> IsApiAvailableAsync(string url, int timeoutInSeconds = 30)
+    public static async Task<bool> IsApiAvailableAsync(string url, int timeoutInSeconds = 30, HttpClient? httpClient = null)
     {
-        using var httpClient = new HttpClient
+        using var http = httpClient ?? new HttpClient
         {
             Timeout = TimeSpan.FromSeconds(timeoutInSeconds)
         };
         try
         {
-            var response = await httpClient.GetAsync(url).ConfigureAwait(false);
+            var response = await http.GetAsync(url).ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)

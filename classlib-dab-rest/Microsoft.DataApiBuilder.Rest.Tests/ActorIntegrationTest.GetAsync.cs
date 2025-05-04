@@ -10,8 +10,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 
-using Xunit;
-
 namespace Microsoft.DataApiBuilder.Rest.Tests;
 
 public class ActorIntegrationTests : IAsyncLifetime

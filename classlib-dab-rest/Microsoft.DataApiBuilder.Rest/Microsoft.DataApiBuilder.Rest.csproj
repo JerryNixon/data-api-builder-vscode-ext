@@ -9,7 +9,7 @@
 	<PropertyGroup>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>DataApiBuilder.Rest</PackageId>
-		<Version>0.0.3</Version>
+		<Version>0.0.4</Version>
 		<Authors>jerrynixon</Authors>
 		<Description>Helper library for DAB REST API.</Description>
 		<PackageTags>API;DAB;REST</PackageTags>
@@ -23,6 +23,12 @@
 		<None Include="ClassDiagram.png" Pack="true" PackagePath="" />
 		<None Include="readme.md" Pack="true" PackagePath="" />
 		<None Include="dab-logo.png" Pack="true" PackagePath="" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+			<_Parameter1>Microsoft.DataApiBuilder.Rest.Tests</_Parameter1>
+		</AssemblyAttribute>
 	</ItemGroup>
 
 </Project>
