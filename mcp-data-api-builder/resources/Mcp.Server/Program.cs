@@ -16,32 +16,12 @@ builder.Services
     .WithStdioServerTransport()
     .WithToolsFromAssembly();
 
-AddRepositories(builder.Services);
-
 await builder.Build().RunAsync();
 
-static void AddRepositories(IServiceCollection services, string baseUrl)
+namespace Mcp
 {
-    foreach (var model in ModelsFromAssembly())
+    public static partial class ServiceLocator
     {
-        var repoType = typeof(TableRepository<>).MakeGenericType(model);
-        var ifaceType = typeof(ITableRepository<>).MakeGenericType(model);
-
-        services.AddTransient(ifaceType, serviceProvider =>
-            Activator.CreateInstance(repoType, new Uri(baseUrl))!);
-    }
-
-    static IEnumerable<Type> ModelsFromAssembly()
-    {
-        var assembly = Assembly.Load("Mcp.Shared");
-
-        return assembly.GetTypes().Where(OnlyModels);
-
-        static bool OnlyModels(Type type)
-        {
-            return type.IsClass &&
-                   type.IsPublic &&
-                   type.Namespace == "Mcp.Models";
-        }
+        public const string BASE_URL = "http://localhost:5000/api/{0}";
     }
 }

@@ -43,7 +43,7 @@ export async function generateMcpRepositories(
         continue;
     }
 
-    const filePath = path.join(repoFolder, `${className}Repository.g.cs`);
+    const filePath = path.join(repoFolder, `${className}Repository.cs`);
     fs.writeFileSync(filePath, content.trim(), 'utf-8');
   }
 }

@@ -22,7 +22,7 @@ export async function generateMcpToolClasses(
 
     const className = toPascalCase(alias) + 'Tool';
     const modelType = toPascalCase(alias);
-    const methods: string[] = [];
+    const tableMethods: string[] = [];
 
     const columns = entity.dbMetadata?.columns ?? [];
     const parameters = entity.dbMetadata?.parameters ?? [];
@@ -35,10 +35,10 @@ export async function generateMcpToolClasses(
     }
 
     // Generate methods for tables and views
-    methods.push(generateGetEntity(modelType, summary));
-    methods.push(generateCreateEntity(modelType, summary));
-    methods.push(generateUpdateEntity(modelType, summary));
-    methods.push(generateDeleteEntity(modelType, summary));
+    tableMethods.push(generateGetEntity(modelType, summary));
+    tableMethods.push(generateCreateEntity(modelType, summary));
+    tableMethods.push(generateUpdateEntity(modelType, summary));
+    tableMethods.push(generateDeleteEntity(modelType, summary));
 
     const entityNames = new Set(
       entities.map(e => e.source?.normalizedObjectName?.toLowerCase()).filter(Boolean)
@@ -49,30 +49,26 @@ export async function generateMcpToolClasses(
 
     for (const rel of navigation) {
       const relName = toPascalCase(rel.targetEntity);
-      methods.push(`[McpServerTool]
+      tableMethods.push(`[McpServerTool]
     [Description("Retrieves related ${rel.targetEntity} entries for the given ${modelType} entity. Useful for navigating one-to-many or one-to-one relationships.")]
     public static IEnumerable<${relName}> Get${relName}s(${modelType} parent) => throw new NotImplementedException();`);
     }
 
     const content = `#nullable enable
 
+using Mcp;
+using Mcp.Models;
 using System.ComponentModel;
 using ModelContextProtocol.Server;
-using Mcp.Models;
-using Microsoft.DataApiBuilder.Rest.Abstractions;
-using System.Threading.Tasks;
 using Microsoft.DataApiBuilder.Rest.Options;
 
 [McpServerToolType]
 public static class ${className}
 {
-    private static readonly string BASE_URL = "http://localhost:5000/api${entity.rest?.path}";
-    private static readonly TableRepository<${modelType}> repository = new(new(BASE_URL));
-
-${methods.join('\n\n')}
+${tableMethods.join('\n\n')}
 }`;
 
-    const filePath = path.join(toolsFolder, `${className}.g.cs`);
+    const filePath = path.join(toolsFolder, `${className}.cs`);
     fs.writeFileSync(filePath, content.trim(), 'utf-8');
   }
 
@@ -80,11 +76,10 @@ ${methods.join('\n\n')}
   if (procMethods.length > 0) {
     const procContent = `#nullable enable
 
+using Mcp;
+using Mcp.Models;
 using System.ComponentModel;
 using ModelContextProtocol.Server;
-using Mcp.Models;
-using Microsoft.DataApiBuilder.Rest.Abstractions;
-using System.Threading.Tasks;
 using Microsoft.DataApiBuilder.Rest.Options;
 
 [McpServerToolType]
@@ -93,7 +88,7 @@ public static class ProcTool
 ${procMethods.join('\n\n')}
 }`;
 
-    const procFilePath = path.join(toolsFolder, 'ProcTool.g.cs');
+    const procFilePath = path.join(toolsFolder, 'ProcTool.cs');
     fs.writeFileSync(procFilePath, procContent.trim(), 'utf-8');
   }
 }
@@ -101,12 +96,11 @@ ${procMethods.join('\n\n')}
 function generateGetEntity(model: string, summary: EntityMetadataSummary): string {
   return `    [McpServerTool]
     [Description("""
-    Fetches an array of ${model} records.
-    Keys: ${summary.keys}
-    Returns: ${summary.keys}, ${summary.nonKeys}
-    Parameter: filter: An expression to filter the result set.
+    Input: filter: An expression to filter the result set.
       Filter supports operators: eq, ne, gt, lt, ge, le, and/or, and parenthesis.
       Filter example: "${summary.filterExamples}"
+    Returns: ${summary.keys}, ${summary.nonKeys}
+    Keys: ${summary.keys}
     """)]
     public static ${model}[] Get${model}(string? filter = null)
     {
@@ -114,7 +108,9 @@ function generateGetEntity(model: string, summary: EntityMetadataSummary): strin
       {
         Filter = filter
       };
-      return repository.GetAsync(options).GetAwaiter().GetResult().Result ?? [];
+      var repository = ServiceLocator.${model}Repository.Value;
+      var response = repository.GetAsync(options).GetAwaiter().GetResult();
+      return response.Result ?? [];
     }`;
 }
 
@@ -132,8 +128,9 @@ function generateCreateEntity(model: string, summary: EntityMetadataSummary): st
   return `    [McpServerTool]
     [Description("""
     Creates a new ${model} using the supplied input.
-    Parameters: ${summary.nonKeys}
+    Input: ${summary.nonKeys}
     Returns: ${summary.keys}, ${summary.nonKeys}
+    Keys: ${summary.keys}
     """)]
     public static ${model} Create${model}(${summary.nonKeysAsNetParams})
     {
@@ -141,7 +138,9 @@ function generateCreateEntity(model: string, summary: EntityMetadataSummary): st
       {
 ${assignments}
       };
-      return repository.PostAsync(item).GetAwaiter().GetResult().Result ?? null!;
+      var repository = ServiceLocator.${model}Repository.Value;
+      var response = repository.PostAsync(item).GetAwaiter().GetResult();
+      return response.Result ?? null!;
     }`;
 }
 
@@ -161,8 +160,9 @@ function generateUpdateEntity(model: string, summary: EntityMetadataSummary): st
   return `    [McpServerTool]
     [Description("""
     Updates an existing ${model} entity.
-    Parameters: ${summary.keys}, ${summary.nonKeys}
+    Input: ${summary.keys}, ${summary.nonKeys}
     Returns: ${summary.keys}, ${summary.nonKeys}
+    Keys: ${summary.keys}
     """)]
     public static ${model} Update${model}(${paramList})
     {
@@ -170,7 +170,9 @@ function generateUpdateEntity(model: string, summary: EntityMetadataSummary): st
       {
 ${assignments}
       };
-      return repository.PatchAsync(item).GetAwaiter().GetResult().Result ?? null!;
+      var repository = ServiceLocator.${model}Repository.Value;
+      var response = repository.PatchAsync(item).GetAwaiter().GetResult();
+      return response.Result ?? null!;
     }`;
 }
 
@@ -189,8 +191,9 @@ function generateDeleteEntity(model: string, summary: EntityMetadataSummary): st
   return `    [McpServerTool]
     [Description("""
     Deletes the ${model} using the primary key fields.
-    Parameters: ${summary.keys}
+    Input: ${summary.keys}
     Returns: true | false
+    Keys: ${summary.keys}
     """)]
     public static bool Delete${model}(${summary.keysAsNetParams}) 
     {
@@ -198,7 +201,9 @@ function generateDeleteEntity(model: string, summary: EntityMetadataSummary): st
       {
 ${assignments}
       };
-      return repository.DeleteAsync(item).GetAwaiter().GetResult().Success;
+      var repository = ServiceLocator.${model}Repository.Value;
+      var response = repository.DeleteAsync(item).GetAwaiter().GetResult();
+      return response.Success;
     }`;
 }
 
@@ -206,8 +211,9 @@ function generateExecuteEntity(model: string, summary: EntityMetadataSummary): s
   return `    [McpServerTool]
     [Description("""
     Executes the stored procedure ${model}.
+    Input: ${summary.parameters || 'None'}
     Returns: ${summary.nonKeys}
-    Parameters: ${summary.parameters || 'None'}
+    Keys: ${summary.keys}
     """)]
     public static IEnumerable<${model}> Execute${model}(${summary.parametersAsNetParams}) => throw new NotImplementedException();`;
 }

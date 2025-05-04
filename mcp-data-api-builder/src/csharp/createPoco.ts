@@ -19,28 +19,15 @@ export async function generateMcpModels(
   const modelsFolder = path.join(baseDir, 'Mcp', 'Mcp.Server', 'Models');
   fs.mkdirSync(modelsFolder, { recursive: true });
 
-  const header = `#nullable enable
-
-namespace Mcp.Models;
-
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
-
-`;
-
   await vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: 'Generating MCP POCOs', cancellable: false },
     async (progress) => {
       for (const entity of entities) {
         const meta = entity.dbMetadata;
-        if (!meta) {
-          continue;
-        }
+        if (!meta) continue;
 
-        const classNameRaw = selectedAliases.find(alias =>
-          meta.objectName.toLowerCase().includes(alias.toLowerCase())
-        ) || meta.objectName;
-
+        const rawName = entity.source?.object || meta.objectName;
+        const classNameRaw = rawName.split('.').pop() || rawName;
         const className = toPascalCase(sanitizeIdentifier(classNameRaw));
         progress.report({ message: `Generating ${className}...` });
 
@@ -50,13 +37,36 @@ using System.Text.Json.Serialization;
             const aliasName = sanitizeIdentifier(col.alias);
             const propertyName = toPascalCase(aliasName);
             const jsonName = originalName !== aliasName ? aliasName : originalName;
-            return `    [JsonPropertyName("${jsonName}")]\n    public ${col.netType} ${propertyName} { get; set; } = default!;`;
+            return `        [JsonPropertyName("${jsonName}")]\n        public ${col.netType} ${propertyName} { get; set; } = default!;`;
           })
           .join('\n\n');
 
-        const content = `${header}public class ${className}\n{\n${properties}\n}`;
-        const filePath = path.join(modelsFolder, `${className}.g.cs`);
-        fs.writeFileSync(filePath, content.trim(), 'utf-8');
+        const fileContent = `#nullable enable
+
+namespace Mcp.Models
+{
+    using System.Text.Json.Serialization;
+
+    public class ${className}
+    {
+${properties}
+    }
+}
+    
+namespace Mcp
+{
+    using Mcp.Models;
+    using Microsoft.DataApiBuilder.Rest.Abstractions;
+
+    public static partial class ServiceLocator
+    {
+        public readonly static Lazy<TableRepository<${className}>> ${className}Repository =
+            new(() => new(new(string.Format(BASE_URL, "${(entity.rest?.path || '').replace(/^\/|\/$/g, '')}"))));
+    }
+}`;
+
+        const filePath = path.join(modelsFolder, `${className}.cs`);
+        fs.writeFileSync(filePath, fileContent.trim(), 'utf-8');
       }
     }
   );
