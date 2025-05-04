@@ -49,9 +49,7 @@ function buildModelFile(entity: EntityDefinition, className: string): string {
     ? 'ProcedureRepository'
     : 'TableRepository';
 
-  return `#nullable enable
-
-namespace Mcp.Models
+  return `namespace Mcp.Models
 {
     using System.Text.Json.Serialization;
 
