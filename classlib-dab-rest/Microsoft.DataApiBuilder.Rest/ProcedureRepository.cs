@@ -10,7 +10,7 @@ namespace Microsoft.DataApiBuilder.Rest;
 public class ProcedureRepository<T>(Uri entityUri, HttpClient? http = null)
     : RepositoryBase(entityUri, http), IProcedureRepository<T> where T : class
 {
-    public async Task<DabResponse<T, T[]>> ExecuteProcedureAsync(ProcedureOptions options, CancellationToken? cancellationToken = null)
+    public async Task<DabResponse<T, T[]>> ExecuteAsync(ProcedureOptions options, CancellationToken? cancellationToken = null)
     {
         return options.Method switch
         {

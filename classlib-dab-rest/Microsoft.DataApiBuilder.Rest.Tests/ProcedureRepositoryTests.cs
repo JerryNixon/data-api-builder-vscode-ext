@@ -64,7 +64,7 @@ public class ProcedureRepositoryTests
         };
 
         // act (execute GET)
-        var result = await repo.ExecuteProcedureAsync(options);
+        var result = await repo.ExecuteAsync(options);
 
         // assert
         result.Result.Should().HaveCount(1);
@@ -83,7 +83,7 @@ public class ProcedureRepositoryTests
         };
 
         // act (execute POST)
-        var result = await repo.ExecuteProcedureAsync(options);
+        var result = await repo.ExecuteAsync(options);
 
         // assert
         result.Result.Should().HaveCount(1);
@@ -98,7 +98,7 @@ public class ProcedureRepositoryTests
         var options = new ProcedureOptions { Method = (ApiMethod)999 };
 
         // act (attempt call)
-        Func<Task> act = async () => await repo.ExecuteProcedureAsync(options);
+        Func<Task> act = async () => await repo.ExecuteAsync(options);
 
         // assert
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -117,7 +117,7 @@ public class ProcedureRepositoryTests
         };
 
         // act
-        Func<Task> act = async () => await repo.ExecuteProcedureAsync(options);
+        Func<Task> act = async () => await repo.ExecuteAsync(options);
 
         // assert
         await act.Should().ThrowAsync<HttpRequestException>();
@@ -139,7 +139,7 @@ public class ProcedureRepositoryTests
         };
 
         // act
-        var result = await repo.ExecuteProcedureAsync(options);
+        var result = await repo.ExecuteAsync(options);
 
         // assert
         result.Result.Should().HaveCount(1);
@@ -153,7 +153,7 @@ public class ProcedureRepositoryTests
         var options = new ProcedureOptions { Method = ApiMethod.GET };
 
         // act
-        var result = await repo.ExecuteProcedureAsync(options);
+        var result = await repo.ExecuteAsync(options);
 
         // assert
         result.Result.Should().HaveCount(1);

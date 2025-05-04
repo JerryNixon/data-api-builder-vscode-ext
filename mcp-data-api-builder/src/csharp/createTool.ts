@@ -164,7 +164,7 @@ function generateUpdateEntity(model: string, summary: EntityMetadataSummary): st
       {
 ${assignments}
       };
-      var repository = ServiceLocator.${model}Repository.Value;
+      var repository = ServiceLocator.${model}Repository;
       var response = repository.PatchAsync(item).GetAwaiter().GetResult();
       return response.Result ?? null!;
     }`;
@@ -195,7 +195,7 @@ function generateDeleteEntity(model: string, summary: EntityMetadataSummary): st
       {
 ${assignments}
       };
-      var repository = ServiceLocator.${model}Repository.Value;
+      var repository = ServiceLocator.${model}Repository;
       var response = repository.DeleteAsync(item).GetAwaiter().GetResult();
       return response.Success;
     }`;
