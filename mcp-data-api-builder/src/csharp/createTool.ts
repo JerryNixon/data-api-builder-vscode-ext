@@ -56,6 +56,8 @@ using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Microsoft.DataApiBuilder.Rest.Options;
 
+namespace Mcp.Tools;
+
 [McpServerToolType]
 public static class ${className}
 {
@@ -72,6 +74,8 @@ using Mcp.Models;
 using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Microsoft.DataApiBuilder.Rest.Options;
+
+namespace Mcp.Tools;
 
 [McpServerToolType]
 public static class ProcTool
@@ -235,7 +239,7 @@ function generateExecuteEntity(model: string, summary: EntityMetadataSummary): s
     Input: ${summary.parameters || 'None'}
     Output: ${summary.nonKeys}
     """)]
-    public static async Task<IEnumerable<${model}>> Execute${model}(
+    public static IEnumerable<${model}> Execute${model}(
 ${paramList}
     )
     {
