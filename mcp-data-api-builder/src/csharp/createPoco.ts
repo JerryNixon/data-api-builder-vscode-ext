@@ -11,7 +11,7 @@ export async function generateMcpModels(
   configPath: string
 ): Promise<void> {
   const baseDir = path.dirname(configPath);
-  const modelsFolder = path.join(baseDir, 'Mcp', 'Mcp.Server', 'Models');
+  const modelsFolder = path.join(baseDir, 'Mcp', 'Mcp.Shared');
   fs.mkdirSync(modelsFolder, { recursive: true });
 
   await vscode.window.withProgress(
@@ -49,26 +49,10 @@ function buildModelFile(entity: EntityDefinition, className: string): string {
     ? 'ProcedureRepository'
     : 'TableRepository';
 
-  return `namespace Mcp.Models
-{
-    using System.Text.Json.Serialization;
+  return `using System.Text.Json.Serialization;
 
-    public class ${className}
-    {
+public class ${className}
+{
 ${properties}
-    }
-}
-    
-namespace Mcp
-{
-    using Mcp.Models;
-    using Microsoft.DataApiBuilder.Rest;
-
-    public static partial class ServiceLocator
-    {
-        private readonly static Lazy<${repoType}<${className}>> ${lowerFirst(className)}Repository =
-            new(() => new(new(string.Format(BASE_URL, "${restPath}"))));
-        public static ${repoType}<${className}> ${className}Repository => ${lowerFirst(className)}Repository.Value;
-    }
 }`;
 }

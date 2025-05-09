@@ -206,7 +206,23 @@ internal static partial class Utility
         await ValidateIsSuccessStatusCode(response).ConfigureAwait(false);
 
         var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        var root = JsonSerializer.Deserialize<ResponseRoot<TItem>>(json);
+        ResponseRoot<TItem>? root;
+        try
+        {
+            root = JsonSerializer.Deserialize<ResponseRoot<TItem>>(json);
+        }
+        catch (JsonException ex)
+        {
+            Debug.WriteLine("JSON ERROR:");
+            Debug.WriteLine(ex.Message);
+            Debug.WriteLine($"TItem: {typeof(TItem)}");
+            Debug.WriteLine($"TResult: {typeof(TResult)}");
+            Debug.WriteLine(ex.Path);
+            Debug.WriteLine(ex.InnerException);
+            Debug.WriteLine(json);
+            throw;
+        }
+
         if (root is null)
         {
             throw new InvalidOperationException("The response deserialized as null.");

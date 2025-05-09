@@ -8,12 +8,12 @@ public record class DabResponse<TItem, TResult> : DabResponse
     public string? NextPage { get; init; }
     public bool HasNextPage => NextPage is not null;
 
-    public DabResponse()
+    internal DabResponse()
     {
         // empty
     }
 
-    public DabResponse(ResponseRoot<TItem> root)
+    internal DabResponse(ResponseRoot<TItem> root)
     {
         if (typeof(TResult).IsArray)
         {
@@ -38,12 +38,12 @@ public record class DabResponse<TItem, TResult> : DabResponse
 
 public record class DabResponse
 {
-    public DabResponse()
+    internal DabResponse()
     {
         // empty
     }
 
-    public DabResponse(ResponseRoot root)
+    internal DabResponse(ResponseRoot root)
     {
         Error = root.Error;
     }

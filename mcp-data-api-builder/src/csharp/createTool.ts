@@ -10,17 +10,18 @@ export async function generateMcpToolClasses(
   configPath: string
 ): Promise<void> {
   const baseDir = path.dirname(configPath);
-  const toolsFolder = path.join(baseDir, 'Mcp', 'Mcp.Server', 'Tools');
+  const toolsFolder = path.join(baseDir, 'Mcp', 'Mcp.Server');
   fs.mkdirSync(toolsFolder, { recursive: true });
 
-  const procMethods: string[] = [];
+  const procMethods: string[] = []; // Collect methods for all stored procedures
+  const procLocators: string[] = []; // Collect locators for all stored procedures
 
   for (const entity of entities) {
     if (!shouldGenerateFor(entity, selectedAliases)) continue;
 
     const modelType = getClassName(entity);
     const className = modelType + 'Tool';
-    const tableMethods: string[] = [];
+    const tableMethods: string[] = []; // Reset for each table/view
 
     const columns = entity.dbMetadata?.columns ?? [];
     const parameters = entity.dbMetadata?.parameters ?? [];
@@ -28,9 +29,11 @@ export async function generateMcpToolClasses(
 
     if (entity.source.type === 'stored-procedure') {
       procMethods.push(generateExecuteEntity(modelType, summary));
-      continue;
+      procLocators.push(generateServiceLocator(entity, modelType));
+      continue; // Skip individual file creation for stored procedures
     }
 
+    // Generate methods for tables/views
     tableMethods.push(generateGetEntity(modelType, summary));
     tableMethods.push(generateCreateEntity(modelType, summary));
     tableMethods.push(generateUpdateEntity(modelType, summary));
@@ -50,39 +53,48 @@ export async function generateMcpToolClasses(
     public static IEnumerable<${relName}> Get${relName}s(${modelType} parent) => throw new NotImplementedException();`);
     }
 
-    const content = `using Mcp;
-using Mcp.Models;
-using System.ComponentModel;
+    // Generate the ServiceLocator partial class for this entity
+    const serviceLocator = generateServiceLocator(entity, modelType);
+
+    const classContent = `using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Microsoft.DataApiBuilder.Rest.Options;
-
-namespace Mcp.Tools;
+using Microsoft.DataApiBuilder.Rest;
+using Microsoft.DataApiBuilder.Rest.Abstractions;
 
 [McpServerToolType]
 public static class ${className}
 {
 ${tableMethods.join('\n\n')}
+}
+
+public static partial class ServiceLocator
+{
+${serviceLocator}
 }`;
 
     const filePath = path.join(toolsFolder, `${className}.cs`);
-    fs.writeFileSync(filePath, content.trim(), 'utf-8');
+    fs.writeFileSync(filePath, classContent.trim(), 'utf-8');
   }
 
-  if (procMethods.length > 0) {
-    const procContent = `using Mcp;
-using Mcp.Models;
-using System.ComponentModel;
+  // Generate a single file for all stored procedures
+  if (procMethods.length > 0 || procLocators.length > 0) {
+    const procContent = `using System.ComponentModel;
 using ModelContextProtocol.Server;
 using Microsoft.DataApiBuilder.Rest.Options;
-
-namespace Mcp.Tools;
+using Microsoft.DataApiBuilder.Rest;
+using Microsoft.DataApiBuilder.Rest.Abstractions;
 
 [McpServerToolType]
 public static class ProcTool
 {
 ${procMethods.join('\n\n')}
-}`;
+}
 
+public static partial class ServiceLocator
+{
+${procLocators.join('\n\n')}
+}`;
     const procFilePath = path.join(toolsFolder, 'ProcTool.cs');
     fs.writeFileSync(procFilePath, procContent.trim(), 'utf-8');
   }
@@ -181,7 +193,7 @@ ${withDescriptions(paramList)}
 ${assignments}
       };
       var repository = ServiceLocator.${model}Repository;
-      var response = repository.PatchAsync(item).GetAwaiter().GetResult();
+      var response = repository.PutAsync(item).GetAwaiter().GetResult();
       return response.Result ?? null!;
     }`;
 }
@@ -247,10 +259,23 @@ ${paramList}
 ${paramAssignments}
 
         var repository = ServiceLocator.${model}Repository;
-        var response = repository.ExecuteProcedureAsync(options).GetAwaiter().GetResult();
+        var response = repository.ExecuteAsync(options).GetAwaiter().GetResult();
         return response.Result ?? [];
     }`;
 }
+
+function generateServiceLocator(entity: EntityDefinition, modelName: string): string {
+  const repositoryType = entity.source.type === 'stored-procedure'
+    ? `ProcedureRepository<${modelName}>`
+    : `TableRepository<${modelName}>`;
+  const privateRepositoryName = lowerFirst(modelName) + 'Repository';
+  const publicRepositoryName = toPascalCase(modelName) + 'Repository';
+
+  return `    private readonly static Lazy<${repositoryType}> ${privateRepositoryName} =
+        new(() => new(new(string.Format(BASE_URL, "${modelName}"))));
+    public static I${repositoryType} ${publicRepositoryName} => ${privateRepositoryName}.Value;`;
+}
+
 
 export interface EntityMetadataSummary {
   keys: string;
@@ -265,28 +290,28 @@ export interface EntityMetadataSummary {
 }
 
 export function summarizeEntityMetadata(columns: DbColumn[] = [], parameters: DbParameter[] = []): EntityMetadataSummary {
-  const keys = columns.filter(c => c.isKey).map(c => `${c.alias} (${c.netType})`).join(', ');
-  const nonKeys = columns.filter(c => !c.isKey && c.alias).map(c => `${c.alias} (${c.netType})`).join(', ');
+  const keys = columns.filter(c => c.isKey).map(c => `${ c.alias } (${ c.netType })`).join(', ');
+  const nonKeys = columns.filter(c => !c.isKey && c.alias).map(c => `${ c.alias } (${ c.netType })`).join(', ');
   const filterExamples = columns.filter(c => !c.isKey && c.alias).map(c => {
     switch (c.netType) {
-      case 'string': return `${c.alias} eq 'value'`;
+      case 'string': return `${ c.alias } eq 'value'`;
       case 'int':
       case 'long':
       case 'float':
       case 'double':
-      case 'decimal': return `${c.alias} eq 123`;
-      case 'bool': return `${c.alias} eq true`;
-      case 'DateTime': return `${c.alias} eq 2024-01-01T00:00:00Z`;
-      default: return `${c.alias} eq <value>`;
+      case 'decimal': return `${ c.alias } eq 123`;
+      case 'bool': return `${ c.alias } eq true`;
+      case 'DateTime': return `${ c.alias } eq 2024-01-01T00:00:00Z`;
+      default: return `${ c.alias } eq <value>`;
     }
   }).join(' and ');
 
-  const parameterList = parameters.map(p => `${p.name} (${p.netType})`).join(', ');
-  const keysAsNetParams = columns.filter(c => c.isKey).map(c => `${c.netType} ${lowerFirst(sanitizeIdentifier(c.alias))}`).join(', ');
-  const nonKeysAsNetParams = columns.filter(c => !c.isKey && c.alias).map(c => `${c.netType} ${lowerFirst(sanitizeIdentifier(c.alias))}`).join(', ');
-  const parametersAsNetParams = parameters.map(p => `${p.netType} ${lowerFirst(sanitizeIdentifier(p.name))}`).join(', ');
+  const parameterList = parameters.map(p => `${ p.name } (${ p.netType })`).join(', ');
+  const keysAsNetParams = columns.filter(c => c.isKey).map(c => `${ c.netType } ${ lowerFirst(sanitizeIdentifier(c.alias)) } `).join(', ');
+  const nonKeysAsNetParams = columns.filter(c => !c.isKey && c.alias).map(c => `${ c.netType } ${ lowerFirst(sanitizeIdentifier(c.alias)) } `).join(', ');
+  const parametersAsNetParams = parameters.map(p => `${ p.netType } ${ lowerFirst(sanitizeIdentifier(p.name)) } `).join(', ');
   const parameterDictionaryEntries: [string, string][] = parameters.map(p => [sanitizeIdentifier(p.name), p.netType]);
-  const parameterDescriptions: [string, string, string][] = parameters.map(p => [p.netType, lowerFirst(sanitizeIdentifier(p.name)), `The ${p.name} parameter`]);
+  const parameterDescriptions: [string, string, string][] = parameters.map(p => [p.netType, lowerFirst(sanitizeIdentifier(p.name)), `The ${ p.name } parameter`]);
 
   return {
     keys,

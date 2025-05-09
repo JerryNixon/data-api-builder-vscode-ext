@@ -16,10 +16,7 @@ builder.Services
 
 await builder.Build().RunAsync();
 
-namespace Mcp
+public static partial class ServiceLocator
 {
-    public static partial class ServiceLocator
-    {
-        private const string BASE_URL = "http://localhost:5000/api/{0}";
-    }
+    private const string BASE_URL = "http://localhost:5000/api/{0}";
 }

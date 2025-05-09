@@ -6,6 +6,7 @@ import { openConnection, enrichEntitiesWithSqlMetadata } from './mssql/querySql'
 import { EntityDefinition } from './types';
 import { generateMcpModels } from './csharp/createPoco';
 import { generateMcpToolClasses } from './csharp/createTool';
+import { generateMcpClientExtensions } from './csharp/createClient';
 import { createMcpJson } from './csharp/createJson';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -44,7 +45,7 @@ async function handleGenerateMcp(uri: vscode.Uri, context: vscode.ExtensionConte
     return;
   }
 
-  const selected = await vscode.window.showQuickPick(aliases, {
+  const selected = await vscode.window.showQuickPick(aliases, { 
     canPickMany: true,
     title: 'Generate MCP Tools',
     placeHolder: 'Select entities to include in the MCP server'
@@ -62,6 +63,7 @@ async function handleGenerateMcp(uri: vscode.Uri, context: vscode.ExtensionConte
 
   await generateMcpModels(filtered, selected, configPath);
   await generateMcpToolClasses(filtered, selected, configPath);
+  await generateMcpClientExtensions(filtered, selected, configPath);
   await copyMcpResources(context.extensionPath, configPath);
   await createMcpJson(path.join(path.dirname(configPath), 'Mcp', 'Mcp.Server'));
 

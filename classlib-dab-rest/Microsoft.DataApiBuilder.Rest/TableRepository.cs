@@ -11,7 +11,7 @@ public class TableRepository<T>(Uri entityUri, HttpClient? http = null)
     : RepositoryBase(entityUri, http), ITableRepository<T> where T : class
 {
     // this uses the NextPage property
-    public async Task<DabResponse<T, T[]>> GetAsync(DabResponse<T, T[]> previous, TableOptions? options = null, CancellationToken? cancellationToken = null)
+    public async Task<DabResponse<T, T[]>> GetNextAsync(DabResponse<T, T[]> previous, TableOptions? options = null, CancellationToken? cancellationToken = null)
     {
         if (string.IsNullOrEmpty(previous.NextPage))
         {

@@ -11,17 +11,7 @@ if (!await repository.IsAvailableAsync())
     return;
 }
 
-var response = await repository.GetAsync();
-
-foreach (var actor in response.Result)
-{
-    Console.WriteLine(actor);
-}
-
-Console.ReadKey();
-Console.Clear();
-
-response = await repository.GetAsync(new() { First = 5 });
+var response = await repository.GetAsync(new() { First = 5 });
 
 foreach (var actor in response.Result)
 {
