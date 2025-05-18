@@ -10,75 +10,76 @@ import { createProjectFile } from './csharpProjectFile';
 import { createProgramCs } from './csharpProgramCs';
 
 export function activate(context: vscode.ExtensionContext) {
-  const generatePocoCommand = vscode.commands.registerCommand('dabExtension.generatePoco', async (uri: vscode.Uri) => {
-    const configPath = uri.fsPath;
+  const generatePocoCommand = vscode.commands.registerCommand('dabExtension.generatePoco', handleGeneratePoco);
 
-    try {
-      // Read configuration
-      const entities: Record<string, EntityDefinition> = getEntities(configPath);
-      if (!entities || Object.keys(entities).length === 0) {
-        vscode.window.showInformationMessage('No entities found in the configuration.');
-        return;
-      }
-
-      // User selects entities
-      const selectedEntities = await selectEntities(entities);
-      if (!selectedEntities || selectedEntities.length === 0) {
-        vscode.window.showInformationMessage('No entities selected.');
-        return;
-      }
-
-      // Ask user which components to include
-      const selectedOperations = await selectOperations();
-      if (!selectedOperations) {
-        vscode.window.showInformationMessage('No components selected.');
-        return;
-      }
-
-      const { includePoco, includeRepos, includeImplementation, includeProject } = selectedOperations;
-
-      // Read connection string
-      const connectionString = await getConnectionString(configPath);
-      if (!connectionString) {
-        vscode.window.showErrorMessage('Failed to retrieve the connection string.');
-        return;
-      }
-
-      // Open database connection
-      const pool = await openConnection(connectionString);
-      if (!pool) {
-        return;
-      }
-
-      // Create target folder
-      const genCsFolder = path.join(path.dirname(configPath), 'GenCs');
-      if (!fs.existsSync(genCsFolder)) {
-        fs.mkdirSync(genCsFolder);
-      }
-
-      // Generate selected components
-      if (includeProject) {
-        await createProjectFile(context, genCsFolder);
-      }
-      if (includePoco) {
-        await createApiModelsCs(pool, entities, selectedEntities, genCsFolder);
-      }
-      if (includeRepos) {
-        await createApiLogicCs(context, genCsFolder);
-        await createApiCs(pool, genCsFolder, entities, selectedEntities);
-      }
-      if (includeImplementation) {
-        await createProgramCs(genCsFolder, selectedEntities, entities);
-      }
-
-      await openInIde(genCsFolder);
-      vscode.window.showInformationMessage('Generation completed successfully.');
-    } catch (error) {
-      vscode.window.showErrorMessage(`Error during generation: ${error}`);
-    }
+  const generateMcpServerCommand = vscode.commands.registerCommand('dabExtension.generateMcpServer', async (uri: vscode.Uri) => {
+    vscode.window.showInformationMessage('MCP server generation not implemented yet.');
+    return;
   });
 
-  context.subscriptions.push(generatePocoCommand);
+  const generateRestClientCommand = vscode.commands.registerCommand('dabExtension.generateRestClient', async (uri: vscode.Uri) => {
+    vscode.window.showInformationMessage('REST client generation not implemented yet.');
+    return;
+  });
+
+  context.subscriptions.push(
+    generatePocoCommand,
+    generateMcpServerCommand,
+    generateRestClientCommand
+  );
+}
+
+async function handleGeneratePoco(uri: vscode.Uri) {
+  const configPath = uri.fsPath;
+
+  try {
+    const selection = await getSelectedEntities(configPath);
+    if (!selection) {return;}
+    const { entities, selectedEntities } = selection;
+
+    const connectionString = await getConnectionString(configPath);
+    if (!connectionString) {
+      vscode.window.showErrorMessage('Failed to retrieve the connection string.');
+      return;
+    }
+
+    const pool = await openConnection(connectionString);
+    if (!pool) {
+      return;
+    }
+
+    const genCsFolder = path.join(path.dirname(configPath), 'Gen');
+    if (!fs.existsSync(genCsFolder)) {
+      fs.mkdirSync(genCsFolder);
+    }
+
+    await createApiModelsCs(pool, entities, selectedEntities!, genCsFolder);
+    await openInIde(genCsFolder);
+
+    vscode.window.showInformationMessage('POCO model generation completed successfully.');
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error during POCO generation: ${error}`);
+  }
+}
+
+export async function getSelectedEntities(configPath: string): Promise<{
+  configPath: string;
+  entities: Record<string, EntityDefinition>;
+  selectedEntities: vscode.QuickPickItem[] | undefined;
+} | undefined> {
+  const entities = getEntities(configPath);
+  if (!entities || Object.keys(entities).length === 0) {
+    vscode.window.showInformationMessage('No entities found in the configuration.');
+    return;
+  }
+
+  const selectedEntities = await selectEntities(entities);
+  if (!selectedEntities || selectedEntities.length === 0) {
+    vscode.window.showInformationMessage('No entities selected.');
+    return;
+  }
+
+  return { configPath, entities, selectedEntities };
 }
 
 async function openInIde(genCsFolder: string) {

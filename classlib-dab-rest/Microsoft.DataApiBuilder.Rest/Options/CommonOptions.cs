@@ -1,6 +1,6 @@
 namespace Microsoft.DataApiBuilder.Rest.Options;
 
-public class CommonOptions
+public abstract class CommonOptions
 {
     public string? XMsApiRole { get; set; }
     

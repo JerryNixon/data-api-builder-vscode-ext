@@ -46,7 +46,7 @@ public class UtilityTests
     public void BuildQueryStringFromOptions_WithAllFields_EncodesExpectedValues()
     {
         // arrange (build options object with all supported query fields)
-        var options = new TableOptions
+        var options = new GetOptions
         {
             Select = "id,name",
             Filter = "id eq 1",
@@ -70,7 +70,7 @@ public class UtilityTests
     public void BuildQueryStringFromOptions_WithNullInput_ReturnsNull()
     {
         // act (call with null options)
-        TableOptions options = null!;
+        GetOptions options = null!;
         var query = options.BuildQueryStringFromOptions();
 
         // assert (null input should yield null query string)
@@ -81,7 +81,7 @@ public class UtilityTests
     public void ToJsonContent_WithValidProcedureParams_ReturnsContent()
     {
         // arrange (add valid parameter)
-        var options = new ProcedureOptions();
+        var options = new ExecuteOptions();
         options.Parameters["name"] = "test";
 
         // act (convert to JsonContent)
@@ -95,7 +95,7 @@ public class UtilityTests
     public void ToQueryString_WithParameters_ReturnsEncodedQuery()
     {
         // arrange (define query parameters)
-        var options = new ProcedureOptions();
+        var options = new ExecuteOptions();
         options.Parameters["name"] = "test";
 
         // act (generate query string)
@@ -109,7 +109,7 @@ public class UtilityTests
     public void ToQueryString_WithNoParameters_ReturnsNull()
     {
         // act (convert empty parameters to query string)
-        var result = new ProcedureOptions().ToQueryString();
+        var result = new ExecuteOptions().ToQueryString();
 
         // assert (no parameters means null query)
         result.Should().BeNull();
@@ -120,7 +120,7 @@ public class UtilityTests
     {
         // arrange (prepare http client and options)
         var client = new HttpClient();
-        var options = new TableOptions { Authorization = "abc", XMsApiRole = "user" };
+        var options = new GetOptions { Authorization = "abc", XMsApiRole = "user" };
 
         // act (add headers from options)
         CreateHttpClientAndAddHeaders(ref client, options);
@@ -136,7 +136,7 @@ public class UtilityTests
         // arrange (prepare client with preset header)
         var client = new HttpClient();
         client.DefaultRequestHeaders.Add("Bearer", "xyz");
-        var options = new TableOptions { Authorization = null };
+        var options = new GetOptions { Authorization = null };
 
         // act (try to clear null headers)
         CreateHttpClientAndAddHeaders(ref client, options);
@@ -386,5 +386,68 @@ public class UtilityTests
         [Key]
         [JsonPropertyName("id")]
         public string? Id { get; set; }
+    }
+
+    [Fact]
+    public void SerializeWithoutKeyProperties_WithInclude_OnlyIncludesSpecifiedFields()
+    {
+        // arrange
+        var entity = new SampleEntity { Id = 1, Name = "Kirk", BirthYear = 2233 };
+
+        // act
+        var json = entity.SerializeWithoutKeyProperties(includeProperties: ["name"]).ReadAsStringAsync().Result;
+
+        // assert
+        json.Should().Contain("name");
+        json.Should().NotContain("birthYear");
+        json.Should().NotContain("id"); // key always removed
+    }
+
+    [Fact]
+    public void SerializeWithoutKeyProperties_WithExclude_RemovesSpecifiedFields()
+    {
+        // arrange
+        var entity = new SampleEntity { Id = 2, Name = "Spock", BirthYear = 2230 };
+
+        // act
+        var json = entity.SerializeWithoutKeyProperties(excludeProperties: ["birthYear"]).ReadAsStringAsync().Result;
+
+        // assert
+        json.Should().Contain("name");
+        json.Should().NotContain("birthYear");
+        json.Should().NotContain("id"); // key always removed
+    }
+
+    [Fact]
+    public void SerializeWithoutKeyProperties_WithIncludeAndExclude_ExcludeWins()
+    {
+        // arrange
+        var entity = new SampleEntity { Id = 3, Name = "McCoy", BirthYear = 2227 };
+
+        // act
+        var json = entity.SerializeWithoutKeyProperties(
+            includeProperties: ["name", "birthYear"],
+            excludeProperties: ["birthYear"]
+        ).ReadAsStringAsync().Result;
+
+        // assert
+        json.Should().Contain("name");
+        json.Should().NotContain("birthYear"); // excluded wins
+        json.Should().NotContain("id");
+    }
+
+    [Fact]
+    public void SerializeWithoutKeyProperties_WithCaseMismatch_HandlesPropertyNameCaseInsensitively()
+    {
+        // arrange
+        var entity = new SampleEntity { Id = 4, Name = "Uhura", BirthYear = 2239 };
+
+        // act
+        var json = entity.SerializeWithoutKeyProperties(includeProperties: ["Name"]).ReadAsStringAsync().Result;
+
+        // assert
+        json.Should().Contain("name");
+        json.Should().NotContain("birthYear");
+        json.Should().NotContain("id");
     }
 }

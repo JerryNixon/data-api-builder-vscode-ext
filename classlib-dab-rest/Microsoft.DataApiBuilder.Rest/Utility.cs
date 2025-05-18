@@ -11,8 +11,10 @@ using System.Collections.Specialized;
 using System.Reflection;
 using static System.Text.Json.JsonNamingPolicy;
 using static System.Text.Json.Serialization.JsonIgnoreCondition;
+using Microsoft.VisualBasic;
 
 namespace Microsoft.DataApiBuilder.Rest;
+
 internal static partial class Utility
 {
     public static async Task<bool> IsApiAvailableAsync(string url, int timeoutInSeconds = 30, HttpClient? httpClient = null)
@@ -38,7 +40,7 @@ internal static partial class Utility
         }
     }
 
-    public static string? BuildQueryStringFromOptions(this TableOptions options)
+    public static string? BuildQueryStringFromOptions(this GetOptions options)
     {
         if (options is null)
         {
@@ -63,7 +65,7 @@ internal static partial class Utility
         }
     }
 
-    public static JsonContent ToJsonContent(this ProcedureOptions options)
+    public static JsonContent ToJsonContent(this ExecuteOptions options)
     {
         var filtered = options.Parameters
             .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
@@ -76,7 +78,7 @@ internal static partial class Utility
         });
     }
 
-    public static string? ToQueryString(this ProcedureOptions options)
+    public static string? ToQueryString(this ExecuteOptions options)
     {
         var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
 
@@ -163,13 +165,15 @@ internal static partial class Utility
         }
     }
 
-    public static JsonContent SerializeWithoutKeyProperties<T>(this T item)
+    public static JsonContent SerializeWithoutKeyProperties<T>(this T item, List<string>? includeProperties = null, List<string>? excludeProperties = null)
     {
         var keyProps = ReflectKeyProperties();
         if (keyProps.Count == 0)
         {
             throw new KeyNotFoundException($"No key properties defined for type {typeof(T).Name}.");
         }
+
+        var removeProperties = (excludeProperties ?? []).Except(includeProperties ?? []).Union(keyProps);
 
         var json = JsonSerializer.SerializeToNode(item, new JsonSerializerOptions
         {
@@ -179,9 +183,14 @@ internal static partial class Utility
 
         if (json is JsonObject obj)
         {
-            foreach (var key in keyProps)
+            var allProperties = obj.Select(p => p.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var allowedProperties = (includeProperties?.ToHashSet(StringComparer.OrdinalIgnoreCase) ?? allProperties)
+                .Except(excludeProperties ?? [], StringComparer.OrdinalIgnoreCase)
+                .Except(keyProps, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var prop in allProperties.Except(allowedProperties, StringComparer.OrdinalIgnoreCase))
             {
-                obj.Remove(key);
+                obj.Remove(prop);
             }
         }
 

@@ -4,9 +4,7 @@ using System.Text.Json;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 using FluentAssertions;
-using Microsoft.DataApiBuilder.Rest.Abstractions;
 using Microsoft.DataApiBuilder.Rest.Options;
-using static Microsoft.DataApiBuilder.Rest.Options.ProcedureOptions;
 
 namespace Microsoft.DataApiBuilder.Rest.Tests;
 
@@ -16,7 +14,7 @@ public class ProcedureRepositoryTests
         : ProcedureRepository<SampleEntity>(uri, client)
     { }
 
-    static IProcedureRepository<SampleEntity> GetRepo(string json, HttpStatusCode status = HttpStatusCode.OK)
+    static ProcedureRepository<SampleEntity> GetRepo(string json, HttpStatusCode status = HttpStatusCode.OK)
     {
         var http = new HttpClient(new MockHandler(new HttpResponseMessage
         {
@@ -57,9 +55,9 @@ public class ProcedureRepositoryTests
     {
         // arrange (set method to GET and provide one param)
         var repo = GetRepo(MockJson());
-        var options = new ProcedureOptions
+        var options = new ExecuteOptions
         {
-            Method = ApiMethod.GET,
+            Method = ExecuteHttpMethod.GET,
             Parameters = { ["name"] = "test" }
         };
 
@@ -76,9 +74,9 @@ public class ProcedureRepositoryTests
     {
         // arrange (set method to POST with param)
         var repo = GetRepo(MockJson());
-        var options = new ProcedureOptions
+        var options = new ExecuteOptions
         {
-            Method = ApiMethod.POST,
+            Method = ExecuteHttpMethod.POST,
             Parameters = { ["name"] = "test" }
         };
 
@@ -95,7 +93,7 @@ public class ProcedureRepositoryTests
     {
         // arrange (invalid enum value)
         var repo = GetRepo(MockJson());
-        var options = new ProcedureOptions { Method = (ApiMethod)999 };
+        var options = new ExecuteOptions { Method = (ExecuteHttpMethod)999 };
 
         // act (attempt call)
         Func<Task> act = async () => await repo.ExecuteAsync(options);
@@ -110,9 +108,9 @@ public class ProcedureRepositoryTests
     {
         // arrange (set status to 400 to simulate failure)
         var repo = GetRepo("", HttpStatusCode.BadRequest);
-        var options = new ProcedureOptions
+        var options = new ExecuteOptions
         {
-            Method = ApiMethod.POST,
+            Method = ExecuteHttpMethod.POST,
             Parameters = { ["name"] = "fail" }
         };
 
@@ -128,9 +126,9 @@ public class ProcedureRepositoryTests
     {
         // arrange (add multiple query params)
         var repo = GetRepo(MockJson());
-        var options = new ProcedureOptions
+        var options = new ExecuteOptions
         {
-            Method = ApiMethod.GET,
+            Method = ExecuteHttpMethod.GET,
             Parameters =
             {
                 ["param1"] = "val1",
@@ -150,7 +148,7 @@ public class ProcedureRepositoryTests
     {
         // arrange (no parameters set)
         var repo = GetRepo(MockJson());
-        var options = new ProcedureOptions { Method = ApiMethod.GET };
+        var options = new ExecuteOptions { Method = ExecuteHttpMethod.GET };
 
         // act
         var result = await repo.ExecuteAsync(options);

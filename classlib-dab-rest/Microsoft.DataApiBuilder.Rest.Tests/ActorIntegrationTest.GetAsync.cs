@@ -1,8 +1,4 @@
-﻿// Updated ActorIntegrationTests with clarified arrange/act/assert comments
-
-using FluentAssertions;
-
-using Microsoft.DataApiBuilder.Rest.Abstractions;
+﻿using FluentAssertions;
 using Microsoft.DataApiBuilder.Rest.Options;
 
 using System.ComponentModel.DataAnnotations;
@@ -15,7 +11,7 @@ namespace Microsoft.DataApiBuilder.Rest.Tests;
 public class ActorIntegrationTests : IAsyncLifetime
 {
     private static readonly Uri ActorUri = new($"{DabIntegrationFactAttribute.BaseUrl}/api/Actor");
-    private static readonly ITableRepository<Actor> Repo = new TableRepository<Actor>(ActorUri);
+    private static readonly TableRepository<Actor> Repo = new(ActorUri);
     private static int _nextTestId = 9000;
 
     public async Task InitializeAsync() => await CleanupTestActorsAsync();
@@ -25,10 +21,10 @@ public class ActorIntegrationTests : IAsyncLifetime
 
     private static async Task CleanupTestActorsAsync()
     {
-        var all = await Repo.GetAsync(new TableOptions { Filter = "Id ge 9000" });
+        var all = await Repo.GetAsync(new GetOptions { Filter = "Id ge 9000" });
         foreach (var a in all.Result)
         {
-            try { await Repo.DeleteAsync(a); } catch { }
+            try { await Repo.DeleteAsync(a, new DeleteOptions()); } catch { }
         }
     }
 
@@ -43,13 +39,13 @@ public class ActorIntegrationTests : IAsyncLifetime
         // arrange (insert actor to be deleted)
         var id = GetNextId();
         var actor = new Actor(id, nameof(DeleteAsync_WithExistingActor_RemovesRecord), 2000);
-        await Repo.PostAsync(actor);
+        await Repo.PostAsync(actor, new PostOptions());
 
         // act (delete actor)
-        await Repo.DeleteAsync(actor);
+        await Repo.DeleteAsync(actor, new DeleteOptions());
 
         // assert (confirm deletion)
-        var result = await Repo.GetAsync(new TableOptions { Filter = $"Id eq {id}" });
+        var result = await Repo.GetAsync(new GetOptions { Filter = $"Id eq {id}" });
         result.Result.Should().BeEmpty();
     }
 
@@ -60,7 +56,7 @@ public class ActorIntegrationTests : IAsyncLifetime
         var actor = new Actor(9997, nameof(DeleteAsync_WithNonExistentActor_Throws404), 1999);
 
         // act (attempt delete)
-        Func<Task> act = async () => await Repo.DeleteAsync(actor);
+        Func<Task> act = async () => await Repo.DeleteAsync(actor, new DeleteOptions());
 
         // assert (expect 404)
         await act.Should().ThrowAsync<HttpRequestException>().Where(e => e.StatusCode == HttpStatusCode.NotFound);
@@ -71,11 +67,11 @@ public class ActorIntegrationTests : IAsyncLifetime
     {
         // arrange (insert actors with only names selected)
         var name = nameof(GetAsync_WithFilterAndOrderAndSelect_ReturnsValidProjection);
-        await Repo.PostAsync(new Actor(GetNextId(), name + "_1", 1901));
-        await Repo.PostAsync(new Actor(GetNextId(), name + "_2", 1902));
+        await Repo.PostAsync(new Actor(GetNextId(), name + "_1", 1901), new PostOptions());
+        await Repo.PostAsync(new Actor(GetNextId(), name + "_2", 1902), new PostOptions());
 
         // act (query with filter/order/select)
-        var result = await Repo.GetAsync(new TableOptions { Filter = "Id ge 9000", OrderBy = "Name", Select = "Name" });
+        var result = await Repo.GetAsync(new GetOptions { Filter = "Id ge 9000", OrderBy = "Name", Select = "Name" });
 
         // assert (names present, birth year defaulted)
         result.Result.Should().OnlyContain(a => !string.IsNullOrEmpty(a.Name));
@@ -87,11 +83,11 @@ public class ActorIntegrationTests : IAsyncLifetime
     {
         // arrange (insert multiple actors)
         var name = nameof(GetAsync_WithFirstOption_ReturnsSingleResult);
-        await Repo.PostAsync(new Actor(GetNextId(), name + "_1", 2000));
-        await Repo.PostAsync(new Actor(GetNextId(), name + "_2", 2000));
+        await Repo.PostAsync(new Actor(GetNextId(), name + "_1", 2000), new PostOptions());
+        await Repo.PostAsync(new Actor(GetNextId(), name + "_2", 2000), new PostOptions());
 
         // act (query with $first=1)
-        var result = await Repo.GetAsync(new TableOptions { Filter = "Id ge 9000", First = 1 });
+        var result = await Repo.GetAsync(new GetOptions { Filter = "Id ge 9000", First = 1 });
 
         // assert (only one result)
         result.Result.Should().HaveCount(1);
@@ -103,10 +99,10 @@ public class ActorIntegrationTests : IAsyncLifetime
         // arrange (insert known actor)
         var id = GetNextId();
         var name = nameof(GetAsync_WithIdFilter_ReturnsExpectedActor);
-        await Repo.PostAsync(new Actor(id, name, 2000));
+        await Repo.PostAsync(new Actor(id, name, 2000), new PostOptions());
 
         // act (filter by ID)
-        var result = await Repo.GetAsync(new TableOptions { Filter = $"Id eq {id}" });
+        var result = await Repo.GetAsync(new GetOptions { Filter = $"Id eq {id}" });
 
         // assert (should match inserted ID)
         result.Result.Should().ContainSingle(a => a.Id == id);
@@ -116,7 +112,7 @@ public class ActorIntegrationTests : IAsyncLifetime
     public async Task GetAsync_WithInvalidFilterSyntax_Throws400()
     {
         // arrange (invalid filter syntax)
-        var options = new TableOptions { Filter = "Id === 'oops'" };
+        var options = new GetOptions { Filter = "Id === 'oops'" };
 
         // act (trigger filter error)
         Func<Task> act = async () => await Repo.GetAsync(options);
@@ -129,7 +125,7 @@ public class ActorIntegrationTests : IAsyncLifetime
     public async Task GetAsync_WithNonExistentSelectField_Throws400()
     {
         // arrange (invalid select field)
-        var options = new TableOptions { Select = "BogusField" };
+        var options = new GetOptions { Select = "BogusField" };
 
         // act (trigger select error)
         Func<Task> act = async () => await Repo.GetAsync(options);
@@ -142,11 +138,11 @@ public class ActorIntegrationTests : IAsyncLifetime
     public async Task GetAsync_WithOrderBy_ReturnsSortedByName()
     {
         // arrange (insert actors out of order)
-        await Repo.PostAsync(new Actor(GetNextId(), "OMEGA", 2000));
-        await Repo.PostAsync(new Actor(GetNextId(), "ALPHA", 2000));
+        await Repo.PostAsync(new Actor(GetNextId(), "OMEGA", 2000), new PostOptions());
+        await Repo.PostAsync(new Actor(GetNextId(), "ALPHA", 2000), new PostOptions());
 
         // act (query sorted by name)
-        var result = await Repo.GetAsync(new TableOptions { Filter = "Id ge 9000", OrderBy = "Name" });
+        var result = await Repo.GetAsync(new GetOptions { Filter = "Id ge 9000", OrderBy = "Name" });
 
         // assert (check sort order)
         result.Result.Select(a => a.Name).Should().ContainInOrder("ALPHA", "OMEGA");
@@ -158,10 +154,10 @@ public class ActorIntegrationTests : IAsyncLifetime
         // arrange (insert actor)
         var id = GetNextId();
         var name = nameof(GetAsync_WithSelectOnlyName_ReturnsNameOnly);
-        await Repo.PostAsync(new Actor(id, name, 1970));
+        await Repo.PostAsync(new Actor(id, name, 1970), new PostOptions());
 
         // act (select only Name)
-        var result = await Repo.GetAsync(new TableOptions { Filter = $"Id eq {id}", Select = "Name" });
+        var result = await Repo.GetAsync(new GetOptions { Filter = $"Id eq {id}", Select = "Name" });
 
         // assert (should contain name, but not birth year)
         result.Result.Should().ContainSingle().Which.Name.Should().Be(name);
@@ -175,11 +171,11 @@ public class ActorIntegrationTests : IAsyncLifetime
         var id = GetNextId();
         var name = nameof(PatchAsync_WithExistingActor_UpdatesSingleProperty);
         var actor = new Actor(id, name, 2000);
-        await Repo.PostAsync(actor);
+        await Repo.PostAsync(actor, new PostOptions());
 
         // act (patch name)
         var patch = actor with { Name = name + "_PATCHED" };
-        var result = await Repo.PatchAsync(patch);
+        var result = await Repo.PatchAsync(patch, new PatchOptions());
 
         // assert (name updated)
         result.Result.Name.Should().Be(name + "_PATCHED");
@@ -194,10 +190,10 @@ public class ActorIntegrationTests : IAsyncLifetime
         var patch = new Actor(id, name, 2099);
 
         // act (patch non-existent record)
-        var inserted = await Repo.PatchAsync(patch);
+        var inserted = await Repo.PatchAsync(patch, new PatchOptions());
 
         // assert (record created)
-        var fetched = await Repo.GetAsync(new TableOptions { Filter = $"Id eq {id}" });
+        var fetched = await Repo.GetAsync(new GetOptions { Filter = $"Id eq {id}" });
         inserted.Result.Id.Should().Be(id);
         fetched.Result.Should().ContainSingle(a => a.Name == name);
     }
@@ -265,7 +261,7 @@ public class ActorIntegrationTests : IAsyncLifetime
         var actor = new Actor(id, nameof(PostAsync_WithValidActor_ReturnsCreatedActor), 2222);
 
         // act (send to POST)
-        var inserted = await Repo.PostAsync(actor);
+        var inserted = await Repo.PostAsync(actor, new PostOptions());
 
         // assert (insert succeeded)
         inserted.Result.Should().NotBeNull();
@@ -278,10 +274,10 @@ public class ActorIntegrationTests : IAsyncLifetime
         // arrange (insert actor)
         var id = GetNextId();
         var actor = new Actor(id, nameof(PutAsync_WithExistingActor_UpdatesFullRecord), 2000);
-        await Repo.PostAsync(actor);
+        await Repo.PostAsync(actor, new PostOptions());
 
         // act (update birth year)
-        var result = await Repo.PutAsync(actor with { BirthYear = 2001 });
+        var result = await Repo.PutAsync(actor with { BirthYear = 2001 }, new PutOptions());
 
         // assert (birth year updated)
         result.Result.BirthYear.Should().Be(2001);
@@ -295,10 +291,10 @@ public class ActorIntegrationTests : IAsyncLifetime
         var put = new Actor(id, nameof(PutAsync_WithNonExistentActor_InsertsRecord), 1998);
 
         // act (send to PUT)
-        var inserted = await Repo.PutAsync(put);
+        var inserted = await Repo.PutAsync(put, new PutOptions());
 
         // assert (record inserted)
-        var fetched = await Repo.GetAsync(new TableOptions { Filter = $"Id eq {id}" });
+        var fetched = await Repo.GetAsync(new GetOptions { Filter = $"Id eq {id}" });
         inserted.Result.Id.Should().Be(id);
         fetched.Result.Should().ContainSingle(a => a.Name == put.Name);
     }

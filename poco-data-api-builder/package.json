@@ -17,7 +17,9 @@
     "type": "git",
     "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
   },
-  "categories": [ "Other" ],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "workspaceContains:**/dab-*.json",
     "workspaceContains:**/staticwebapp.database.config.json"
@@ -27,15 +29,43 @@
     "commands": [
       {
         "command": "dabExtension.generatePoco",
-        "title": "Generate C#"
+        "title": "POCO models"
+      },
+      {
+        "command": "dabExtension.generateMcpServer",
+        "title": "MCP server"
+      },
+      {
+        "command": "dabExtension.generateRestClient",
+        "title": "REST client"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "dabExtension.generateSubMenu",
+        "label": "Generate C#"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "dabExtension.generatePoco",
+          "submenu": "dabExtension.generateSubMenu",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
           "group": "1_dab@99"
+        }
+      ],
+      "dabExtension.generateSubMenu": [
+        {
+          "command": "dabExtension.generatePoco",
+          "group": "1_generate@1"
+        },
+        {
+          "command": "dabExtension.generateMcpServer",
+          "group": "1_generate@2"
+        },
+        {
+          "command": "dabExtension.generateRestClient",
+          "group": "1_generate@3"
         }
       ]
     }
@@ -64,7 +94,9 @@
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
-  "keywords": [ "Data API builder" ],
+  "keywords": [
+    "Data API builder"
+  ],
   "author": "Jerry Nixon",
   "license": "MIT",
   "dependencies": {

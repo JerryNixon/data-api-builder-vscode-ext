@@ -1,14 +1,14 @@
 namespace Microsoft.DataApiBuilder.Rest.Options;
 
-public class ProcedureOptions : CommonOptions
+public class ExecuteOptions : CommonOptions
 {
-    public ProcedureOptions()
+    public ExecuteOptions()
     {
         // empty constructor
     }
 
     // parameters format "key=value,key=value"
-    public ProcedureOptions(ApiMethod apiMethod, string? parameters)
+    public ExecuteOptions(ExecuteHttpMethod apiMethod, string? parameters)
     {
         Method = apiMethod;
 
@@ -24,15 +24,15 @@ public class ProcedureOptions : CommonOptions
         }
     }
 
-    public ProcedureOptions(ApiMethod apiMethod, Dictionary<string, string> parameters)
+    public ExecuteOptions(ExecuteHttpMethod apiMethod, Dictionary<string, string> parameters)
     {
         Method = apiMethod;
         Parameters = parameters;
     }
 
-    public enum ApiMethod { GET, POST }
-
-    public ApiMethod Method { get; set; } = ApiMethod.GET;
+    public ExecuteHttpMethod Method { get; set; } = ExecuteHttpMethod.GET;
 
     public Dictionary<string, string> Parameters { get; set; } = [];
 }
+
+public enum ExecuteHttpMethod { GET, POST }

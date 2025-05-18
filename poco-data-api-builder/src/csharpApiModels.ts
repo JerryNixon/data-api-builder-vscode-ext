@@ -10,7 +10,7 @@ export async function createApiModelsCs(
   selectedEntities: vscode.QuickPickItem[],
   genCsFolder: string
 ): Promise<void> {
-  const modelsFolderPath = path.join(genCsFolder, 'Api', 'Models');
+  const modelsFolderPath = path.join(genCsFolder, 'Models');
 
   // Ensure the target directory exists
   fs.mkdirSync(modelsFolderPath, { recursive: true });
@@ -47,7 +47,7 @@ using System.Text.Json.Serialization;
         const content = header + poco;
 
         // Write the POCO to a file
-        const filePath = path.join(modelsFolderPath, `${selected.label}.g.cs`);
+        const filePath = path.join(modelsFolderPath, `${selected.label}.cs`);
         fs.writeFileSync(filePath, content.trim());
       }
     }

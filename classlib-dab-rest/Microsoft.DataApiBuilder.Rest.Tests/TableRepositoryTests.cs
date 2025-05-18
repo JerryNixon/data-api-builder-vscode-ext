@@ -5,8 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using FluentAssertions;
-
-using Microsoft.DataApiBuilder.Rest.Abstractions;
 using Microsoft.DataApiBuilder.Rest.Options;
 
 namespace Microsoft.DataApiBuilder.Rest.Tests;
@@ -18,7 +16,7 @@ public record class Actor(
 
 public class TableRepositoryTests
 {
-    static ITableRepository<Actor> GetRepository(string json, HttpStatusCode status = HttpStatusCode.OK)
+    static TableRepository<Actor> GetRepository(string json, HttpStatusCode status = HttpStatusCode.OK)
     {
         var http = new HttpClient(new MockHandler(new HttpResponseMessage
         {
@@ -59,7 +57,7 @@ public class TableRepositoryTests
         var actorName = nameof(GetAsync_WithFilterOption_AppendsQuerySuccessfully);
         var mockJson = MockValueJson(new[] { new Actor(1, actorName, 1980) });
         var repo = GetRepository(mockJson);
-        var options = new TableOptions { Filter = "id eq 1" };
+        var options = new GetOptions { Filter = "id eq 1" };
 
         // act (Calling GetAsync with filter option)
         var result = await repo.GetAsync(options);
@@ -104,7 +102,7 @@ public class TableRepositoryTests
         var repo = GetRepository(mockJson);
 
         // act (Calling PostAsync)
-        var response = await repo.PostAsync(actor);
+        var response = await repo.PostAsync(actor, new PostOptions());
 
         // assert (Validating ID)
         response.Result.Id.Should().Be(1);
@@ -117,7 +115,7 @@ public class TableRepositoryTests
         var repo = GetRepository(MockValueJson(Array.Empty<Actor>()));
 
         // act (Calling PostAsync with null)
-        Func<Task> act = async () => await repo.PostAsync(null!);
+        Func<Task> act = async () => await repo.PostAsync(null!, new PostOptions());
 
         // assert (Expecting ArgumentNullException)
         await act.Should().ThrowAsync<ArgumentNullException>();
@@ -132,7 +130,7 @@ public class TableRepositoryTests
         var repo = GetRepository("", HttpStatusCode.BadRequest);
 
         // act (Calling PostAsync)
-        var act = async () => await repo.PostAsync(actor);
+        var act = async () => await repo.PostAsync(actor, new PostOptions());
 
         // assert (Expecting HttpRequestException)
         await act.Should().ThrowAsync<HttpRequestException>();
@@ -147,7 +145,7 @@ public class TableRepositoryTests
         var invalidActor = new Actor(null, actorName, 1980);
 
         // act (Calling PutAsync with keyless item)
-        var act = async () => await repo.PutAsync(invalidActor);
+        var act = async () => await repo.PutAsync(invalidActor, new PutOptions());
 
         // assert (Expecting InvalidOperationException)
         await act.Should().ThrowAsync<InvalidOperationException>();
@@ -162,7 +160,7 @@ public class TableRepositoryTests
         var invalidActor = new Actor(null, actorName, 1980);
 
         // act (Calling PatchAsync with keyless item)
-        var act = async () => await repo.PatchAsync(invalidActor);
+        var act = async () => await repo.PatchAsync(invalidActor, new PatchOptions());
 
         // assert (Expecting InvalidOperationException)
         await act.Should().ThrowAsync<InvalidOperationException>();
@@ -177,7 +175,7 @@ public class TableRepositoryTests
         var invalidActor = new Actor(null, actorName, 1980);
 
         // act (Calling DeleteAsync with keyless item)
-        var act = async () => await repo.DeleteAsync(invalidActor);
+        var act = async () => await repo.DeleteAsync(invalidActor, new DeleteOptions());
 
         // assert (Expecting InvalidOperationException)
         await act.Should().ThrowAsync<InvalidOperationException>();

@@ -193,7 +193,7 @@ function formatCsharpProperty(columnName: string, dataType: string, alias?: stri
 }
 
 function formatMetadataAsPoco(className: string, columns: any[], mappings?: Record<string, string>, keyFields: string[] = []): string {
-  let pocoCode = `public partial record class ${className} 
+  let pocoCode = `public class ${className} 
 {
 `;
 
