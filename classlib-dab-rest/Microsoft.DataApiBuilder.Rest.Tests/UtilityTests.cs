@@ -126,6 +126,7 @@ public class UtilityTests
         CreateHttpClientAndAddHeaders(ref client, options);
 
         // assert (headers should be applied)
+        Assert.NotNull(client);
         client.DefaultRequestHeaders.Contains("Bearer").Should().BeTrue();
         client.DefaultRequestHeaders.Contains("x-ms-api-role").Should().BeTrue();
     }
@@ -142,6 +143,7 @@ public class UtilityTests
         CreateHttpClientAndAddHeaders(ref client, options);
 
         // assert (header should be removed)
+        Assert.NotNull(client);
         client.DefaultRequestHeaders.Contains("Bearer").Should().BeFalse();
     }
 
@@ -198,13 +200,13 @@ public class UtilityTests
     }
 
     [Fact]
-    public void SerializeWithoutKeyProperties_WithKey_RemovesKeyField()
+    public async Task SerializeWithoutKeyProperties_WithKey_RemovesKeyField()
     {
         // arrange (entity with key and additional fields)
         var entity = new SampleEntity { Id = 1, Name = "test" };
 
         // act (serialize without key fields)
-        var json = entity.SerializeWithoutKeyProperties().ReadAsStringAsync().Result;
+        var json = await entity.SerializeWithoutKeyProperties().ReadAsStringAsync();
 
         // assert (output should exclude key)
         json.Should().NotContain("id");
@@ -389,13 +391,13 @@ public class UtilityTests
     }
 
     [Fact]
-    public void SerializeWithoutKeyProperties_WithInclude_OnlyIncludesSpecifiedFields()
+    public async Task SerializeWithoutKeyProperties_WithInclude_OnlyIncludesSpecifiedFields()
     {
         // arrange
         var entity = new SampleEntity { Id = 1, Name = "Kirk", BirthYear = 2233 };
 
         // act
-        var json = entity.SerializeWithoutKeyProperties(includeProperties: ["name"]).ReadAsStringAsync().Result;
+        var json = await entity.SerializeWithoutKeyProperties(includeProperties: ["name"]).ReadAsStringAsync();
 
         // assert
         json.Should().Contain("name");
@@ -404,13 +406,13 @@ public class UtilityTests
     }
 
     [Fact]
-    public void SerializeWithoutKeyProperties_WithExclude_RemovesSpecifiedFields()
+    public async Task SerializeWithoutKeyProperties_WithExclude_RemovesSpecifiedFields()
     {
         // arrange
         var entity = new SampleEntity { Id = 2, Name = "Spock", BirthYear = 2230 };
 
         // act
-        var json = entity.SerializeWithoutKeyProperties(excludeProperties: ["birthYear"]).ReadAsStringAsync().Result;
+        var json = await entity.SerializeWithoutKeyProperties(excludeProperties: ["birthYear"]).ReadAsStringAsync();
 
         // assert
         json.Should().Contain("name");
@@ -419,16 +421,16 @@ public class UtilityTests
     }
 
     [Fact]
-    public void SerializeWithoutKeyProperties_WithIncludeAndExclude_ExcludeWins()
+    public async Task SerializeWithoutKeyProperties_WithIncludeAndExclude_ExcludeWins()
     {
         // arrange
         var entity = new SampleEntity { Id = 3, Name = "McCoy", BirthYear = 2227 };
 
         // act
-        var json = entity.SerializeWithoutKeyProperties(
+        var json = await entity.SerializeWithoutKeyProperties(
             includeProperties: ["name", "birthYear"],
             excludeProperties: ["birthYear"]
-        ).ReadAsStringAsync().Result;
+        ).ReadAsStringAsync();
 
         // assert
         json.Should().Contain("name");
@@ -437,13 +439,13 @@ public class UtilityTests
     }
 
     [Fact]
-    public void SerializeWithoutKeyProperties_WithCaseMismatch_HandlesPropertyNameCaseInsensitively()
+    public async Task SerializeWithoutKeyProperties_WithCaseMismatch_HandlesPropertyNameCaseInsensitively()
     {
         // arrange
         var entity = new SampleEntity { Id = 4, Name = "Uhura", BirthYear = 2239 };
 
         // act
-        var json = entity.SerializeWithoutKeyProperties(includeProperties: ["Name"]).ReadAsStringAsync().Result;
+        var json = await entity.SerializeWithoutKeyProperties(includeProperties: ["Name"]).ReadAsStringAsync();
 
         // assert
         json.Should().Contain("name");

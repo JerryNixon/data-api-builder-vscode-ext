@@ -11,7 +11,6 @@ using System.Collections.Specialized;
 using System.Reflection;
 using static System.Text.Json.JsonNamingPolicy;
 using static System.Text.Json.Serialization.JsonIgnoreCondition;
-using Microsoft.VisualBasic;
 
 namespace Microsoft.DataApiBuilder.Rest;
 

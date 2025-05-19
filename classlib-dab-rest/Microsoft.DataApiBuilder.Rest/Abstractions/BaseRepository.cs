@@ -1,6 +1,5 @@
 using System.Net.Http.Json;
 using Microsoft.DataApiBuilder.Rest.Options;
-using static Microsoft.DataApiBuilder.Rest.Options.ExecuteOptions;
 using static Microsoft.DataApiBuilder.Rest.Utility;
 
 namespace Microsoft.DataApiBuilder.Rest.Abstractions;
