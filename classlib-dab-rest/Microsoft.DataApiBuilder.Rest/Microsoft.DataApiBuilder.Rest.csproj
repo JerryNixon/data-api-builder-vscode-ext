@@ -10,7 +10,7 @@
 	<PropertyGroup>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<PackageId>DataApiBuilder.Rest</PackageId>
-		<Version>0.0.7</Version>
+		<Version>0.0.8</Version>
 		<Authors>jerrynixon</Authors>
 		<Description>Helper library for DAB REST API.</Description>
 		<PackageTags>API;DAB;REST</PackageTags>
@@ -21,7 +21,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<None Include="ClassDiagram.png" Pack="true" PackagePath="" />
 		<None Include="readme.md" Pack="true" PackagePath="" />
 		<None Include="dab-logo.png" Pack="true" PackagePath="" />
 	</ItemGroup>

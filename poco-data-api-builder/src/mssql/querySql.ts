@@ -192,20 +192,31 @@ function formatCsharpProperty(columnName: string, dataType: string, alias?: stri
 `;
 }
 
-function formatMetadataAsPoco(className: string, columns: any[], mappings?: Record<string, string>, keyFields: string[] = []): string {
-  let pocoCode = `public class ${className} 
-{
-`;
+function formatMetadataAsPoco(
+  className: string,
+  columns: any[],
+  mappings?: Record<string, string>,
+  keyFields: string[] = []
+): string {
+  const parameters = columns.map((col) => {
+    const columnName = col.COLUMN_NAME;
+    const alias = mappings?.[columnName];
+    const jsonName = alias ?? columnName;
+    const paramName = getCsharpName(columnName);
+    const type = mapSqlTypeToCSharp(col.DATA_TYPE);
+    const isKey = keyFields.includes(columnName);
 
-  columns.forEach((row) => {
-    const alias = mappings ? mappings[row.COLUMN_NAME] : undefined;
-    const isKey = keyFields.includes(row.COLUMN_NAME);
-    pocoCode += formatCsharpProperty(row.COLUMN_NAME, row.DATA_TYPE, alias, isKey) + "\n";
+    const attributes = [`JsonPropertyName("${jsonName}")`];
+    if (isKey) {
+      attributes.unshift('Key');
+    }
+
+    return `[property: ${attributes.join(', ')}] ${type} ${paramName}`;
   });
-  pocoCode = pocoCode.replace(/\n$/, "");
-  pocoCode += `}
-`;
-  return pocoCode;
+
+  return `public record ${className}(
+    ${parameters.join(',\n    ')}
+);`;
 }
 
 function mapSqlTypeToCSharp(sqlType: string): string {

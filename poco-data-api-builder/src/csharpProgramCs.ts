@@ -1,92 +1,69 @@
-import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { EntityDefinition } from './readConfig';
+import { getProcParameterTypes } from './mssql/querySql';
 
 export async function createProgramCs(
-    genCsFolder: string,
-    selectedEntities: vscode.QuickPickItem[],
-    entities: Record<string, EntityDefinition>
+  pool: any,
+  genCsFolder: string,
+  entities: Record<string, EntityDefinition>,
+  selectedEntities: vscode.QuickPickItem[]
 ): Promise<void> {
-    const programFilePath = path.join(genCsFolder, 'Program.cs');
+  const filePath = path.join(genCsFolder, 'Client', 'Program.cs');
 
-    if (selectedEntities.length === 0) {
-        vscode.window.showWarningMessage('No entities selected for Program.cs generation.');
-        return;
-    }
+  const runtimeRestPath = entities[selectedEntities[0].label]?.runtimeRestPath?.replace(/^\/+|\/+$/g, '') || 'api';
+  const header = `using Library.Repositories;
 
-    const programCodeParts: string[] = [];
+var baseUrl = new Uri("http://localhost:5000/${runtimeRestPath}/");`;
 
-    for (const selected of selectedEntities) {
-        const entity = selected.label;
-        const entityDef = entities[entity];
-        const restPath = entityDef.restPath?.replace(/^\/+/g, '') || entity;
-        const camelCaseEntity = `${entity.charAt(0).toLowerCase()}${entity.slice(1)}`;
+  const hasProcs = selectedEntities.some(e => entities[e.label].source.type === 'stored-procedure');
+  const procLine = hasProcs ? `var procRepo = new ProcedureRepository(baseUrl);` : '';
 
-        if (entityDef.type === 'stored-procedure') {
-            const restMethods = entityDef.rest?.methods || [];
-            const includeMethod = !restMethods.includes('get') && restMethods.includes('post');
-            const methodLine = includeMethod
-                ? `\n        Method = Api.Logic.Options.ApiProcedureOptions.ApiMethod.POST,`
-                : '';
+  const blocks: string[] = [];
 
-            const parameters = entityDef.source.parameters
-                ? Object.entries(entityDef.source.parameters)
-                    .map(([key, type]) => {
-                        const defaultValue = type === 'number'
-                            ? 'default(int)'
-                            : type === 'boolean'
-                                ? 'default(bool)'
-                                : 'default';
-                        return `    {"${key}", $"{${defaultValue}}"}`;
-                    })
-                    .join(",\n        ")
-                : "";
+  for (const selected of selectedEntities) {
+    const name = selected.label;
+    const entity = entities[name];
+    const varName = name.charAt(0).toLowerCase() + name.slice(1);
 
-            const parametersCode = parameters
-                ? `Parameters = new Dictionary<string, string>\n        {\n        ${parameters}\n        }`
-                : "";
+    if (entity.source.type === 'stored-procedure') {
+      const parameters = await getProcParameterTypes(pool, entity.source.object);
+      const args = Object.entries(parameters)
+        .map(([key, type]) => getSampleArgument(key, type))
+        .join(', ');
 
-            programCodeParts.push(`var ${camelCaseEntity}Uri = $"{baseUrl.Trim('/')}/api/${restPath}";
-var ${camelCaseEntity}Repository = new Api.${entity}Repository(new(${camelCaseEntity}Url));
-var ${camelCaseEntity}Items = await ${camelCaseEntity}Repository.ExecuteProcedureAsync(
-    options: new()
-    {${methodLine}
-        ${parametersCode}
-    }
-);
-Console.WriteLine($"\\n{${camelCaseEntity}Items.Length} item(s) returned from /${entity}.");
-foreach (var item in ${camelCaseEntity}Items)
+      blocks.push(`var ${varName}Response = await procRepo.Execute${name}Async(${args});
+foreach (var result in ${varName}Response.Result)
 {
-    Console.WriteLine(item.ToString());
+    Console.WriteLine("${name}: " + result);
 }`);
-        } else {
-            programCodeParts.push(`var ${camelCaseEntity}Url = $"{baseUrl.Trim('/')}/api/${restPath}";
-var ${camelCaseEntity}Repository = new Api.${entity}Repository(new(${camelCaseEntity}Url));
-var ${camelCaseEntity}Items = await ${camelCaseEntity}Repository.GetAsync(options: new() { First = 1 });
-Console.WriteLine($"\\n{${camelCaseEntity}Items.Length} item(s) returned from /${entity}.");
-foreach (var item in ${camelCaseEntity}Items)
+    } else {
+      blocks.push(`var ${varName}Repo = new ${name}Repository(baseUrl);
+if (!await ${varName}Repo.IsAvailableAsync())
 {
-    Console.WriteLine(item.ToString());
-}`);
-        }
-    }
-
-    const apiCheckCode = `var baseUrl = "http://localhost:5000/";
-
-if (!await Api.Logic.Utility.IsApiAvailableAsync(baseUrl))
-{
-    var message = "API is not available. Is Data API builder started?";
-    System.Diagnostics.Debug.WriteLine(message);
-    Console.WriteLine(message);
+    Console.WriteLine("${name} repository is not available. Is DAB started?");
+    Console.ReadKey();
     return;
-}`;
+}
+var ${varName}Response = await ${varName}Repo.ReadAsync();
+foreach (var item in ${varName}Response.Result)
+{
+    Console.WriteLine("${name}: " + item);
+}`);
+    }
+  }
 
-    const programCode = `${apiCheckCode}
+  const finalCode = [header, procLine, ...blocks].filter(Boolean).join('\n\n');
+  fs.writeFileSync(filePath, finalCode + '\n\nConsole.ReadKey();');
+}
 
-${programCodeParts.join('\n\n')}
-
-Console.ReadKey();`;
-
-    fs.writeFileSync(programFilePath, programCode);
+function getSampleArgument(name: string, type: string): string {
+  const t = type.toLowerCase();
+  if (t.includes('int')) return '123';
+  if (t.includes('decimal') || t.includes('double') || t.includes('float')) return '123.45';
+  if (t.includes('bool')) return 'true';
+  if (t.includes('datetime')) return 'DateTime.Now';
+  if (t.includes('guid')) return 'Guid.NewGuid()';
+  return `"${name}"`;
 }

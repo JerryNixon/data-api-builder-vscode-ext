@@ -4,7 +4,7 @@ using Microsoft.DataApiBuilder.Rest.Options;
 namespace Microsoft.DataApiBuilder.Rest;
 
 public class TableRepository<T>(Uri entityUri, HttpClient? http = null) :
-    BaseRepository<T>(entityUri, http), ITableRepository<T> where T : class
+    BaseRepository<T>(entityUri.ToString(), http), ITableRepository<T> where T : class
 {
     public new Task<bool> IsAvailableAsync(int timeoutInSeconds = 30)
     {

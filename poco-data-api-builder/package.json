@@ -1,7 +1,7 @@
 {
   "name": "poco-data-api-builder",
   "displayName": "DAB Poco Gen (Data API builder)",
-  "description": "Generate C# POCO (Plain Old CLR Object) models from a configuration file.",
+  "description": "Generate C# POCO (Plain Old CLR Object) models and REST client from a DAB config.",
   "publisher": "jerry-nixon",
   "version": "0.0.6",
   "icon": "images/icon.png",
@@ -17,9 +17,7 @@
     "type": "git",
     "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
   },
-  "categories": [
-    "Other"
-  ],
+  "categories": ["Other"],
   "activationEvents": [
     "workspaceContains:**/dab-*.json",
     "workspaceContains:**/staticwebapp.database.config.json"
@@ -28,44 +26,16 @@
   "contributes": {
     "commands": [
       {
-        "command": "dabExtension.generatePoco",
-        "title": "POCO models"
-      },
-      {
-        "command": "dabExtension.generateMcpServer",
-        "title": "MCP server"
-      },
-      {
         "command": "dabExtension.generateRestClient",
-        "title": "REST client"
-      }
-    ],
-    "submenus": [
-      {
-        "id": "dabExtension.generateSubMenu",
-        "label": "Generate C#"
+        "title": "Generate C#"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "submenu": "dabExtension.generateSubMenu",
+          "command": "dabExtension.generateRestClient",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
           "group": "1_dab@99"
-        }
-      ],
-      "dabExtension.generateSubMenu": [
-        {
-          "command": "dabExtension.generatePoco",
-          "group": "1_generate@1"
-        },
-        {
-          "command": "dabExtension.generateMcpServer",
-          "group": "1_generate@2"
-        },
-        {
-          "command": "dabExtension.generateRestClient",
-          "group": "1_generate@3"
         }
       ]
     }
@@ -94,13 +64,11 @@
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
-  "keywords": [
-    "Data API builder"
-  ],
-  "author": "Jerry Nixon",
-  "license": "MIT",
   "dependencies": {
     "@types/mssql": "^9.1.6",
     "mssql": "^9.3.2"
-  }
+  },
+  "keywords": ["Data API builder"],
+  "author": "Jerry Nixon",
+  "license": "MIT"
 }

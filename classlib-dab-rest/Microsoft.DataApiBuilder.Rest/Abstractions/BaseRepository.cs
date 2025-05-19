@@ -4,12 +4,14 @@ using static Microsoft.DataApiBuilder.Rest.Utility;
 
 namespace Microsoft.DataApiBuilder.Rest.Abstractions;
 
-public abstract class BaseRepository<T>(Uri entityUri, HttpClient? http = null) where T : class
+public abstract class BaseRepository<T>(string baseUrl, HttpClient? http = null) where T : class
 {
+    private readonly Uri baseUri = new(baseUrl, UriKind.Absolute);
+
     public async Task<bool> IsAvailableAsync(int timeoutInSeconds = 30)
     {
-        var baseUri = $"{entityUri.Scheme}://{entityUri.Authority}";
-        return await IsApiAvailableAsync(baseUri, timeoutInSeconds);
+        var baseUrl = $"{baseUri.Scheme}://{baseUri.Authority}";
+        return await IsApiAvailableAsync(baseUrl, timeoutInSeconds);
     }
 
     // this uses the NextPage property
@@ -31,7 +33,7 @@ public abstract class BaseRepository<T>(Uri entityUri, HttpClient? http = null) 
     {
         CreateHttpClientAndAddHeaders(ref http, options);
 
-        var uriBuilder = new UriBuilder(entityUri)
+        var uriBuilder = new UriBuilder(baseUrl)
         {
             Query = options?.BuildQueryStringFromOptions()
         };
@@ -45,7 +47,7 @@ public abstract class BaseRepository<T>(Uri entityUri, HttpClient? http = null) 
 
         CreateHttpClientAndAddHeaders(ref http, options);
 
-        var response = await http!.PostAsJsonAsync(entityUri, item, cancellationToken ?? CancellationToken.None);
+        var response = await http!.PostAsJsonAsync(baseUri, item, cancellationToken ?? CancellationToken.None);
         return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T>(options);
     }
 
@@ -55,7 +57,7 @@ public abstract class BaseRepository<T>(Uri entityUri, HttpClient? http = null) 
 
         CreateHttpClientAndAddHeaders(ref http, options);
 
-        var uri = item.BuildUriWithKeyProperties(entityUri);
+        var uri = item.BuildUriWithKeyProperties(baseUri);
         var content = item.SerializeWithoutKeyProperties();
         var response = await http!.PutAsync(uri, content, cancellationToken ?? CancellationToken.None);
         return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T>(options);
@@ -67,7 +69,7 @@ public abstract class BaseRepository<T>(Uri entityUri, HttpClient? http = null) 
 
         CreateHttpClientAndAddHeaders(ref http, options);
 
-        var uri = item.BuildUriWithKeyProperties(entityUri);
+        var uri = item.BuildUriWithKeyProperties(baseUri);
         var content = item.SerializeWithoutKeyProperties();
         var response = await http!.PatchAsync(uri, content, cancellationToken ?? CancellationToken.None);
         return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T>(options);
@@ -80,7 +82,7 @@ public abstract class BaseRepository<T>(Uri entityUri, HttpClient? http = null) 
 
         CreateHttpClientAndAddHeaders(ref http, options);
 
-        var uri = item.BuildUriWithKeyProperties(entityUri);
+        var uri = item.BuildUriWithKeyProperties(baseUri);
         var response = await http!.DeleteAsync(uri, cancellationToken ?? CancellationToken.None);
         return await response.EnsureSuccessAndConvertToDabResponseAsync(options);
     }
@@ -99,13 +101,26 @@ public abstract class BaseRepository<T>(Uri entityUri, HttpClient? http = null) 
     {
         CreateHttpClientAndAddHeaders(ref http, options);
 
-        var uriBuilder = new UriBuilder(entityUri)
+        var uriBuilder = new UriBuilder(baseUri)
         {
             Query = BuildQueryStringFromParameters(options)
         };
 
-        var response = await http!.GetAsync(uriBuilder.Uri, cancellationToken ?? CancellationToken.None);
-        return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T[]>(options);
+        uriBuilder.Query += options.ToQueryString();
+
+        try
+        {
+            var response = await http!.GetAsync(uriBuilder.Uri, cancellationToken ?? CancellationToken.None);
+            return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T[]>(options);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.MethodNotAllowed)
+        {
+            throw new InvalidOperationException($"Ensure the {{StoredProcedure}}.rest.method property is configured to support {options.Method}.", ex);
+        }
+        catch
+        {
+            throw;
+        }
 
         static string? BuildQueryStringFromParameters(ExecuteOptions options)
         {
@@ -123,7 +138,7 @@ public abstract class BaseRepository<T>(Uri entityUri, HttpClient? http = null) 
     {
         CreateHttpClientAndAddHeaders(ref http, options);
 
-        var response = await http!.PostAsync(entityUri, options.ToJsonContent(), cancellationToken ?? CancellationToken.None);
+        var response = await http!.PostAsync(baseUri, options.ToJsonContent(), cancellationToken ?? CancellationToken.None);
         return await response.EnsureSuccessAndConvertToDabResponseAsync<T, T[]>(options);
     }
 }

@@ -4,19 +4,16 @@ import * as path from 'path';
 import { getTableAsPoco, getViewAsPoco, getProcedureAsPoco } from './mssql/querySql';
 import { EntityDefinition } from './readConfig';
 
-export async function createApiModelsCs(
+export async function createModels(
   pool: any,
   entities: Record<string, EntityDefinition>,
   selectedEntities: vscode.QuickPickItem[],
   genCsFolder: string
 ): Promise<void> {
-  const modelsFolderPath = path.join(genCsFolder, 'Models');
-
-  // Ensure the target directory exists
+  const modelsFolderPath = path.join(genCsFolder, 'Library', 'Models');
   fs.mkdirSync(modelsFolderPath, { recursive: true });
 
-  const header = `
-namespace Api.Models;
+  const header = `namespace Library.Models;
 
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
@@ -24,8 +21,12 @@ using System.Text.Json.Serialization;
 `;
 
   await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: 'Generating POCOs', cancellable: false },
-    async (progress) => {
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'Generating POCOs',
+      cancellable: false
+    },
+    async (progress: vscode.Progress<{ message?: string }>) => {
       for (const selected of selectedEntities) {
         progress.report({ message: `Processing ${selected.label}...` });
 
@@ -43,10 +44,7 @@ using System.Text.Json.Serialization;
           continue;
         }
 
-        // Add the header to the POCO
         const content = header + poco;
-
-        // Write the POCO to a file
         const filePath = path.join(modelsFolderPath, `${selected.label}.cs`);
         fs.writeFileSync(filePath, content.trim());
       }
