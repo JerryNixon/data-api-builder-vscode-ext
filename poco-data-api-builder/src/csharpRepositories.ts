@@ -59,9 +59,13 @@ using Microsoft.DataApiBuilder.Rest.Options;
 
 namespace Library.Repositories;
 
-public class ${className}(Uri entityUri, HttpClient? http = null) : 
-  TableRepository<${modelName}>(new($"{entityUri.ToString().Trim('/')}/${modelName}"), http)
+public class ${className} : TableRepository<${modelName}>
 {
+    public ${className}(Uri entityUri, HttpClient? http = null) : base(new($"{entityUri.ToString().Trim('/')}/${modelName}"), http)
+    {
+        // empty
+    }
+
     public Task<DabResponse<${modelName}, ${modelName}[]>> ReadAsync(GetOptions? getOptions = null, CancellationToken? cancellationToken = null)
     {
         return GetAsync(getOptions, cancellationToken);
