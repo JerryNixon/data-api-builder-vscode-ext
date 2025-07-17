@@ -9,6 +9,7 @@ export interface EnvEntry {
 }
 
 const defaultBaseName = 'MSSQL_CONNECTION_STRING';
+console.log('envManager loaded'); // ✅ forces module to be referenced
 
 // Return connection entries with parsed display info
 export function getConnections(folderPath: string): EnvEntry[] {
@@ -60,15 +61,23 @@ export function addConnection(folderPath: string, value: string): EnvEntry {
 
     all.push({ name, value });
     ensureAspnetcoreUrls(all);
+    ensureDabEnvironment(all);
     writeEnvFile(folderPath, all);
+    ensureGitIgnore(folderPath);
 
     return { name, value };
 
-    // Add ASPNETCORE_URLS if missing
     function ensureAspnetcoreUrls(entries: EnvEntry[]): void {
         const key = 'ASPNETCORE_URLS';
         if (!entries.some(e => e.name.toLowerCase() === key.toLowerCase())) {
-            entries.push({ name: key, value: 'http://localhost:5000;https://localhost:5001' });
+            entries.push({ name: key, value: 'http://localhost:5000' });
+        }
+    }
+
+    function ensureDabEnvironment(entries: EnvEntry[]): void {
+        const key = 'DAB_ENVIRONMENT';
+        if (!entries.some(e => e.name.toLowerCase() === key.toLowerCase())) {
+            entries.push({ name: key, value: 'Development' });
         }
     }
 
@@ -80,6 +89,25 @@ export function addConnection(folderPath: string, value: string): EnvEntry {
             index++;
         }
         return name;
+    }
+
+    function ensureGitIgnore(folder: string): void {
+        const file = path.join(folder, '.gitignore');
+
+        if (!fs.existsSync(file)) {
+            fs.writeFileSync(file, '.env\n');
+            return;
+        }
+
+        let content = fs.readFileSync(file, 'utf8');
+        const lines = content.split(/\r?\n/).map(line => line.trim());
+
+        const hasExactDotEnv = lines.some(line => line === '.env');
+
+        if (!hasExactDotEnv) {
+            const append = content.endsWith('\n') ? '.env\n' : '\n.env\n';
+            fs.appendFileSync(file, append);
+        }
     }
 }
 

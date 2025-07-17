@@ -11,7 +11,6 @@ export interface PromptResult {
     security: 'StaticWebApps' | 'Simulated';
 }
 
-// Ask the user for all necessary init options
 export async function ask(folderPath: string): Promise<PromptResult> {
     const connection = await selectConnection(folderPath);
     if (!connection) {
@@ -25,24 +24,9 @@ export async function ask(folderPath: string): Promise<PromptResult> {
         };
     }
 
-    const enableRest = await askBoolean(
-        'REST',
-        'Enable REST endpoints',
-        true
-    );
-
-    const enableGraphQL = await askBoolean(
-        'GraphQL',
-        'Enable GraphQL endpoints',
-        true
-    );
-
-    const enableCache = await askBoolean(
-        'Cache',
-        'Enable Level 1 cache',
-        true
-    );
-
+    const enableRest = await askBoolean('REST', 'Enable REST endpoints', true);
+    const enableGraphQL = await askBoolean('GraphQL', 'Enable GraphQL endpoints', true);
+    const enableCache = await askBoolean('Cache', 'Enable Level 1 cache', true);
     const hostMode = await askHostMode();
     const security = await askSecurityProvider();
 
@@ -60,6 +44,14 @@ export async function ask(folderPath: string): Promise<PromptResult> {
 
 async function selectConnection(folderPath: string): Promise<EnvEntry | undefined> {
     const existing = getConnections(folderPath);
+
+    // No existing connections: immediately ask for new one
+    if (existing.length === 0) {
+        const input = await vscode.window.showInputBox({ prompt: 'Enter a new MSSQL connection string' });
+        return input ? addConnection(folderPath, input) : undefined;
+    }
+
+    // Otherwise show picker
     const options: { label: string; description: string; entry?: EnvEntry }[] = existing.map(e => ({
         label: `$(database) ${e.display || e.name}`,
         description: `(from .env) ${e.name}`,
@@ -72,13 +64,11 @@ async function selectConnection(folderPath: string): Promise<EnvEntry | undefine
         placeHolder: 'Select a connection string from .env or enter a new one'
     });
 
-    if (!picked) { return undefined; }
-    if (picked.entry) { return picked.entry; }
+    if (!picked) return undefined;
+    if (picked.entry) return picked.entry;
 
     const input = await vscode.window.showInputBox({ prompt: 'Enter a new MSSQL connection string' });
-    if (!input) { return undefined; }
-
-    return addConnection(folderPath, input);
+    return input ? addConnection(folderPath, input) : undefined;
 }
 
 async function askBoolean(label: string, description: string, defaultValue: boolean): Promise<boolean> {

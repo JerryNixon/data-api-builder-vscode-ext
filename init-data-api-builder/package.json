@@ -3,7 +3,7 @@
   "displayName": "DAB Init (Data API Builder)",
   "description": "Create Data API Builder configuration starter file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -62,12 +62,11 @@
     "@vscode/test-electron": "^2.4.1"
   },
   "keywords": [
-    "Data API Builder",
-    "dab",
-    "configuration",
-    "json",
-    "tools",
-    "automation"
+    "Data API builder",
+    "SQL Server",
+    "Postgres",
+    "Cosmos DB",
+    "MySQL"
   ],
   "author": "Jerry Nixon",
   "license": "MIT"

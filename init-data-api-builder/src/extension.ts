@@ -10,19 +10,29 @@ export function activate(context: vscode.ExtensionContext) {
     const folder = uri.fsPath;
     const configPath = resolveConfigPath(folder);
 
+    let result: PromptResult;
     try {
-      const result: PromptResult = await ask(folder);
-      const { connection, enableCache } = result;
+      // PROMPTS FIRST
+      result = await ask(folder);
 
-      if (!connection) {
+      if (!result.connection) {
         vscode.window.showErrorMessage('No connection string selected.');
         return;
       }
+    } catch (err) {
+      vscode.window.showErrorMessage((err as Error).message);
+      return;
+    }
 
+    // OPERATIONS AFTER
+    const { connection, enableCache } = result;
+
+    try {
       run(buildInitCommand(folder, configPath, connection.name, result));
+      run(buildConfigCommand(folder, configPath, 'runtime.rest.request-body-strict', 'false'));
 
       if (enableCache) {
-        run(`cd "${folder}" && dab configure --runtime.cache.enabled true`);
+        run(buildConfigCommand(folder, configPath, 'runtime.cache.enabled', 'true'));
       }
 
       await openFile(configPath);
@@ -34,7 +44,6 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(cmd);
 }
 
-// Generate unique config path
 function resolveConfigPath(folderPath: string): string {
   const base = 'dab-config';
   const ext = '.json';
@@ -47,13 +56,30 @@ function resolveConfigPath(folderPath: string): string {
   return candidate;
 }
 
-// Open config file after init
 async function openFile(filePath: string): Promise<void> {
+  await waitForFile(filePath, 3000);
   const doc = await vscode.workspace.openTextDocument(filePath);
   await vscode.window.showTextDocument(doc);
 }
 
-// Build the dab init command
+async function waitForFile(filePath: string, timeout: number): Promise<void> {
+  const interval = 100;
+  const maxAttempts = timeout / interval;
+  let attempts = 0;
+
+  return new Promise((resolve, reject) => {
+    const timer = setInterval(() => {
+      if (fs.existsSync(filePath)) {
+        clearInterval(timer);
+        resolve();
+      } else if (++attempts > maxAttempts) {
+        clearInterval(timer);
+        reject(new Error(`File not found: ${filePath}`));
+      }
+    }, interval);
+  });
+}
+
 function buildInitCommand(folder: string, configPath: string, envKey: string, result: PromptResult): string {
   const args = [
     `dab init`,
@@ -63,9 +89,13 @@ function buildInitCommand(folder: string, configPath: string, envKey: string, re
     `--rest.enabled ${result.enableRest}`,
     `--graphql.enabled ${result.enableGraphQL}`,
     `--auth.provider ${result.security}`,
-    `-c "${configPath}"`
+    `-c "${path.basename(configPath)}"`
   ];
   return `cd "${folder}" && ${args.join(' ')}`;
+}
+
+function buildConfigCommand(folder: string, configPath: string, setting: string, value: string): string {
+  return `cd "${folder}" && dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
 }
 
 export function deactivate() {}
