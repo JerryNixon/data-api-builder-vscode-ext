@@ -35,7 +35,13 @@ export function activate(context: vscode.ExtensionContext) {
         run(buildConfigCommand(folder, configPath, 'runtime.cache.enabled', 'true'));
       }
 
+      await new Promise(resolve => setTimeout(resolve, 2000));
       await openFile(configPath);
+
+      // call DAB Add/Table command
+      const uri = vscode.Uri.file(configPath);
+      await vscode.commands.executeCommand('dabExtension.addTable', uri);
+
     } catch (err) {
       vscode.window.showErrorMessage((err as Error).message);
     }
