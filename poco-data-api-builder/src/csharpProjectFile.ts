@@ -5,6 +5,7 @@ import * as path from 'path';
 export async function createProjectFile(context: vscode.ExtensionContext, genCsFolder: string): Promise<void> {
   copyTemplateFile(context, path.join(genCsFolder, 'Library'), 'Library.csproj');
   copyTemplateFile(context, path.join(genCsFolder, 'Client'), 'Client.csproj');
+  copyTemplateFile(context, path.resolve(genCsFolder, '../.vscode'), 'settings.json');
   copyTemplateFile(context, genCsFolder, 'Gen.sln');
 }
 
