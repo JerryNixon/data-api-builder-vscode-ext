@@ -7,6 +7,7 @@ import { createModels } from './csharpPocos';
 import { createRepository } from './csharpRepositories';
 import { createProjectFile } from './csharpProjectFile';
 import { createProgramCs } from './csharpProgramCs';
+import { generateDiagram, MermaidInput } from './mermaid';
 
 export function activate(context: vscode.ExtensionContext) {
   const generateRestClientCommand = vscode.commands.registerCommand('dabExtension.generateRestClient', async (uri: vscode.Uri) => {
@@ -18,6 +19,19 @@ export function activate(context: vscode.ExtensionContext) {
 
       const { entities, selectedEntities } = selection;
       if (!selectedEntities) { return; }
+
+      const choice = await vscode.window.showQuickPick([
+        { label: 'Create POCO' },
+        { label: 'Create POCO + Repositories' },
+        { label: 'Create POCO + Repositories + Console App' }
+      ], {
+        placeHolder: 'Select the code generation option'
+      });
+
+      if (!choice) {
+        vscode.window.showInformationMessage('No generation option selected.');
+        return;
+      }
 
       const connectionString = await getConnectionString(configPath);
       if (!connectionString) {
@@ -31,12 +45,39 @@ export function activate(context: vscode.ExtensionContext) {
       const genCsFolder = path.join(path.dirname(configPath), 'Gen');
       fs.mkdirSync(genCsFolder, { recursive: true });
 
-      await createModels(pool, entities, selectedEntities, genCsFolder);
-      await createRepository(pool, genCsFolder, entities, selectedEntities);
-      await createProjectFile(context, genCsFolder);
-      await createProgramCs(pool, genCsFolder, entities, selectedEntities);
+      // Keep track of what is generated
+      const generatedPOCOs: string[] = [];
+      const generatedRepositories: string[] = [];
+      let generatedConsoleApp = false;
 
-      vscode.window.showInformationMessage('C# code generation completed successfully.');
+      // Create POCOs
+      await createModels(pool, entities, selectedEntities, genCsFolder);
+      generatedPOCOs.push(...selectedEntities.map(e => e.label));
+
+      // Repositories if selected
+      if (choice.label.includes('Repositories')) {
+        await createRepository(pool, genCsFolder, entities, selectedEntities);
+        generatedRepositories.push(...selectedEntities.map(e => e.label));
+      }
+
+      // Console app if selected
+      if (choice.label.includes('Console App')) {
+        await createProjectFile(context, genCsFolder);
+        await createProgramCs(pool, genCsFolder, entities, selectedEntities);
+        generatedConsoleApp = true;
+      }
+
+      // Generate mermaid diagram
+      const diagramPath = path.join(genCsFolder, 'diagram.md');
+      const mermaidInput: MermaidInput = {
+        generatedPOCOs,
+        generatedRepositories,
+        generatedConsoleApp,
+        entities
+      };
+      await generateDiagram(mermaidInput, diagramPath);
+
+      vscode.window.showInformationMessage('C# code generation and diagram completed successfully.');
     } catch (error) {
       vscode.window.showErrorMessage(`Error during C# code generation: ${error}`);
     }
@@ -82,6 +123,6 @@ async function selectEntities(entities: Record<string, EntityDefinition>): Promi
 
   return await vscode.window.showQuickPick(entityItems, {
     canPickMany: true,
-    placeHolder: 'Select entities to generate C# code for'
+    placeHolder: 'Select entities to generate C# code'
   });
 }
