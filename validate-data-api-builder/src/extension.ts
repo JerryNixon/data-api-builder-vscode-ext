@@ -6,9 +6,10 @@ export function activate(context: vscode.ExtensionContext) {
   const validateDabCommand = vscode.commands.registerCommand('dabExtension.validateDab', async (uri: vscode.Uri) => {
     const configFilePath = uri.fsPath;
     const folderPath = path.dirname(configFilePath);
+    const fileName = path.basename(configFilePath);
 
     const cdCommand = `cd "${folderPath}"`;
-    const command = `${cdCommand} && dab validate -c "${configFilePath}"`;
+    const command = `${cdCommand} && dab validate -c "${fileName}"`;
     runCommand(command);
   });
 
