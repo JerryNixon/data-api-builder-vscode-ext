@@ -8,9 +8,8 @@ export function activate(context: vscode.ExtensionContext) {
     const folderPath = path.dirname(configFilePath);
     const fileName = path.basename(configFilePath);
 
-    const cdCommand = `cd "${folderPath}"`;
-    const command = `${cdCommand} && dab validate -c "${fileName}"`;
-    runCommand(command);
+    const command = `dab validate -c "${fileName}"`;
+    runCommand(command, { cwd: folderPath });
   });
 
   context.subscriptions.push(validateDabCommand);
