@@ -4,52 +4,40 @@ exports.generateMermaidDiagram = generateMermaidDiagram;
 /**
  * Generates a Mermaid state diagram representing tables, views, and procedures.
  * @param tables - An array of TableEntity objects representing tables.
- * @param procedures - An array of strings representing stored procedure names.
- * @param views - An array of strings representing view names.
+ * @param procedures - An array of StoredProcedureEntity objects representing stored procedures.
+ * @param views - An array of ViewEntity objects representing views.
  * @returns A string containing the Mermaid diagram.
  */
 function generateMermaidDiagram(tables, procedures, views) {
     const lines = [];
     lines.push('stateDiagram-v2');
     lines.push('direction LR');
-    lines.push(''); // Add a blank line for clarity
-    // Add class definitions for styles
+    lines.push('');
+    // Style definitions
     lines.push('  classDef empty fill:none,stroke:none');
     lines.push('  classDef table stroke:black;');
     lines.push('  classDef view stroke:black;');
     lines.push('  classDef proc stroke:black;');
     lines.push('  classDef phantom stroke:gray,stroke-dasharray:5 5;');
-    lines.push(''); // Add a blank line for clarity
-    lines.push('  class NoTables empty');
-    lines.push('  class NoViews empty');
-    lines.push('  class NoProcs empty');
-    lines.push(''); // Add a blank line for clarity
-    // Modular methods
+    lines.push('');
+    // Add empty class nodes only if tables is empty
+    if (tables.length === 0)
+        lines.push('  class NoTables empty');
+    lines.push('');
     writeTables(lines, tables);
     writeViews(lines, views);
     writeProcs(lines, procedures);
     return lines.join('\n');
 }
-/**
- * Sanitizes entity names by removing "dbo." and replacing dots with underscores.
- * @param entityName - The entity name to sanitize.
- * @returns The sanitized entity name.
- */
 function sanitizeEntityName(entityName) {
     return (entityName.startsWith('dbo.') ? entityName.replace('dbo.', '') : entityName)
         .replace(/\./g, '_')
         .replace(/[\[\]]/g, '');
 }
-/**
- * Writes table definitions and their classifications to the lines array.
- * @param lines - The array to append Mermaid diagram lines to.
- * @param tables - An array of TableEntity objects representing tables.
- */
 function writeTables(lines, tables) {
     const phantomEntities = new Set();
     const tablesGroup = [];
     const noRelationshipTables = [];
-    // Identify phantom entities and group tables
     for (const table of tables) {
         for (const relationship of Object.values(table.relationships)) {
             const { linkingObject } = relationship;
@@ -67,33 +55,25 @@ function writeTables(lines, tables) {
         }
     }
     phantomEntities.forEach(phantom => tablesGroup.push(phantom));
-    // Add table classifications
     tablesGroup.forEach(table => lines.push(`  class ${table} table`));
     phantomEntities.forEach(phantom => lines.push(`  class ${phantom} phantom`));
-    // Add composite state for tables
     lines.push('  state Tables {');
     if (tablesGroup.length === 0) {
         lines.push('    NoTables');
     }
     else {
-        noRelationshipTables.forEach(table => lines.push(`    ${table}`)); // Standalone tables
+        noRelationshipTables.forEach(table => lines.push(`    ${table}`));
         writeRelationships(lines, tables, phantomEntities);
     }
     lines.push('  }');
 }
-/**
- * Writes table relationships to the lines array.
- * @param lines - The array to append Mermaid diagram lines to.
- * @param tables - An array of TableEntity objects representing tables.
- * @param phantomEntities - A set of phantom entities representing linking objects.
- */
 function writeRelationships(lines, tables, phantomEntities) {
     const addedRelationships = new Set();
     for (const table of tables) {
         const sanitizedTableName = sanitizeEntityName(table.name);
         for (const relationship of Object.values(table.relationships)) {
             const { targetEntity, linkingObject } = relationship;
-            let sanitizedTargetEntity = sanitizeEntityName(targetEntity);
+            const sanitizedTargetEntity = sanitizeEntityName(targetEntity);
             let sanitizedLinkingObject;
             if (linkingObject) {
                 sanitizedLinkingObject = sanitizeEntityName(linkingObject);
@@ -122,42 +102,26 @@ function writeRelationships(lines, tables, phantomEntities) {
         }
     }
 }
-/**
- * Writes view definitions to the lines array.
- * @param lines - The array to append Mermaid diagram lines to.
- * @param views - An array of strings representing view names.
- */
 function writeViews(lines, views) {
-    views.forEach(view => lines.push(`  class ${sanitizeEntityName(view.name)} view`));
-    lines.push('  state Views {');
-    if (views.length === 0) {
-        lines.push('    NoViews');
-    }
-    else {
+    if (views.length > 0) {
+        views.forEach(view => lines.push(`  class ${sanitizeEntityName(view.name)} view`));
+        lines.push('  state Views {');
         views.forEach(view => lines.push(`    ${sanitizeEntityName(view.name)}`));
+        lines.push('  }');
     }
-    lines.push('  }');
 }
-/**
- * Writes stored procedure definitions to the lines array.
- * @param lines - The array to append Mermaid diagram lines to.
- * @param procedures - An array of StoredProcedure objects representing stored procedures.
- */
 function writeProcs(lines, procedures) {
-    procedures.forEach(procedure => {
-        const sanitizedProcName = sanitizeEntityName(procedure.name);
-        lines.push(`  class ${sanitizedProcName} proc`);
-    });
-    lines.push('  state Procedures {');
-    if (procedures.length === 0) {
-        lines.push('    NoProcs');
-    }
-    else {
+    if (procedures.length > 0) {
+        procedures.forEach(procedure => {
+            const sanitizedProcName = sanitizeEntityName(procedure.name);
+            lines.push(`  class ${sanitizedProcName} proc`);
+        });
+        lines.push('  state Procedures {');
         procedures.forEach(procedure => {
             const sanitizedProcName = sanitizeEntityName(procedure.name);
             lines.push(`    ${sanitizedProcName}`);
         });
+        lines.push('  }');
     }
-    lines.push('  }');
 }
 //# sourceMappingURL=generateMermaidDiagram.js.map
