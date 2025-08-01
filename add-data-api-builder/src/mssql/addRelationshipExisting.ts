@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as sql from 'mssql';
 import * as path from 'path';
-import * as process from 'process';
 import { openConnection } from './querySql';
 import {
   getConfiguredEntities,
@@ -118,20 +117,19 @@ async function applyRelationship(
 ) {
   const configDir = path.dirname(configPath);
   const configFile = path.basename(configPath);
-  process.chdir(configDir);
 
   const forwardCmd = `dab update ${sourceAlias} ` +
                      `--relationship ${targetAlias} --cardinality one ` +
                      `--target.entity ${targetAlias} ` +
                      `--relationship.fields ${sourceColumns}:${targetColumns} ` +
-                     `--config ${configFile}`;
+                     `--config "${configFile}"`;
 
   const reverseCmd = `dab update ${targetAlias} ` +
                      `--relationship ${sourceAlias} --cardinality many ` +
                      `--target.entity ${sourceAlias} ` +
                      `--relationship.fields ${targetColumns}:${sourceColumns} ` +
-                     `--config ${configFile}`;
+                     `--config "${configFile}"`;
 
-  await runCommand(forwardCmd);
-  await runCommand(reverseCmd);
+  await runCommand(forwardCmd, { cwd: configDir });
+  await runCommand(reverseCmd, { cwd: configDir });
 }

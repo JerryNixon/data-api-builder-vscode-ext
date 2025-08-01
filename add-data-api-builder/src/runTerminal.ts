@@ -1,25 +1,25 @@
 import * as vscode from 'vscode';
 
 const TERMINAL_NAME = 'DAB Add';
-const TERMINAL_TIMEOUT = 5000; // Timeout in milliseconds
+const TERMINAL_TIMEOUT = 5000;
 
 let dabTerminal: vscode.Terminal | undefined;
 let lastCommandTime: number | null = null;
+let lastCwd: string | undefined;
 
 /**
- * Gets or creates a terminal named "DAB Add". If the existing terminal is available, it continues to use it.
- * If the terminal has exited or timed out, creates a new one.
- * @returns The terminal instance.
+ * Gets or creates a terminal with an optional working directory.
+ * If the existing terminal is too old or has a mismatched cwd, recreate it.
  */
-export function getOrCreateDabTerminal(): vscode.Terminal {
+function getOrCreateDabTerminal(cwd?: string): vscode.Terminal {
   const now = Date.now();
+  const expired = lastCommandTime && now - lastCommandTime > TERMINAL_TIMEOUT;
+  const cwdChanged = cwd && cwd !== lastCwd;
 
-  // Check if the terminal exists and is still active
-  if (!dabTerminal || dabTerminal.exitStatus || (lastCommandTime && now - lastCommandTime > TERMINAL_TIMEOUT)) {
-    if (dabTerminal) {
-      dabTerminal.dispose();
-    }
-    dabTerminal = vscode.window.createTerminal(TERMINAL_NAME);
+  if (!dabTerminal || dabTerminal.exitStatus || expired || cwdChanged) {
+    if (dabTerminal) dabTerminal.dispose();
+    dabTerminal = vscode.window.createTerminal({ name: TERMINAL_NAME, cwd });
+    lastCwd = cwd;
   }
 
   lastCommandTime = now;
@@ -27,11 +27,10 @@ export function getOrCreateDabTerminal(): vscode.Terminal {
 }
 
 /**
- * Sends a command to the terminal, appending it to the CLI history without resetting the terminal.
- * @param command - The command string to be executed.
+ * Runs a CLI command in the terminal, optionally from a specific directory.
  */
-export async function runCommand(command: string): Promise<void> {
-  const terminal = getOrCreateDabTerminal();
+export async function runCommand(command: string, options?: { cwd?: string }): Promise<void> {
+  const terminal = getOrCreateDabTerminal(options?.cwd);
   terminal.sendText(command, true);
   terminal.show();
 }

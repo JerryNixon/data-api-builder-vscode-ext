@@ -1,18 +1,11 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { openConnection, getProcedureMetadata } from './querySql';
 import { runCommand } from '../runTerminal';
 import { validateConfigPath, isProcedureInConfig } from '../readConfig';
 
-/**
- * Adds stored procedures to the configuration by presenting a list of user-defined procedures to select from
- * and runs the `dab add` and `dab update` CLI commands.
- * @param configPath - The path to the configuration file.
- * @param connectionString - The SQL Server connection string.
- */
 export async function addProc(configPath: string, connectionString: string) {
-  if (!validateConfigPath(configPath)) {
-    return;
-  }
+  if (!validateConfigPath(configPath)) return;
 
   const metadata = await vscode.window.withProgress(
     {
@@ -24,10 +17,7 @@ export async function addProc(configPath: string, connectionString: string) {
       try {
         progress.report({ message: 'Connecting to the database...' });
         const connectionPool = await openConnection(connectionString);
-        if (!connectionPool) {
-          throw new Error('Failed to connect to the database.');
-        }
-
+        if (!connectionPool) throw new Error('Failed to connect to the database.');
         progress.report({ message: 'Fetching list of procedures...' });
         const fetchedMetadata = await getProcedureMetadata(connectionPool);
         await connectionPool.close();
@@ -67,11 +57,6 @@ export async function addProc(configPath: string, connectionString: string) {
   await processProcedures(selectedProcs, configPath);
 }
 
-/**
- * Presents a list of stored procedures to the user and allows multiple selections.
- * @param metadata - The metadata of stored procedures containing name, paramInfo, and colInfo.
- * @returns An array of selected stored procedures.
- */
 async function chooseProcedures(metadata: { name: string; paramInfo: string; colInfo: string; script: string }[]): Promise<{ name: string; paramInfo: string; colInfo: string; script: string }[] | undefined> {
   const procOptions = metadata.map((row) => ({
     label: row.name,
@@ -88,14 +73,12 @@ async function chooseProcedures(metadata: { name: string; paramInfo: string; col
   return selected?.map((item) => item.value);
 }
 
-/**
- * Processes the stored procedures and executes the add and update commands.
- * @param selectedProcs - The selected procedures metadata.
- * @param configPath - The configuration file path.
- */
 async function processProcedures(selectedProcs: any[], configPath: string) {
   let successCount = 0;
   const failedProcedures: string[] = [];
+
+  const configDir = path.dirname(configPath);
+  const configFile = path.basename(configPath);
 
   await vscode.window.withProgress(
     {
@@ -112,14 +95,13 @@ async function processProcedures(selectedProcs: any[], configPath: string) {
 
         try {
           progress.report({ message: `Adding stored procedure: ${entityName}` });
-
-          const addCommand = buildAddCommand(entityName, configPath, source, paramInfo, restMethod);
-          runCommand(addCommand);
+          const addCommand = buildAddCommand(entityName, configFile, source, paramInfo, restMethod);
+          await runCommand(addCommand, { cwd: configDir });
 
           if (proc.colInfo) {
             progress.report({ message: `Updating stored procedure: ${entityName}` });
-            const updateCommand = buildUpdateCommand(entityName, configPath, proc.colInfo);
-            runCommand(updateCommand);
+            const updateCommand = buildUpdateCommand(entityName, configFile, proc.colInfo);
+            await runCommand(updateCommand, { cwd: configDir });
           } else {
             vscode.window.showWarningMessage(`No result columns found for stored procedure: ${entityName}. Skipping update.`);
           }
@@ -139,46 +121,25 @@ async function processProcedures(selectedProcs: any[], configPath: string) {
   }
 }
 
-/**
- * Removes "@" & " " from parameter strings.
- * @param paramInfo - The comma-separated list of parameters.
- * @returns A sanitized parameter string.
- */
 function sanitizeParams(paramInfo: string): string {
   return paramInfo.replace(/@/g, '').replace(/\s+/g, '');
 }
 
-/**
- * Builds the CLI command for adding a stored procedure.
- * @param entityName - The name of the entity.
- * @param configPath - The configuration file path.
- * @param source - The source procedure name.
- * @param paramInfo - The sanitized parameter info.
- * @param restMethod - The HTTP methods.
- * @returns The constructed CLI command string.
- */
 function buildAddCommand(
   entityName: string,
-  configPath: string,
+  configFile: string,
   source: string,
   paramInfo: string,
   restMethod: string
 ): string {
-  return `dab add ${entityName} -c "${configPath}" --source ${source} --source.type "stored-procedure" ${paramInfo ? `--source.params "${paramInfo}"` : ''} --permissions "anonymous:*" --rest "${entityName}" --rest.methods "${restMethod}"`;
+  return `dab add ${entityName} -c "${configFile}" --source ${source} --source.type "stored-procedure" ${paramInfo ? `--source.params "${paramInfo}"` : ''} --permissions "anonymous:*" --rest "${entityName}" --rest.methods "${restMethod}"`;
 }
 
-/**
- * Builds the CLI command for updating a stored procedure.
- * @param entityName - The name of the entity.
- * @param configPath - The configuration file path.
- * @param colInfo - Column information.
- * @returns The constructed CLI command string.
- */
-function buildUpdateCommand(entityName: string, configPath: string, colInfo: string): string {
+function buildUpdateCommand(entityName: string, configFile: string, colInfo: string): string {
   const mappings = colInfo
     .split(',')
     .map((column) => `${column.trim()}:${column.trim()}`)
     .join(',');
 
-  return `dab update ${entityName} -c "${configPath}" --map "${mappings}"`;
+  return `dab update ${entityName} -c "${configFile}" --map "${mappings}"`;
 }

@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as process from 'process';
 import { openConnection, getPotentialLinkingTables, LinkingTable } from './querySql';
 import { getTableAliasMap, getExistingManyToManyRelationships } from '../readConfig';
 import { runCommand } from '../runTerminal';
@@ -26,7 +25,7 @@ export async function addLinkingTable(configPath: string, connectionString: stri
         const leftAlias = aliasMap.get(left);
         const rightAlias = aliasMap.get(right);
 
-        if (!leftAlias || !rightAlias) { return false; }
+        if (!leftAlias || !rightAlias) return false;
 
         const forward = `${leftAlias}->${rightAlias}->${linker}`;
         const backward = `${rightAlias}->${leftAlias}->${linker}`;
@@ -58,9 +57,7 @@ export async function addLinkingTable(configPath: string, connectionString: stri
         }
     );
 
-    if (!selected || !selected.length) {
-        return;
-    }
+    if (!selected || !selected.length) return;
 
     for (const item of selected) {
         await addLinkingRelationship(configPath, item);
@@ -77,7 +74,6 @@ async function addLinkingRelationship(
 ) {
     const configDir = path.dirname(configPath);
     const configFile = path.basename(configPath);
-    process.chdir(configDir);
 
     const {
         centerTable,
@@ -98,8 +94,9 @@ async function addLinkingRelationship(
         `--linking.source.fields ${centerLeftKeyColumn} ` +
         `--linking.target.fields ${centerRightKeyColumn} ` +
         `--relationship.fields ${leftKeyColumn}:${rightKeyColumn} ` +
-        `--config ${configFile}`;
-    await runCommand(leftRelCmd);
+        `--config "${configFile}"`;
+
+    await runCommand(leftRelCmd, { cwd: configDir });
 
     const rightRelCmd = `dab update ${right} ` +
         `--relationship ${left} --cardinality many ` +
@@ -108,6 +105,7 @@ async function addLinkingRelationship(
         `--linking.source.fields ${centerRightKeyColumn} ` +
         `--linking.target.fields ${centerLeftKeyColumn} ` +
         `--relationship.fields ${rightKeyColumn}:${leftKeyColumn} ` +
-        `--config ${configFile}`;
-    await runCommand(rightRelCmd);
+        `--config "${configFile}"`;
+
+    await runCommand(rightRelCmd, { cwd: configDir });
 }

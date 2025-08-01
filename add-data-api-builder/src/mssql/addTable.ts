@@ -1,15 +1,10 @@
 import * as sql from 'mssql';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 import { openConnection, getTableMetadata } from './querySql';
 import { runCommand } from '../runTerminal';
 
-/**
- * Adds tables to the configuration by presenting a list of user-defined tables to select from
- * and runs the `dab add` and `dab update` CLI commands for each selected table.
- * @param configPath - The path to the configuration file.
- * @param connectionString - The SQL Server connection string.
- */
 export async function addTable(configPath: string, connectionString: string) {
   const metadata = await fetchTableMetadata(connectionString);
   if (!metadata || metadata.length === 0) {
@@ -31,14 +26,9 @@ export async function addTable(configPath: string, connectionString: string) {
     return;
   }
 
-  processTables(selectedTables, validTables, configPath);
+  await processTables(selectedTables, validTables, configPath);
 }
 
-/**
- * Fetches metadata of tables from the database.
- * @param connectionString - The SQL Server connection string.
- * @returns An array of table metadata or undefined in case of failure.
- */
 async function fetchTableMetadata(connectionString: string): Promise<{ schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[] | undefined> {
   return await vscode.window.withProgress(
     {
@@ -68,12 +58,6 @@ async function fetchTableMetadata(connectionString: string): Promise<{ schemaNam
   );
 }
 
-/**
- * Filters valid tables based on primary keys and existing entities.
- * @param metadata - The table metadata fetched from the database.
- * @param existingEntities - List of schema-qualified table names already in the configuration.
- * @returns An array of valid tables.
- */
 function filterValidTables(
   metadata: { schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[],
   existingEntities: string[]
@@ -85,11 +69,6 @@ function filterValidTables(
   );
 }
 
-/**
- * Loads the existing entities from the configuration file.
- * @param configPath - The path to the configuration file.
- * @returns An array of schema-qualified table names already in the configuration.
- */
 function loadExistingEntities(configPath: string): string[] {
   try {
     const configContent = fs.readFileSync(configPath, 'utf8');
@@ -109,11 +88,6 @@ function loadExistingEntities(configPath: string): string[] {
   }
 }
 
-/**
- * Presents a list of tables to the user and allows multiple selections.
- * @param metadata - The metadata of tables containing schemaName and tableName.
- * @returns An array of selected tables in the format "schemaName.tableName".
- */
 async function chooseTables(metadata: { schemaName: string; tableName: string }[]): Promise<string[] | undefined> {
   const tableOptions = metadata.map(row => `${row.schemaName}.${row.tableName}`);
 
@@ -123,55 +97,37 @@ async function chooseTables(metadata: { schemaName: string; tableName: string }[
   });
 }
 
-/**
- * Processes the selected tables and executes the add and update commands.
- * @param selectedTables - The selected tables in "schemaName.tableName" format.
- * @param validTables - The valid tables metadata.
- * @param configPath - The configuration file path.
- */
-function processTables(
+async function processTables(
   selectedTables: string[],
   validTables: { schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[],
   configPath: string
 ) {
-  selectedTables.forEach(table => {
+  const configDir = path.dirname(configPath);
+  const configFile = path.basename(configPath);
+
+  for (const table of selectedTables) {
     const [schema, tableName] = table.split('.');
     const entityName = tableName;
     const source = `${schema}.${tableName}`;
     const tableMetadata = validTables.find(t => `${t.schemaName}.${t.tableName}` === table);
 
     if (tableMetadata) {
-      const addCommand = buildAddCommand(entityName, configPath, source, tableMetadata.primaryKeys);
-      runCommand(addCommand);
+      const addCommand = buildAddCommand(entityName, configFile, source, tableMetadata.primaryKeys);
+      await runCommand(addCommand, { cwd: configDir });
 
-      const updateCommand = buildUpdateCommand(entityName, configPath, tableMetadata.allColumns);
-      runCommand(updateCommand);
+      const updateCommand = buildUpdateCommand(entityName, configFile, tableMetadata.allColumns);
+      await runCommand(updateCommand, { cwd: configDir });
     }
-  });
+  }
 
   vscode.window.showInformationMessage(`Added and updated tables: ${selectedTables.join(', ')}`);
 }
 
-/**
- * Builds the `dab add` command to add a table entity.
- * @param entityName - The name of the entity.
- * @param configPath - The path to the configuration file.
- * @param source - The schema-qualified table name.
- * @param primaryKeys - The primary key fields for the table.
- * @returns The constructed `dab add` command.
- */
-function buildAddCommand(entityName: string, configPath: string, source: string, primaryKeys: string): string {
-  return `dab add ${entityName} -c "${configPath}" --source ${source} --source.key-fields "${primaryKeys}" --rest "${entityName}" --permissions "anonymous:*"`;
+function buildAddCommand(entityName: string, configFile: string, source: string, primaryKeys: string): string {
+  return `dab add ${entityName} -c "${configFile}" --source ${source} --source.key-fields "${primaryKeys}" --rest "${entityName}" --permissions "anonymous:*"`;
 }
 
-/**
- * Builds the `dab update` command to add mappings to the table entity.
- * @param entityName - The name of the entity.
- * @param configPath - The path to the configuration file.
- * @param allColumns - A comma-separated string of all column names.
- * @returns The constructed `dab update` command.
- */
-function buildUpdateCommand(entityName: string, configPath: string, allColumns: string): string {
+function buildUpdateCommand(entityName: string, configFile: string, allColumns: string): string {
   const mappings = allColumns.split(',').map(column => `${column}:${column}`).join(',');
-  return `dab update ${entityName} -c "${configPath}" --map "${mappings}"`;
+  return `dab update ${entityName} -c "${configFile}" --map "${mappings}"`;
 }

@@ -4,7 +4,7 @@ rd out /s /q
 md out
 
 :MENU
-cls
+:: cls
 echo ==========================================
 echo   Data API Builder - VS Code Extensions
 echo ==========================================
@@ -45,6 +45,7 @@ goto MENU
 
 :: Function to process builds
 :RUN
+@echo on
 cd ./%1
 echo ------------------------------------------
 echo   BUILDING: %1
@@ -53,6 +54,7 @@ if not "%~2"=="" call %~2
 call vsce package
 move /Y *.vsix ../out
 cd ..
+@echo off
 goto :eof
 
 :: Run all extensions
