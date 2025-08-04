@@ -1,4 +1,3 @@
-// src/extension.ts
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -12,9 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     let result: PromptResult;
     try {
-      // PROMPTS FIRST
       result = await ask(folder);
-
       if (!result.connection) {
         vscode.window.showErrorMessage('No connection string selected.');
         return;
@@ -24,24 +21,21 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    // OPERATIONS AFTER
     const { connection, enableCache } = result;
 
     try {
-      run(buildInitCommand(folder, configPath, connection.name, result));
-      run(buildConfigCommand(folder, configPath, 'runtime.rest.request-body-strict', 'false'));
+      run(buildInitCommand(configPath, connection.name, result), { cwd: folder });
+      run(buildConfigCommand(configPath, 'runtime.rest.request-body-strict', 'false'), { cwd: folder });
 
       if (enableCache) {
-        run(buildConfigCommand(folder, configPath, 'runtime.cache.enabled', 'true'));
+        run(buildConfigCommand(configPath, 'runtime.cache.enabled', 'true'), { cwd: folder });
       }
 
       await new Promise(resolve => setTimeout(resolve, 2000));
       await openFile(configPath);
 
-      // call DAB Add/Table command
       const uri = vscode.Uri.file(configPath);
       await vscode.commands.executeCommand('dabExtension.addTable', uri);
-
     } catch (err) {
       vscode.window.showErrorMessage((err as Error).message);
     }
@@ -86,22 +80,23 @@ async function waitForFile(filePath: string, timeout: number): Promise<void> {
   });
 }
 
-function buildInitCommand(folder: string, configPath: string, envKey: string, result: PromptResult): string {
+function buildInitCommand(configPath: string, envKey: string, result: PromptResult): string {
   const args = [
     `dab init`,
     `--database-type mssql`,
     `--connection-string "@env('${envKey}')"`,
+
     `--host-mode ${result.hostMode}`,
     `--rest.enabled ${result.enableRest}`,
     `--graphql.enabled ${result.enableGraphQL}`,
     `--auth.provider ${result.security}`,
     `-c "${path.basename(configPath)}"`
   ];
-  return `cd "${folder}" && ${args.join(' ')}`;
+  return args.join(' ');
 }
 
-function buildConfigCommand(folder: string, configPath: string, setting: string, value: string): string {
-  return `cd "${folder}" && dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
+function buildConfigCommand(configPath: string, setting: string, value: string): string {
+  return `dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
 }
 
 export function deactivate() {}

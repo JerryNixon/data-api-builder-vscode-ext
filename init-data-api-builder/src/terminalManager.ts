@@ -14,29 +14,41 @@ vscode.window.onDidCloseTerminal((closed) => {
   }
 });
 
-export function run(command: string): void {
-  const term = getOrCreateTerminal();
+/**
+ * Sends a command to the terminal, optionally setting its working directory.
+ * @param command - The CLI command to run.
+ * @param options - Optional settings, e.g., { cwd: string }.
+ */
+export function run(command: string, options?: { cwd?: string }): void {
+  const term = getOrCreateTerminal(options?.cwd);
   try {
     term.sendText(command, true);
     term.show();
   } catch {
     terminal?.dispose();
-    terminal = vscode.window.createTerminal(TERMINAL_NAME);
+    terminal = createTerminal(options?.cwd);
     lastUsed = Date.now();
     terminal.sendText(command, true);
     terminal.show();
   }
 }
 
-function getOrCreateTerminal(): vscode.Terminal {
+function getOrCreateTerminal(cwd?: string): vscode.Terminal {
   const now = Date.now();
   const expired = lastUsed && now - lastUsed > TERMINAL_TIMEOUT;
 
   if (!terminal || expired) {
     terminal?.dispose();
-    terminal = vscode.window.createTerminal(TERMINAL_NAME);
+    terminal = createTerminal(cwd);
   }
 
   lastUsed = now;
   return terminal;
+}
+
+function createTerminal(cwd?: string): vscode.Terminal {
+  return vscode.window.createTerminal({
+    name: TERMINAL_NAME,
+    cwd: cwd ?? undefined,
+  });
 }

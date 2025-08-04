@@ -3,7 +3,7 @@
   "displayName": "DAB Init (Data API Builder)",
   "description": "Create Data API Builder configuration starter file.",
   "publisher": "jerry-nixon",
-  "version": "0.0.13",
+  "version": "0.1.0",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
