@@ -327,84 +327,58 @@ export async function getViewMetadata(pool: sql.ConnectionPool): Promise<{ schem
  */
 export async function getProcedureMetadata(pool: sql.ConnectionPool): Promise<{ name: string; paramInfo: string; colInfo: string; script: string }[]> {
   const query = `
-  -- Temporary table for procedures
-  IF OBJECT_ID('tempdb..#Procedures') IS NOT NULL
-      DROP TABLE #Procedures;
-
-  CREATE TABLE #Procedures (
-      FullName NVARCHAR(255),
-      ParamInfo NVARCHAR(MAX),
-      ColInfo NVARCHAR(MAX),
-      Script NVARCHAR(MAX),
-      Processed BIT DEFAULT 0
-  );
-
-  -- Populate procedures
-  INSERT INTO #Procedures (FullName)
-  SELECT CONCAT(s.name, '.', p.name)
-  FROM sys.procedures p
-  INNER JOIN sys.schemas s ON p.schema_id = s.schema_id
-  WHERE is_ms_shipped = 0
-    AND p.name NOT IN (
-        'sp_upgraddiagrams', 
-        'sp_helpdiagrams', 
-        'sp_helpdiagramdefinition', 
-        'sp_creatediagram', 
-        'sp_renamediagram', 
-        'sp_alterdiagram', 
-        'sp_dropdiagram');
-
-  -- Process each procedure
-  WHILE EXISTS (SELECT 1 FROM #Procedures WHERE Processed = 0)
-  BEGIN
-      DECLARE @procName NVARCHAR(255), @objectId INT, @params NVARCHAR(MAX), @columns NVARCHAR(MAX), @script NVARCHAR(MAX);
-      
-      -- Get the next unprocessed procedure
-      SELECT TOP 1 @procName = FullName, @objectId = OBJECT_ID(FullName)
-      FROM #Procedures
-      WHERE Processed = 0;
-
-      -- Get parameters and map SQL types to simple types
-      SELECT @params = STRING_AGG(
-          CONCAT(
-              name, ':', 
-              CASE TYPE_NAME(user_type_id)
-                  WHEN 'int' THEN 'number'
-                  WHEN 'bit' THEN 'boolean'
-                  WHEN 'varchar' THEN 'string'
-                  WHEN 'nvarchar' THEN 'string'
-                  ELSE 'string' -- Default to string for unsupported types
-              END
-          ), ', ')
-      FROM sys.parameters
-      WHERE object_id = @objectId;
-
-      -- Get result set columns
-      SELECT @columns = STRING_AGG(name, ', ')
-      FROM sys.dm_exec_describe_first_result_set_for_object(@objectId, NULL);
-
-      -- Get the T-SQL definition
-      SELECT @script = definition
-      FROM sys.sql_modules
-      WHERE object_id = @objectId;
-
-      -- Update the metadata
-      UPDATE #Procedures
-      SET 
-          ParamInfo = @params,
-          ColInfo = @columns,
-          Script = @script,
-          Processed = 1
-      WHERE FullName = @procName;
-  END;
-
-  -- Output metadata
-  SELECT 
-      FullName AS name,
-      ISNULL(ParamInfo, '') AS paramInfo,
-      ISNULL(ColInfo, '') AS colInfo,
-      ISNULL(Script, '') AS script
-  FROM #Procedures;
+/* name | paramInfo (no @) | colInfo | script */
+WITH Procs AS (
+    SELECT
+        p.object_id,
+        name   = QUOTENAME(SCHEMA_NAME(p.schema_id)) + '.' + QUOTENAME(p.name),
+        script = sm.definition
+    FROM sys.procedures AS p
+    JOIN sys.sql_modules AS sm
+      ON sm.object_id = p.object_id
+    WHERE p.is_ms_shipped = 0
+      AND p.name NOT IN (
+        'sp_upgraddiagrams',
+        'sp_helpdiagrams',
+        'sp_helpdiagramdefinition',
+        'sp_creatediagram',
+        'sp_renamediagram',
+        'sp_alterdiagram',
+        'sp_dropdiagram'
+      )
+),
+ParamAgg AS (
+    SELECT
+        pr.object_id,
+        paramInfo = STRING_AGG(STUFF(pr.name, 1, 1, ''), ',')
+                     WITHIN GROUP (ORDER BY pr.parameter_id)
+    FROM sys.parameters AS pr
+    INNER JOIN Procs AS p
+      ON p.object_id = pr.object_id
+    GROUP BY pr.object_id
+),
+ColAgg AS (
+    SELECT
+        p.object_id,
+        colInfo = STRING_AGG(r.name, ',')
+                    WITHIN GROUP (ORDER BY r.column_ordinal)
+    FROM Procs AS p
+    CROSS APPLY sys.dm_exec_describe_first_result_set_for_object(p.object_id, NULL) AS r
+    WHERE r.error_state IS NULL
+      AND r.is_hidden = 0
+    GROUP BY p.object_id
+)
+SELECT
+    p.name,
+    paramInfo = ISNULL(pa.paramInfo, ''),
+    colInfo   = ISNULL(ca.colInfo, ''),
+    script    = p.script
+FROM Procs AS p
+LEFT JOIN ParamAgg AS pa
+  ON pa.object_id = p.object_id
+LEFT JOIN ColAgg AS ca
+  ON ca.object_id = p.object_id
+ORDER BY p.name;
   `;
 
   try {
