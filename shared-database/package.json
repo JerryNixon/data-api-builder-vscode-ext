@@ -1,0 +1,41 @@
+{
+  "name": "dab-vscode-shared-database",
+  "version": "1.0.0",
+  "description": "SQL utilities for Data API Builder VS Code extensions",
+  "main": "./out/index.js",
+  "types": "./out/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rimraf out",
+    "test": "mocha out/test/**/*.test.js",
+    "test:integration": "mocha out/test/**/*.integration.test.js",
+    "pretest": "npm run build"
+  },
+  "keywords": [
+    "dab",
+    "data-api-builder",
+    "vscode",
+    "mssql",
+    "database"
+  ],
+  "author": "Jerry Nixon",
+  "license": "MIT",
+  "dependencies": {
+    "dab-vscode-shared": "*",
+    "mssql": "^10.0.0",
+    "vscode": "^1.1.37"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.0",
+    "@types/mssql": "^9.1.0",
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "mocha": "^10.0.0",
+    "typescript": "^5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  }
+}

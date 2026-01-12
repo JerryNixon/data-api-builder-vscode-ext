@@ -1,0 +1,34 @@
+{
+  "private": true,
+  "name": "data-api-builder-vscode-ext-workspace",
+  "version": "1.0.0",
+  "description": "Workspace for Data API Builder VS Code extensions",
+  "workspaces": [
+    "shared",
+    "shared-database",
+    "add-data-api-builder",
+    "config-data-api-builder",
+    "health-data-api-builder",
+    "init-data-api-builder",
+    "mcp-data-api-builder",
+    "omnibus-data-api-builder",
+    "poco-data-api-builder",
+    "start-data-api-builder",
+    "validate-data-api-builder",
+    "visualize-data-api-builder"
+  ],
+  "scripts": {
+    "build:shared": "cd shared && npm run build",
+    "build:shared-database": "cd shared-database && npm run build",
+    "build:all-shared": "npm run build:shared && npm run build:shared-database",
+    "test:shared": "cd shared && npm test",
+    "test:shared-database": "cd shared-database && npm test",
+    "test:integration": "cd shared-database && npm run test:integration",
+    "test:all": "npm run test:shared && npm run test:shared-database",
+    "clean": "rimraf */out */node_modules node_modules",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "rimraf": "^5.0.0"
+  }
+}

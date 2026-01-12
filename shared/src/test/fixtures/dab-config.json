@@ -1,0 +1,172 @@
+{
+  "$schema": "https://github.com/Azure/data-api-builder/releases/download/v1.7.75/dab.draft.schema.json",
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('MSSQL_CONNECTION_STRING')"
+  },
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api",
+      "request-body-strict": false
+    },
+    "graphql": {
+      "enabled": true,
+      "path": "/graphql",
+      "allow-introspection": true
+    },
+    "host": {
+      "cors": {
+        "origins": [],
+        "allow-credentials": false
+      },
+      "authentication": {
+        "provider": "StaticWebApps"
+      },
+      "mode": "development"
+    },
+    "cache": {
+      "enabled": true
+    }
+  },
+  "entities": {
+    "Actor": {
+      "source": {
+        "object": "dbo.Actor",
+        "type": "table",
+        "key-fields": ["Id"]
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Actor",
+          "plural": "Actors"
+        }
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/Actor"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
+        }
+      ],
+      "relationships": {
+        "Character": {
+          "cardinality": "many",
+          "target.entity": "Character",
+          "source.fields": ["Id"],
+          "target.fields": ["ActorId"]
+        }
+      }
+    },
+    "Character": {
+      "source": {
+        "object": "dbo.Character",
+        "type": "table",
+        "key-fields": ["Id"]
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Character",
+          "plural": "Characters"
+        }
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/Character"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
+        }
+      ],
+      "relationships": {
+        "Actor": {
+          "cardinality": "one",
+          "target.entity": "Actor",
+          "source.fields": ["ActorId"],
+          "target.fields": ["Id"]
+        },
+        "Series": {
+          "cardinality": "many",
+          "target.entity": "Series",
+          "source.fields": ["Id"],
+          "target.fields": ["Id"],
+          "linking.object": "Series_Character",
+          "linking.source.fields": ["CharacterId"],
+          "linking.target.fields": ["SeriesId"]
+        }
+      }
+    },
+    "Series": {
+      "source": {
+        "object": "dbo.Series",
+        "type": "table",
+        "key-fields": ["Id"]
+      },
+      "graphql": {
+        "enabled": true,
+        "type": {
+          "singular": "Series",
+          "plural": "Series"
+        }
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/Series"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
+        }
+      ]
+    },
+    "GetSeriesActors": {
+      "source": {
+        "object": "dbo.GetSeriesActors",
+        "type": "stored-procedure",
+        "parameters": {
+          "seriesId": "number",
+          "top": "number"
+        }
+      },
+      "graphql": {
+        "enabled": true,
+        "operation": "mutation"
+      },
+      "rest": {
+        "enabled": true,
+        "path": "/GetSeriesActors",
+        "methods": ["post"]
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "*"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

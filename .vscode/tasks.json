@@ -1,0 +1,42 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Test Shared Package",
+			"type": "shell",
+			"command": "cd shared && npm install && npm test",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Build Shared TypeScript",
+			"type": "shell",
+			"command": "cd shared && tsc",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Test Shared Package",
+			"type": "shell",
+			"command": "cd shared && npm test",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Build and Test Shared",
+			"type": "shell",
+			"command": "cd shared && npm run build && npm run test",
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Test Shared (Full)",
+			"type": "shell",
+			"command": "npm run test:shared",
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}

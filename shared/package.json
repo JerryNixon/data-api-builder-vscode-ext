@@ -1,0 +1,35 @@
+{
+  "name": "dab-vscode-shared",
+  "version": "1.0.0",
+  "description": "Shared utilities for Data API Builder VS Code extensions",
+  "main": "./out/index.js",
+  "types": "./out/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rimraf out",
+    "test": "mocha out/test/**/*.test.js",
+    "pretest": "npm run build"
+  },
+  "keywords": [
+    "dab",
+    "data-api-builder",
+    "vscode"
+  ],
+  "author": "Jerry Nixon",
+  "license": "MIT",
+  "dependencies": {
+    "vscode": "^1.1.37"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.0",
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "mocha": "^10.0.0",
+    "typescript": "^5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  }
+}
