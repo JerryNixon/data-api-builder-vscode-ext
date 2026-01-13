@@ -50,6 +50,9 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
+  "dependencies": {
+    "dab-vscode-shared": "*"
+  },
   "devDependencies": {
     "@types/vscode": "^1.95.0",
     "@types/mocha": "^10.0.9",

@@ -37,6 +37,13 @@
 			"command": "npm run test:shared",
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "Verify Tests After Agent Creation",
+			"type": "shell",
+			"command": "npm run test:shared",
+			"problemMatcher": [],
+			"group": "test"
 		}
 	]
 }

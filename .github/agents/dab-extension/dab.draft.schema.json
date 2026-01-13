@@ -1,0 +1,1411 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "https://github.com/Azure/data-api-builder/releases/download/vmajor.minor.patch/dab.draft.schema.json",
+  "title": "Data API builder",
+  "description": "Schema for Data API builder engine",
+  "additionalProperties": false,
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URI of the JSON schema with which the structure, constraints, and data types of this Data API builder runtime configuration file should conform.",
+      "default": null
+    },
+    "data-source": {
+      "description": "Data source information",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "database-type": {
+          "description": "Database used in the backend",
+          "type": "string",
+          "enum": [
+            "mssql",
+            "postgresql",
+            "mysql",
+            "cosmosdb_nosql",
+            "cosmosdb_postgresql"
+          ]
+        },
+        "connection-string": {
+          "description": "Connection string for the selected database type",
+          "type": "string"
+        },
+        "options": {
+          "description": "Database specific properties for the backend database",
+          "type": "object"
+        },
+        "health": {
+          "description": "Health check configuration",
+          "type": [ "object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable health check endpoint",
+              "default": true,
+              "additionalProperties": false
+            },
+            "name": {
+              "type": [ "string", "null" ],
+              "description": "Identifier for data source in health check report.",
+              "default": null,
+              "additionalProperties": false
+            },
+            "threshold-ms": {
+              "type": "integer",
+              "description": "Health Check maximum time for query to execute (in ms).",
+              "default": 1000,
+              "additionalProperties": false,
+              "minimum": 1,
+              "maximum": 2147483647
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "database-type": {
+                "const": "cosmosdb_nosql"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "description": "Database specific properties for the backend database",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "database": {
+                    "type": "string",
+                    "description": "Name of the database"
+                  },
+                  "container": {
+                    "description": "Name of the container",
+                    "type": "string"
+                  },
+                  "schema": {
+                    "description": "Path to the GraphQL schema file",
+                    "type": "string"
+                  }
+                },
+                "required": ["database", "schema"]
+              }
+            },
+            "required": ["options"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "database-type": {
+                "const": "mssql"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "set-session-context": {
+                    "type": "boolean",
+                    "description": "Enable sending data to MsSql using session context"
+                  }
+                }
+              }
+            },
+            "required": []
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "database-type": {
+                "enum": ["mysql", "postgresql", "cosmosdb_postgresql"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        }
+      ],
+      "required": ["database-type", "connection-string"]
+    },
+    "data-source-files": {
+      "type": "array",
+      "description": "Names of runtime configuration files referencing additional databases.",
+      "default": null
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Runtime configuration settings",
+      "additionalProperties": false,
+      "properties": {
+        "pagination": {
+          "type": "object",
+          "properties": {
+            "max-page-size": {
+              "type": [ "integer", "null" ],
+              "description": "Defines the maximum number of records that can be returned in a single page of results. If set to null, the default value is 100,000.",
+              "default": 100000,
+              "minimum": 1
+            },
+            "default-page-size": {
+              "type": [ "integer", "null" ],
+              "description": "Sets the default number of records returned in a single response. When this limit is reached, a continuation token is provided to retrieve the next page. If set to null, the default value is 100.",
+              "default": 100,
+              "minimum": 1
+            },
+            "next-link-relative": {
+              "type": "boolean",
+              "default": false,
+              "description": "When true, nextLink in paginated results will use a relative URL."
+            }
+          }
+        },
+        "rest": {
+          "type": "object",
+          "description": "Global REST endpoint configuration",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "default": "/api",
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Allow enabling/disabling REST requests for all entities."
+            },
+            "request-body-strict": {
+              "type": "boolean",
+              "description": "Does not allow extraneous fields in request body when set to true.",
+              "default": true
+            }
+          }
+        },
+        "graphql": {
+          "type": "object",
+          "description": "Global GraphQL endpoint configuration",
+          "additionalProperties": false,
+          "properties": {
+            "allow-introspection": {
+              "type": "boolean",
+              "description": "Allow querying of the underlying GraphQL schema."
+            },
+            "path": {
+              "default": "/graphql",
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Allow enabling/disabling GraphQL requests for all entities."
+            },
+            "depth-limit": {
+              "type": [ "integer", "null" ],
+              "description": "Maximum allowed depth of a GraphQL query.",
+              "default": null
+            },
+            "multiple-mutations": {
+              "type": "object",
+              "description": "Configuration properties for multiple mutation operations",
+              "additionalProperties": false,
+              "properties": {
+                "create": {
+                  "type": "object",
+                  "description": "Options for multiple create operations",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Allow enabling/disabling multiple create operations for all entities.",
+                      "default": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "mcp": {
+          "type": "object",
+          "description": "Global MCP endpoint configuration",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "default": "/mcp",
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Allow enabling/disabling MCP requests for all entities.",
+              "default": true
+            },
+            "dml-tools": {
+              "oneOf": [
+                {
+                  "type": "boolean",
+                  "description": "Enable/disable all DML tools with default settings."
+                },
+                {
+                  "type": "object",
+                  "description": "Individual DML tools configuration",
+                  "additionalProperties": false,
+                  "properties": {
+                    "describe-entities": {
+                      "type": "boolean",
+                      "description": "Enable/disable the describe-entities tool.",
+                      "default": false
+                    },
+                    "create-record": {
+                      "type": "boolean",
+                      "description": "Enable/disable the create-record tool.",
+                      "default": false
+                    },
+                    "read-records": {
+                      "type": "boolean",
+                      "description": "Enable/disable the read-records tool.",
+                      "default": false
+                    },
+                    "update-record": {
+                      "type": "boolean",
+                      "description": "Enable/disable the update-record tool.",
+                      "default": false
+                    },
+                    "delete-record": {
+                      "type": "boolean",
+                      "description": "Enable/disable the delete-record tool.",
+                      "default": false
+                    },
+                    "execute-entity": {
+                      "type": "boolean",
+                      "description": "Enable/disable the execute-entity tool.",
+                      "default": false
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "host": {
+          "type": "object",
+          "description": "Global hosting configuration",
+          "additionalProperties": false,
+          "properties": {
+            "max-response-size-mb": {
+              "type": [ "integer", "null" ],
+              "description": "Specifies the maximum size, in megabytes, of the database response allowed in a single result. If set to null, the default value is 158 MB.",
+              "default": 158,
+              "minimum": 1,
+              "maximum": 158
+            },
+            "mode": {
+              "description": "Set if running in Development or Production mode",
+              "type": [ "string", "null" ],
+              "default": "production",
+              "enum": [ "production", "development" ]
+            },
+            "cors": {
+              "type": [ "object", "null" ],
+              "description": "Configure CORS",
+              "additionalProperties": false,
+              "properties": {
+                "origins": {
+                  "type": "array",
+                  "description": "Allowed origins",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
+                },
+                "allow-credentials": {
+                  "type": "boolean",
+                  "default": "false",
+                  "description": "Set value for Access-Control-Allow-Credentials header"
+                }
+              }
+            },
+            "authentication": {
+              "type": [ "object", "null" ],
+              "additionalProperties": false,
+              "properties": {
+                "provider": {
+                  "description": "The name of authentication provider",
+                  "oneOf": [
+                    {
+                      "const": "StaticWebApps",
+                      "description": "Authentication provided by Azure Static Web Apps."
+                    },
+                    {
+                      "const": "EntraID",
+                      "description": "Authentication provided by Microsoft Entra ID (formerly Azure AD). Use the JWT property to configure this provider."
+                    },
+                    {
+                      "const": "Simulator",
+                      "description": "Simulated authentication for development and testing purposes."
+                    },
+                    {
+                      "const": "AppService",
+                      "description": "Authentication provided by Azure App Service."
+                    },
+                    {
+                      "const": "AzureAD",
+                      "description": "Synonymous with the EntraID value. Use the JWT property to configure this provider."
+                    },
+                    {
+                      "const": "Custom",
+                      "description": "Custom authentication provider defined by the user. Use the JWT property to configure the custom provider."
+                    }
+                  ],
+                  "default": "AppService"
+                },
+                "jwt": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "audience": {
+                      "type": "string"
+                    },
+                    "issuer": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [ "audience", "issuer" ]
+                }
+              },
+              "allOf": [
+                {
+                  "$comment": "We want the user to provide the JWT property when the provider requires it, and omit JWT when the provider does not require it.",
+                  "if": {
+                    "properties": {
+                      "provider": {
+                        "anyOf": [
+                          { "const": "EntraID" },
+                          { "const": "AzureAD" },
+                          { "const": "Custom" }
+                        ]
+                      }
+                    },
+                    "required": [ "provider" ]
+                  },
+                  "then": { "required": [ "jwt" ] },
+                  "else": { "properties": { "jwt": false } }
+                }
+              ]
+            }
+          }
+        },
+        "cache": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable caching of responses globally.",
+              "default": false
+            },
+            "ttl-seconds": {
+              "type": "integer",
+              "description": "Time to live in seconds",
+              "default": 5
+            }
+          }
+        },
+        "telemetry": {
+          "type": "object",
+          "description": "Telemetry configuration",
+          "additionalProperties": false,
+          "properties": {
+            "application-insights": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "connection-string": {
+                  "type": "string",
+                  "description": "Application Insights connection string"
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Allow enabling/disabling Application Insights telemetry.",
+                  "default": true
+                }
+              },
+              "required": [ "connection-string" ]
+            },
+            "open-telemetry": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "endpoint": {
+                  "type": "string",
+                  "description": "Open Telemetry connection string"
+                },
+                "headers": {
+                  "type": "string",
+                  "description": "Open Telemetry headers"
+                },
+                "service-name": {
+                  "type": "string",
+                  "description": "Open Telemetry service name",
+                  "default": "dab"
+                },
+                "exporter-protocol": {
+                  "type": "string",
+                  "description": "Open Telemetry protocol",
+                  "default": "grpc",
+                  "enum": [ "grpc", "httpprotobuf" ]
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Allow enabling/disabling Open Telemetry.",
+                  "default": true
+                }
+              },
+              "required": [ "endpoint" ]
+            },
+            "azure-log-analytics": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Allow enabling/disabling Azure Log Analytics.",
+                  "default": false
+                },
+                "auth": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "custom-table-name": {
+                      "type": [ "string", "null" ],
+                      "description": "Azure Log Analytics Custom Table Name for entra-id mode"
+                    },
+                    "dcr-immutable-id": {
+                      "type": [ "string", "null" ],
+                      "description": "DCR ID for entra-id mode"
+                    },
+                    "dce-endpoint": {
+                      "type": [ "string", "null" ],
+                      "description": "DCE endpoint for entra-id mode"
+                    }
+                  }
+                },
+                "dab-identifier": {
+                  "type": "string",
+                  "description": "Identifier passed on to Log Analytics",
+                  "default": "DabLogs"
+                },
+                "flush-interval-seconds": {
+                  "type": "integer",
+                  "description": "Interval between log batch pushes (in seconds)",
+                  "default": 5
+                }
+              },
+              "if": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "auth": {
+                    "properties": {
+                      "custom-table-name": {
+                        "type": "string",
+                        "description": "Azure Log Analytics Custom Table Name for entra-id mode"
+                      },
+                      "dcr-immutable-id": {
+                        "type": "string",
+                        "description": "DCR ID for entra-id mode"
+                      },
+                      "dce-endpoint": {
+                        "type": "string",
+                        "description": "DCE endpoint for entra-id mode"
+                      }
+                    },
+                    "required": [ "custom-table-name", "dcr-immutable-id", "dce-endpoint" ]
+                  }
+                },
+                "required": [ "auth" ]
+              }
+            },
+            "file": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable/disable file sink telemetry logging.",
+                  "default": false
+                },
+                "path": {
+                  "type": "string",
+                  "description": "File path for telemetry logs.",
+                  "default": "/logs/dab-log.txt"
+                },
+                "rolling-interval": {
+                  "type": "string",
+                  "description": "Rolling interval for log files.",
+                  "default": "Day",
+                  "enum": [ "Minute", "Hour", "Day", "Month", "Year", "Infinite" ]
+                },
+                "retained-file-count-limit": {
+                  "type": "integer",
+                  "description": "Maximum number of retained log files.",
+                  "default": 1,
+                  "minimum": 1
+                },
+                "file-size-limit-bytes": {
+                  "type": "integer",
+                  "description": "Maximum file size in bytes before rolling.",
+                  "default": 1048576,
+                  "minimum": 1
+                }
+              },
+              "if": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                }
+              },
+              "then": {
+                "required": [ "path" ]
+              }
+            },
+            "log-level": {
+              "type": "object",
+              "description": "Global configuration of log level, defines logging severity levels for specific classes, when 'null' it will set logging level based on 'host: mode' property",
+              "additionalProperties": false,
+              "patternProperties": {
+                "^[a-zA-Z_]\\w{0,}(\\.\\w{1,}){0,}$": {
+                  "description": "Only specific namespaces that are used for logging in DAB are able to be used here. The regex pattern checks that it only allows for namespace values. So it only accepts a letter as its first value, from there it accepts any alphanumeric character, each section is divided by '.' and there cannot be more than 1 '.' in a row",
+                  "type": "string",
+                  "default": null,
+                  "enum": [
+                    "trace",
+                    "debug",
+                    "information",
+                    "warning",
+                    "error",
+                    "critical",
+                    "none",
+                    null
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "health": {
+          "description": "Health check configuration for runtime properties",
+          "type": [ "object", "null" ],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable health check endpoint globally",
+              "default": true,
+              "additionalProperties": false
+            },
+            "roles": {
+              "type": "array",
+              "description": "Allowed Roles for Comprehensive Health Endpoint",
+              "items": {
+                "type": "string"
+              },
+              "default": null
+            },
+            "cache-ttl-seconds": {
+              "type": "integer",
+              "description": "Time to live in seconds for the Comprehensive Health Check Report cache entry.",
+              "default": 5
+            },
+            "max-query-parallelism": {
+              "type": "integer",
+              "description": "The max degree of parallelism for running parallel health check queries.",
+              "default": 4
+            }
+          }
+        }
+      }
+    },
+    "azure-key-vault": {
+      "type": "object",
+      "description": "Azure Key Vault configuration for storing secrets",
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "description": "Azure Key Vault endpoint URL"
+        },
+        "retry-policy": {
+          "type": "object",
+          "description": "Retry policy configuration for Azure Key Vault operations",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["fixed", "exponential"],
+              "default": "exponential",
+              "description": "Retry mode: fixed or exponential backoff"
+            },
+            "max-count": {
+              "type": "integer",
+              "default": 3,
+              "minimum": 0,
+              "description": "Maximum number of retry attempts"
+            },
+            "delay-seconds": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1,
+              "description": "Initial delay between retries in seconds"
+            },
+            "max-delay-seconds": {
+              "type": "integer",
+              "default": 60,
+              "minimum": 1,
+              "description": "Maximum delay between retries in seconds (for exponential mode)"
+            },
+            "network-timeout-seconds": {
+              "type": "integer",
+              "default": 60,
+              "minimum": 1,
+              "description": "Network timeout for requests in seconds"
+            }
+          }
+        }
+      }
+    },
+    "autoentities": {
+      "type": "object",
+      "description": "Defines automatic entity generation rules for MSSQL tables based on include/exclude patterns and defaults.",
+      "patternProperties": {
+        "^.*$": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "patterns": {
+              "type": "object",
+              "description": "Pattern matching rules for including/excluding database objects",
+              "additionalProperties": false,
+              "properties": {
+                "include": {
+                  "type": "array",
+                  "description": "MSSQL LIKE pattern for objects to include (e.g., '%.%'). Null includes all.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": [ "%.%" ]
+                },
+                "exclude": {
+                  "type": "array",
+                  "description": "MSSQL LIKE pattern for objects to exclude (e.g., 'sales.%'). Null excludes none.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": null
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Entity name interpolation pattern using {schema} and {object}. Null defaults to {object}. Must be unique for every entity inside the pattern",
+                  "default": "{object}"
+                }
+              }
+            },
+            "template": {
+              "type": "object",
+              "description": "Template configuration for generated entities",
+              "additionalProperties": false,
+              "properties": {
+                "mcp": {
+                  "type": "object",
+                  "description": "MCP endpoint configuration",
+                  "additionalProperties": false,
+                  "properties": {
+                    "dml-tools": {
+                      "type": "boolean",
+                      "description": "Enable/disable all DML tools with default settings."
+                    }
+                  }
+                },
+                "rest": {
+                  "type": "object",
+                  "description": "REST endpoint configuration",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Enable/disable REST endpoint",
+                      "default": true
+                    }
+                  }
+                },
+                "graphql": {
+                  "type": "object",
+                  "description": "GraphQL endpoint configuration",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Enable/disable GraphQL endpoint",
+                      "default": true
+                    }
+                  }
+                },
+                "health": {
+                  "type": "object",
+                  "description": "Health check configuration",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Enable/disable health check endpoint",
+                      "default": true
+                    }
+                  }
+                },
+                "cache": {
+                  "type": "object",
+                  "description": "Cache configuration",
+                  "additionalProperties": false,
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Enable/disable caching",
+                      "default": false
+                    },
+                    "ttl-seconds": {
+                      "type": [ "integer", "null" ],
+                      "description": "Time-to-live for cached responses in seconds",
+                      "default": null,
+                      "minimum": 1
+                    },
+                    "level": {
+                      "type": "string",
+                      "description": "Cache level (L1 or L1L2)",
+                      "enum": [ "L1", "L1L2", null ],
+                      "default": "L1L2"
+                    }
+                  }
+                }
+              }
+            },
+            "permissions": {
+              "type": "array",
+              "description": "Permissions assigned to this object",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "role": {
+                    "type": "string"
+                  },
+                  "actions": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "pattern": "[*]"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "oneOf": [
+                            {
+                              "$ref": "#/$defs/action"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "action": {
+                                  "$ref": "#/$defs/action"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "uniqueItems": true
+                      }
+                    ]
+                  }
+                }
+              },
+              "required": [ "role", "actions" ]
+            }
+          }
+        }
+      }
+    },
+    "entities": {
+      "type": "object",
+      "description": "Entities that will be exposed via REST, GraphQL and/or MCP",
+      "patternProperties": {
+        "^.*$": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Optional description for the entity. Will be surfaced in generated API documentation and GraphQL schema as comments."
+            },
+            "health": {
+              "description": "Health check configuration for entity",
+              "type": [ "object", "null" ],
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable health check endpoint for particular entity",
+                  "default": true,
+                  "additionalProperties": false
+                },
+                "first": {
+                  "type": "integer",
+                  "description": "Number of first 'x' rows to be returned in query.",
+                  "default": 100,
+                  "additionalProperties": false,
+                  "minimum": 1,
+                  "maximum": 500
+                },
+                "threshold-ms": {
+                  "type": "integer",
+                  "description": "Health Check maximum time for query to execute (in ms).",
+                  "default": 1000,
+                  "additionalProperties": false,
+                  "minimum": 1,
+                  "maximum": 2147483647
+                }
+              }
+            },
+            "source": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "description": "The object in the backend database that is mapped to the entity"
+                },
+                {
+                  "type": "object",
+                  "description": "The object in the backend database that is mapped to the entity",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["table", "view", "stored-procedure"],
+                      "description": "Database object type"
+                    },
+                    "object": {
+                      "type": "string",
+                      "description": "Database object name"
+                    },
+                    "parameters": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "description": "Dictionary of parameters and their values (deprecated)",
+                          "patternProperties": {
+                            "^.*$": {
+                              "oneOf": [
+                                { "type": "boolean" },
+                                { "type": "string" },
+                                { "type": "number" }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "array",
+                          "description": "Array of parameter objects with metadata",
+                          "items": {
+                            "type": "object",
+                            "required": ["name"],
+                            "properties": {
+                              "name": { "type": "string", "description": "Parameter name" },
+                              "required": { "type": "boolean", "description": "Is parameter required" },
+                              "default": { "type": ["string", "number", "boolean", "null"], "description": "Default value" },
+                              "description": { "type": "string", "description": "Parameter description. Since descriptions for multiple parameters are provided as a comma-separated string, individual parameter descriptions must not contain a comma (',')." }
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "key-fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "List of fields to be used as primary keys. Mandatory field for views when generated through the CLI."
+                    }
+                  },
+                  "required": ["type", "object"]
+                }
+              ]
+            },
+            "fields": {
+              "type": "array",
+              "description": "Defines the fields (columns) exposed for this entity, with metadata.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "description": "Database column name." },
+                  "alias": { "type": "string", "description": "Exposed name for the field." },
+                  "description": { "type": "string", "description": "Field description." },
+                  "primary-key": { "type": "boolean", "description": "Indicates whether this field is a primary key." }
+                },
+                "required": ["name"]
+              },
+              "uniqueItems": true
+            },
+            "rest": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "methods": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": ["get", "post", "put", "patch", "delete"]
+                      }
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Allow enabling/disabling REST requests this specific entity.",
+                      "default": true
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": ["path"]
+                    },
+                    {
+                      "required": ["methods"]
+                    },
+                    {
+                      "required": ["enabled"]
+                    }
+                  ]
+                }
+              ]
+            },
+            "graphql": {
+              "oneOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "type": {
+                      "$ref": "#/$defs/singular-plural"
+                    },
+                    "operation": {
+                      "type": "string",
+                      "enum": ["mutation", "query"]
+                    },
+                    "enabled": {
+                      "type": "boolean",
+                      "description": "Allow enabling/disabling GraphQL requests for this specific entity.",
+                      "default": true
+                    }
+                  },
+                  "anyOf": [
+                    {
+                      "required": ["type"]
+                    },
+                    {
+                      "required": ["operation"]
+                    },
+                    {
+                      "required": ["enabled"]
+                    }
+                  ]
+                }
+              ]
+            },
+            "permissions": {
+              "type": "array",
+              "description": "Permissions assigned to this entity"
+            },
+            "mappings": {
+              "type": "object",
+              "description": "Define mappings between database fields and GraphQL and REST fields",
+              "patternProperties": {
+                "^.*$": {
+                  "type": "string"
+                }
+              }
+            },
+            "relationships": {
+              "type": "object",
+              "patternProperties": {
+                "^.*$": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "cardinality": {
+                      "type": "string",
+                      "enum": ["one", "many"]
+                    },
+                    "target.entity": {
+                      "type": "string"
+                    },
+                    "source.fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "target.fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "linking.object": {
+                      "type": "string",
+                      "description": "The database object used for supporting the M:N relationship"
+                    },
+                    "linking.source.fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "linking.target.fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["cardinality", "target.entity"]
+                }
+              }
+            },
+            "cache": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable caching of responses for this entity.",
+                  "default": false
+                },
+                "ttl-seconds": {
+                  "type": "integer",
+                  "description": "Time to live in seconds",
+                  "default": 5
+                }
+              }
+            },
+            "mcp": {
+              "oneOf": [
+                {
+                  "type": "boolean",
+                  "description": "Boolean shorthand: true enables dml-tools only (custom-tool remains false), false disables all MCP functionality."
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "dml-tools": {
+                      "type": "boolean",
+                      "description": "Enable MCP DML (Data Manipulation Language) tools for this entity. Allows CRUD operations via MCP.",
+                      "default": true
+                    },
+                    "custom-tool": {
+                      "type": "boolean",
+                      "description": "Enable MCP custom tool for this entity. Only valid for stored procedures.",
+                      "default": false
+                    }
+                  }
+                }
+              ],
+              "description": "Model Context Protocol (MCP) configuration for this entity. Controls whether the entity is exposed via MCP tools."
+            }
+          },
+          "if": {
+            "properties": {
+              "source": {
+                "properties": {
+                  "type": {
+                    "oneOf": [
+                      {
+                        "const": "table"
+                      },
+                      {
+                        "const": "view"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "permissions": {
+                "type": "array",
+                "description": "Permissions assigned to this object",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "role": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "pattern": "[*]"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "$ref": "#/$defs/action"
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "action": {
+                                    "$ref": "#/$defs/action"
+                                  },
+                                  "fields": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "include": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "exclude": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "policy": {
+                                    "type": "object",
+                                    "description": "Define item-level security policy",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "database": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "uniqueItems": true
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": ["role", "actions"]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "permissions": {
+                "type": "array",
+                "description": "Permissions assigned to this object",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "role": {
+                      "type": "string"
+                    },
+                    "actions": {
+                      "oneOf": [
+                        {
+                          "type": "string",
+                          "pattern": "[*]"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "type": "string",
+                                "enum": ["execute", "*"]
+                              },
+                              {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "action": {
+                                    "type": "string",
+                                    "enum": ["execute", "*"]
+                                  },
+                                  "fields": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "include": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "exclude": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "policy": {
+                                    "type": "object",
+                                    "description": "Define item-level security policy",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "database": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "uniqueItems": true
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": ["role", "actions"]
+              }
+            }
+          },
+          "required": ["source", "permissions"],
+          "allOf": [
+            {
+              "if": {
+                "required": ["fields"]
+              },
+              "then": {
+                "not": {
+                  "anyOf": [
+                    { "required": ["mappings"] },
+                    { "properties": { "source": { "properties": { "key-fields": { } }, "required": ["key-fields"] } } }
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "mcp": {
+                    "properties": {
+                      "custom-tool": {
+                        "const": true
+                      }
+                    }
+                  }
+                },
+                "required": ["mcp"]
+              },
+              "then": {
+                "properties": {
+                  "source": {
+                    "properties": {
+                      "type": {
+                        "const": "stored-procedure"
+                      }
+                    },
+                    "required": ["type"]
+                  }
+                },
+                "errorMessage": "custom-tool can only be enabled for entities with source type 'stored-procedure'."
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "if": {
+    "required": ["azure-key-vault"]
+  },
+  "then": {
+    "properties": {
+      "azure-key-vault": {
+        "required": ["endpoint"]
+      }
+    }
+  },
+  "required": ["data-source", "entities"],
+  "$defs": {
+    "singular-plural": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "singular": {
+              "type": "string"
+            },
+            "plural": {
+              "type": "string"
+            }
+          },
+          "required": ["singular"]
+        }
+      ]
+    },
+    "action": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["create", "read", "update", "delete"]
+        },
+        {
+          "type": "string",
+          "pattern": "[*]"
+        }
+      ]
+    }
+  }
+}

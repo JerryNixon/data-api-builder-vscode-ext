@@ -3,6 +3,52 @@ import type { EnvEntry } from '../types';
 import { getConnections, addConnection } from '../config';
 
 /**
+ * Result of the complete init configuration prompt flow
+ */
+export interface PromptResult {
+    connection: EnvEntry | undefined;
+    enableRest: boolean;
+    enableGraphQL: boolean;
+    enableCache: boolean;
+    hostMode: 'development' | 'production';
+    security: 'StaticWebApps' | 'Simulated';
+}
+
+/**
+ * Prompts the user for all DAB initialization settings
+ * @param folderPath - Path to the folder containing .env file
+ * @returns Complete configuration result
+ */
+export async function ask(folderPath: string): Promise<PromptResult> {
+    const connection = await askForConnection(folderPath);
+    if (!connection) {
+        return {
+            connection: undefined,
+            enableRest: true,
+            enableGraphQL: true,
+            enableCache: true,
+            hostMode: 'development',
+            security: 'StaticWebApps'
+        };
+    }
+
+    const enableRest = await askBoolean('REST', 'Enable REST endpoints', true);
+    const enableGraphQL = await askBoolean('GraphQL', 'Enable GraphQL endpoints', true);
+    const enableCache = await askBoolean('Cache', 'Enable Level 1 cache', true);
+    const hostMode = await askHostMode();
+    const security = await askSecurityProvider();
+
+    return {
+        connection,
+        enableRest,
+        enableGraphQL,
+        enableCache,
+        hostMode,
+        security
+    };
+}
+
+/**
  * Prompts user to select or enter a connection string.
  * If connections exist in .env, shows a picker. Otherwise asks for new connection.
  * 
