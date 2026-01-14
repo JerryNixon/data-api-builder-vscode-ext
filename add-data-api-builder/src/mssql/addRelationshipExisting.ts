@@ -34,17 +34,7 @@ export async function addRelationshipExisting(configPath: string, connectionStri
   const aliasMap = await getConfiguredEntities(configPath);
   const existingRelationships = await getExistingRelationships(configPath);
 
-  console.log('Existing relationships from config:', JSON.stringify(existingRelationships, null, 2));
-  console.log('DB relationships:', JSON.stringify(dbRelationships.map(r => ({
-    source: r.sourceTableName,
-    target: r.targetTableName,
-    sourceFields: r.sourceColumnNames,
-    targetFields: r.targetColumnNames
-  })), null, 2));
-
   const available = getFilteredRelationshipsFromDatabase(dbRelationships, aliasMap, existingRelationships);
-  
-  console.log('Available after filtering:', available.length);
   if (!available.length) {
     return vscode.window.showInformationMessage("No valid 1:N relationships found.");
   }
@@ -89,43 +79,29 @@ function getFilteredRelationshipsFromDatabase(
     const sourceFields = r.sourceColumnNames.split(',');
     const targetFields = r.targetColumnNames.split(',');
 
-    console.log(`\nChecking: ${sourceAlias} -> ${targetAlias}`);
-    console.log(`  DB fields: ${JSON.stringify(sourceFields)} -> ${JSON.stringify(targetFields)}`);
-
     // Check if relationship exists in either direction:
     // 1. Source has "one" relationship to target
     // 2. Target has "many" relationship back to source
     const exists = entities.some(entity => {
       if (entity.name === sourceAlias) {
-        const match = (entity.relationships)?.some((rel) => {
-          const matches = rel.cardinality === 'one' &&
-                 rel.target === targetAlias &&
-                 arraysMatch(rel.sourceFields, sourceFields) &&
-                 arraysMatch(rel.targetFields, targetFields);
-          if (rel.target === targetAlias) {
-            console.log(`  ${sourceAlias} rel to ${targetAlias}: card=${rel.cardinality}, srcFields=${JSON.stringify(rel.sourceFields)}, tgtFields=${JSON.stringify(rel.targetFields)}, matches=${matches}`);
-          }
-          return matches;
-        });
-        return match;
+        return (entity.relationships)?.some((rel) =>
+          rel.cardinality === 'one' &&
+          rel.target === targetAlias &&
+          arraysMatch(rel.sourceFields, sourceFields) &&
+          arraysMatch(rel.targetFields, targetFields)
+        );
       }
       if (entity.name === targetAlias) {
-        const match = (entity.relationships)?.some((rel) => {
-          const matches = rel.cardinality === 'many' &&
-                 rel.target === sourceAlias &&
-                 arraysMatch(rel.sourceFields, targetFields) &&
-                 arraysMatch(rel.targetFields, sourceFields);
-          if (rel.target === sourceAlias) {
-            console.log(`  ${targetAlias} rel to ${sourceAlias}: card=${rel.cardinality}, srcFields=${JSON.stringify(rel.sourceFields)}, tgtFields=${JSON.stringify(rel.targetFields)}, matches=${matches}`);
-          }
-          return matches;
-        });
-        return match;
+        return (entity.relationships)?.some((rel) =>
+          rel.cardinality === 'many' &&
+          rel.target === sourceAlias &&
+          arraysMatch(rel.sourceFields, targetFields) &&
+          arraysMatch(rel.targetFields, sourceFields)
+        );
       }
       return false;
     });
     
-    console.log(`  Exists: ${exists}, Include: ${!exists}`);
     return !exists;
   });
 }

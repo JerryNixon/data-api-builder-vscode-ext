@@ -2,6 +2,99 @@
 
 ## Common Issues and Solutions
 
+### Add Extension Issues
+
+#### Issue: Relationships keep appearing after being added
+**Symptoms:** After adding a relationship successfully, the same relationship appears in the selection list again.
+
+**Cause:** The filtering logic wasn't correctly parsing relationship fields from the config JSON. The config stores fields as `source.fields` and `target.fields` arrays, but the code was looking for `relationship.fields` (which is CLI syntax only).
+
+**Solution:** Read relationship fields directly from the JSON structure:
+```typescript
+// ❌ Wrong - relationship.fields doesn't exist in JSON
+const fields = rel["relationship.fields"]?.split(':') || ['', ''];
+sourceFields: fields[0]?.split(',')
+
+// ✅ Correct - use source.fields and target.fields
+sourceFields: rel["source.fields"] || [],
+targetFields: rel["target.fields"] || []
+```
+
+Additionally, ensure bidirectional relationship checking (both "one" and "many" sides):
+```typescript
+const exists = entities.some(entity => {
+  if (entity.name === sourceAlias) {
+    return (entity.relationships)?.some((rel) =>
+      rel.cardinality === 'one' &&
+      rel.target === targetAlias &&
+      arraysMatch(rel.sourceFields, sourceFields) &&
+      arraysMatch(rel.targetFields, targetFields)
+    );
+  }
+  if (entity.name === targetAlias) {
+    return (entity.relationships)?.some((rel) =>
+      rel.cardinality === 'many' &&
+      rel.target === sourceAlias &&
+      arraysMatch(rel.sourceFields, targetFields) &&
+      arraysMatch(rel.targetFields, sourceFields)
+    );
+  }
+  return false;
+});
+```
+
+#### Issue: "Cannot read properties of undefined (reading 'length')"
+**Symptoms:** Error occurs when trying to add a second relationship after successfully adding the first.
+
+**Cause:** The `getExistingRelationships()` function was trying to call `.split()` on undefined values when relationship fields were missing or null.
+
+**Solution:** Use proper null safety with optional chaining and default values:
+```typescript
+// ❌ Wrong - fields[0] might be undefined
+sourceFields: rel["relationship.fields"]?.split(':')[0].split(',')
+
+// ✅ Correct - check at each step
+const fields = rel["relationship.fields"]?.split(':') || ['', ''];
+sourceFields: fields[0]?.split(',').filter(Boolean) || []
+```
+
+Better yet, read directly from the JSON structure (see previous issue).
+
+#### Issue: Stored procedure parameters added as fields
+**Symptoms:** Using `--source.params` during `dab add` causes "Invalid format" error or parameters appear as entity fields instead of stored procedure parameters.
+
+**Cause:** The `--source.params` flag is not valid during `dab add` for stored procedures. DAB auto-introspects parameters.
+
+**Solution:** Remove `--source.params` from the add command, then add parameter descriptions separately:
+```bash
+# Step 1: Add the stored procedure (no --source.params)
+dab add GetBook --source "get_book_by_id" --source.type "stored-procedure" --permissions "anonymous:execute"
+
+# Step 2: Add parameter descriptions
+dab update GetBook --parameters.name id --parameters.description "Book ID (int)"
+```
+
+#### Issue: Entity names with brackets cause errors
+**Symptoms:** DAB CLI errors when entity names contain square brackets like `[Actor]`.
+
+**Solution:** Strip brackets from entity names before using in DAB commands:
+```typescript
+const entityName = procedureName.replace(/[\[\]]/g, '');
+```
+
+#### Issue: Missing --fields.primary-key parameter
+**Symptoms:** DAB CLI error when adding field descriptions to tables/views.
+
+**Cause:** The `--fields.primary-key` parameter is required for all fields, even when setting to false.
+
+**Solution:** Always include the primary-key flag:
+```typescript
+const cmd = `dab update ${entityName} ` +
+  `--fields.name "${columnName}" ` +
+  `--fields.description "${description}" ` +
+  `--fields.primary-key ${isPrimaryKey}`;  // Required!
+```
+
 ### VS Code API Issues
 
 #### Issue: Cannot find module 'vscode'
