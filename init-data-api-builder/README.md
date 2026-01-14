@@ -7,7 +7,8 @@ A Visual Studio Code extension that guides users through initializing Data API B
 ## Features
 
 - Adds a right-click context menu for folders.
-- Guides users through prompts for `dab init` configuration.
+- Single multi-select dialog for all configuration options: REST, GraphQL, MCP, Cache, Developer Mode, and Simulated security.
+- Guides users through streamlined prompts for `dab init` configuration.
 - Automatically updates `.env` and `.gitignore`.
 
 ## Requirements

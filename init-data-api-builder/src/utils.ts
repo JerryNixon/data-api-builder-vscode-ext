@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { PromptResult } from 'dab-vscode-shared';
 
 export function resolveConfigPath(folderPath: string, baseName = 'dab-config', ext = '.json'): string {
   let candidate = path.join(folderPath, `${baseName}${ext}`);
@@ -14,17 +13,16 @@ export function resolveConfigPath(folderPath: string, baseName = 'dab-config', e
   return candidate;
 }
 
-export function buildInitCommand(configPath: string, envKey: string, result: PromptResult): string {
-  const hostMode = result.hostMode === 'production' ? 'Production' : 'Development';
-
+export function buildInitCommand(configPath: string, envKey: string): string {
   const args = [
     'dab init',
     '--database-type mssql',
     `--connection-string "@env('${envKey}')"`,
-    `--host-mode ${hostMode}`,
-    `--rest.enabled ${String(result.enableRest)}`,
-    `--graphql.enabled ${String(result.enableGraphQL)}`,
-    `--auth.provider ${result.security}`,
+    '--host-mode Development',
+    '--rest.enabled true',
+    '--graphql.enabled true',
+    '--mcp.enabled true',
+    '--auth.provider StaticWebApps',
     `-c "${path.basename(configPath)}"`
   ];
 

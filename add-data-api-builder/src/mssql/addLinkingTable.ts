@@ -2,12 +2,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { openConnection, getPotentialLinkingTables, LinkingTable } from './querySql';
 import { getTableAliasMap, getExistingManyToManyRelationships } from '../readConfig';
-import { runCommand } from '../runTerminal';
+import { runCommand } from 'dab-vscode-shared';
 
 export async function addLinkingTable(configPath: string, connectionString: string) {
     const connection = await openConnection(connectionString);
     if (!connection) {
-        vscode.window.showErrorMessage("❌ Failed to connect to the database.");
         return;
     }
 
@@ -25,7 +24,9 @@ export async function addLinkingTable(configPath: string, connectionString: stri
         const leftAlias = aliasMap.get(left);
         const rightAlias = aliasMap.get(right);
 
-        if (!leftAlias || !rightAlias) return false;
+        if (!leftAlias || !rightAlias) {
+            return false;
+        }
 
         const forward = `${leftAlias}->${rightAlias}->${linker}`;
         const backward = `${rightAlias}->${leftAlias}->${linker}`;
@@ -57,7 +58,9 @@ export async function addLinkingTable(configPath: string, connectionString: stri
         }
     );
 
-    if (!selected || !selected.length) return;
+    if (!selected || !selected.length) {
+        return;
+    }
 
     for (const item of selected) {
         await addLinkingRelationship(configPath, item);

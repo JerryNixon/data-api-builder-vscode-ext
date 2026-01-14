@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { readDatabaseType, getConnectionString, validateConfigPath } from '../readConfig';
+import { getConnectionString, validateConfigPath } from 'dab-vscode-shared';
+import { readDatabaseType } from '../readConfig';
 import { addRelationshipExisting } from './addRelationshipExisting';
 import { addRelationshipCustom } from './addRelationshipCustom';
 

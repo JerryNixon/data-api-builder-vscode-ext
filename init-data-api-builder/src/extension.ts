@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { runCommand, ask, PromptResult } from 'dab-vscode-shared';
+import { runCommand, askForConnection } from 'dab-vscode-shared';
 import { buildConfigCommand, buildInitCommand, resolveConfigPath, waitForFile } from './utils';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -7,10 +7,10 @@ export function activate(context: vscode.ExtensionContext) {
     const folder = uri.fsPath;
     const configPath = resolveConfigPath(folder);
 
-    let result: PromptResult;
+    let connection;
     try {
-      result = await ask(folder);
-      if (!result.connection) {
+      connection = await askForConnection(folder);
+      if (!connection) {
         vscode.window.showErrorMessage('No connection string selected.');
         return;
       }
@@ -19,21 +19,25 @@ export function activate(context: vscode.ExtensionContext) {
       return;
     }
 
-    const { connection, enableCache } = result;
-
     try {
-      runCommand(buildInitCommand(configPath, connection.name, result), { cwd: folder });
+      // Create DAB config with all features enabled, development mode, standard security
+      runCommand(buildInitCommand(configPath, connection.name), { cwd: folder });
       runCommand(buildConfigCommand(configPath, 'runtime.rest.request-body-strict', 'false'), { cwd: folder });
-
-      if (enableCache) {
-        runCommand(buildConfigCommand(configPath, 'runtime.cache.enabled', 'true'), { cwd: folder });
-      }
+      runCommand(buildConfigCommand(configPath, 'runtime.cache.enabled', 'true'), { cwd: folder });
 
       await new Promise(resolve => setTimeout(resolve, 2000));
       await openFile(configPath);
 
-      const uri = vscode.Uri.file(configPath);
-      await vscode.commands.executeCommand('dabExtension.addTable', uri);
+      // Show success message with option to add tables
+      vscode.window.showInformationMessage(
+        'DAB configuration created successfully!',
+        'Add Tables'
+      ).then(selection => {
+        if (selection === 'Add Tables') {
+          const uri = vscode.Uri.file(configPath);
+          vscode.commands.executeCommand('dabExtension.addTable', uri);
+        }
+      });
     } catch (err) {
       vscode.window.showErrorMessage((err as Error).message);
     }

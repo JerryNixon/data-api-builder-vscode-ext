@@ -154,9 +154,23 @@ function readConnectionStringFromEnvFile(configPath: string, envVarName: string)
         const envLines = envContent.split('\n');
 
         for (const line of envLines) {
-            const match = line.match(new RegExp(`^${envVarName}\\s*=\\s*"?(.+?)"?\\s*$`));
-            if (match) {
-                return match[1];
+            const trimmedLine = line.trim();
+            
+            // Skip empty lines and comments
+            if (!trimmedLine || trimmedLine.startsWith('#')) {
+                continue;
+            }
+            
+            // Match: VAR_NAME="value" or VAR_NAME=value
+            const quotedMatch = trimmedLine.match(new RegExp(`^${envVarName}\\s*=\\s*"(.+)"\\s*$`));
+            if (quotedMatch) {
+                return quotedMatch[1];
+            }
+            
+            // Match unquoted value
+            const unquotedMatch = trimmedLine.match(new RegExp(`^${envVarName}\\s*=\\s*(.+?)\\s*$`));
+            if (unquotedMatch) {
+                return unquotedMatch[1];
             }
         }
 

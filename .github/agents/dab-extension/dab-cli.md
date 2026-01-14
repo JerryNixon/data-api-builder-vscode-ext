@@ -58,7 +58,55 @@ Add a new entity to an existing config (config must already exist from `init`).
 **Examples**
 - Table: `dab add Book --source dbo.Books --permissions "anonymous:read"`
 - View with keys: `dab add BookView --source dbo.MyView --source.type view --source.key-fields "id,region" --permissions "anonymous:read"`
-- Stored proc: `dab add BookProc --source dbo.MyProc --source.type stored-procedure --permissions "admin:execute" --graphql.operation query --source.params "year:2024"`
+- Stored proc: `dab add GetBookById --source dbo.GetBookById --source.type stored-procedure --permissions "anonymous:*" --rest "GetBookById" --rest.methods "GET"`
+
+**Critical: Stored Procedure Patterns**
+
+When working with stored procedures, follow these patterns to avoid CLI errors:
+
+1. **DO NOT use `--source.params` during `dab add`**
+   - DAB automatically introspects stored procedure parameters from the database
+   - Providing `--source.params` in the wrong format causes "Invalid format for --source.params" errors
+   - Exception: Only use `--source.params` if you need to override default parameter values (advanced scenario)
+
+2. **Strip brackets from entity names**
+   - Source can have brackets: `--source [dbo].[GetSpecialActor]`
+   - Entity name should NOT: `dab add GetSpecialActor` (not `[GetSpecialActor]`)
+
+3. **Default to GET method for stored procedures**
+   - Use `--rest.methods "GET"` for most read-only stored procedures
+   - Use `--rest.methods "POST"` only for data-modifying procedures
+   - Avoid `--rest.methods "GET, POST"` unless specifically needed
+
+4. **Add parameter metadata separately with `dab update`**
+   - After `dab add`, use `dab update` to add parameter descriptions
+   - Example: `dab update GetBookById --parameters.name "bookId" --parameters.description "bookId (int)"`
+   - Call once per parameter with `--parameters.name` and `--parameters.description`
+
+5. **Add field metadata for result columns**
+   - Use `dab update` with `--fields.name` and `--fields.description` for each result column
+   - Example: `dab update GetBookById --fields.name "Title" --fields.description "Title result column"`
+   - Call once per field returned by the stored procedure
+
+6. **DO NOT use `--map` for stored procedures**
+   - `--map` is for tables and views only, not stored procedures
+   - DAB auto-discovers result columns from stored procedure execution metadata
+   - Field descriptions should use `--fields.name` and `--fields.description` instead
+
+**Complete stored procedure workflow example:**
+```bash
+# Step 1: Add the stored procedure entity (DAB auto-discovers parameters)
+dab add GetSpecialActor -c "dab-config.json" --source [dbo].[GetSpecialActor] --source.type "stored-procedure" --permissions "anonymous:*" --rest "GetSpecialActor" --rest.methods "GET"
+
+# Step 2: Add descriptions for each parameter
+dab update GetSpecialActor -c "dab-config.json" --parameters.name "Special1" --parameters.description "Special1 (int)"
+dab update GetSpecialActor -c "dab-config.json" --parameters.name "Special2" --parameters.description "Special2 (varchar)"
+
+# Step 3: Add descriptions for each result column/field
+dab update GetSpecialActor -c "dab-config.json" --fields.name "ActorId" --fields.description "ActorId result column"
+dab update GetSpecialActor -c "dab-config.json" --fields.name "Name" --fields.description "Name result column"
+dab update GetSpecialActor -c "dab-config.json" --fields.name "Special" --fields.description "Special result column"
+```
 
 ## `dab update <entity-name>`
 Update an existing entity definition (use `add` for creation).

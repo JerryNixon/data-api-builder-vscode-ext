@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as sql from 'mssql';
 import * as fs from 'fs';
-import { runCommand } from '../runTerminal';
+import { runCommand } from 'dab-vscode-shared';
+import { showErrorMessageWithTimeout } from '../utils/messageTimeout';
 
 // Base query to retrieve relationships from the database
 const BASE_RELATIONSHIP_QUERY = `
@@ -169,7 +170,7 @@ export async function getDatabaseRelationships(
 
     return relationships;
   } catch (error) {
-    vscode.window.showErrorMessage(`Error fetching relationship metadata: ${error}`);
+    await showErrorMessageWithTimeout(`Error fetching relationship metadata: ${error}`);
     return [];
   }
 }
@@ -180,7 +181,7 @@ export async function getDatabaseRelationships(
  * @param sourceEntity - The source entity name or object name.
  * @param relationship - The relationship metadata.
  */
-export function addRelationshipToConfig(
+export async function addRelationshipToConfig(
   configPath: string,
   sourceEntity: string,
   relationship: RelationshipEntity
@@ -199,7 +200,7 @@ export function addRelationshipToConfig(
   );
 
   if (!sourceEntityName) {
-    vscode.window.showErrorMessage(`Source entity for object "${sourceEntity}" not found in the configuration.`);
+    await showErrorMessageWithTimeout(`Source entity for object "${sourceEntity}" not found in the configuration.`);
     return;
   }
 
@@ -209,7 +210,7 @@ export function addRelationshipToConfig(
   );
 
   if (!targetEntityName) {
-    vscode.window.showErrorMessage(`Target entity for object "${relationship.targetTableName}" not found in the configuration.`);
+    await showErrorMessageWithTimeout(`Target entity for object "${relationship.targetTableName}" not found in the configuration.`);
     return;
   }
 

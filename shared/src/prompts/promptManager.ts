@@ -3,49 +3,11 @@ import type { EnvEntry } from '../types';
 import { getConnections, addConnection } from '../config';
 
 /**
- * Result of the complete init configuration prompt flow
+ * Result of the simplified init configuration prompt flow
+ * Only connection string is prompted for - all other settings use defaults
  */
 export interface PromptResult {
     connection: EnvEntry | undefined;
-    enableRest: boolean;
-    enableGraphQL: boolean;
-    enableCache: boolean;
-    hostMode: 'development' | 'production';
-    security: 'StaticWebApps' | 'Simulated';
-}
-
-/**
- * Prompts the user for all DAB initialization settings
- * @param folderPath - Path to the folder containing .env file
- * @returns Complete configuration result
- */
-export async function ask(folderPath: string): Promise<PromptResult> {
-    const connection = await askForConnection(folderPath);
-    if (!connection) {
-        return {
-            connection: undefined,
-            enableRest: true,
-            enableGraphQL: true,
-            enableCache: true,
-            hostMode: 'development',
-            security: 'StaticWebApps'
-        };
-    }
-
-    const enableRest = await askBoolean('REST', 'Enable REST endpoints', true);
-    const enableGraphQL = await askBoolean('GraphQL', 'Enable GraphQL endpoints', true);
-    const enableCache = await askBoolean('Cache', 'Enable Level 1 cache', true);
-    const hostMode = await askHostMode();
-    const security = await askSecurityProvider();
-
-    return {
-        connection,
-        enableRest,
-        enableGraphQL,
-        enableCache,
-        hostMode,
-        security
-    };
 }
 
 /**
@@ -99,76 +61,3 @@ export async function askForConnection(folderPath: string): Promise<EnvEntry | u
     return input ? addConnection(folderPath, input) : undefined;
 }
 
-/**
- * Prompts user with a yes/no question
- * 
- * @param label - Label for the quick pick
- * @param description - Description text
- * @param defaultValue - Default value if user cancels
- * @returns User's choice or default value
- */
-export async function askBoolean(
-    label: string, 
-    description: string, 
-    defaultValue: boolean
-): Promise<boolean> {
-    const pick = await vscode.window.showQuickPick(
-        [
-            { label: 'Yes', description, value: true },
-            { label: 'No', description: '', value: false }
-        ],
-        { placeHolder: label }
-    );
-    
-    return pick?.value ?? defaultValue;
-}
-
-/**
- * Prompts user to select host mode (development or production)
- * 
- * @returns Selected host mode
- */
-export async function askHostMode(): Promise<'development' | 'production'> {
-    const pick = await vscode.window.showQuickPick(
-        [
-            {
-                label: 'Development',
-                description: 'Enable Swagger and Nitro (Banana Cake Pop)',
-                value: 'development'
-            },
-            {
-                label: 'Production',
-                description: 'Optimized for production use',
-                value: 'production'
-            }
-        ],
-        { placeHolder: 'Select host mode' }
-    );
-    
-    return (pick?.value ?? 'development') as 'development' | 'production';
-}
-
-/**
- * Prompts user to select security provider
- * 
- * @returns Selected security provider
- */
-export async function askSecurityProvider(): Promise<'StaticWebApps' | 'Simulated'> {
-    const pick = await vscode.window.showQuickPick(
-        [
-            {
-                label: 'Standard',
-                description: 'JWT required for authenticated role',
-                value: 'StaticWebApps'
-            },
-            {
-                label: 'Simulated',
-                description: 'Every call is treated as authenticated',
-                value: 'Simulated'
-            }
-        ],
-        { placeHolder: 'Select security provider' }
-    );
-    
-    return (pick?.value ?? 'StaticWebApps') as 'StaticWebApps' | 'Simulated';
-}

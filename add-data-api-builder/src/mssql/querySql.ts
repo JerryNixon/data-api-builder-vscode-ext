@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as sql from 'mssql';
+import { showErrorMessageWithTimeout } from '../utils/messageTimeout';
 
 interface Relationship { //delete?
   LeftTable: string;          // e.g., "dbo.authors"
@@ -36,24 +37,41 @@ export interface LinkingTable {
  */
 export async function openConnection(connectionString: string): Promise<sql.ConnectionPool | undefined> {
   try {
-    return await sql.connect(connectionString);
+    // Check for unsupported .NET-specific connection string formats
+    if (connectionString.toLowerCase().includes('integrated security=true')) {
+      await showErrorMessageWithTimeout(
+        'Connection string format not supported. "Integrated Security=true" is a .NET-specific parameter. ' +
+        'For Node.js, use SQL Server authentication (e.g., "Server=localhost;Database=Trek;User Id=sa;Password=YourPassword") ' +
+        'or contact your administrator for the correct connection string format.'
+      );
+      return undefined;
+    }
+
+    const pool = await sql.connect(connectionString);
+    return pool.connected ? pool : undefined;
   } catch (connectionError: any) {
     let errorMessage = 'Database connection failed.';
 
-    if (connectionError.code) {
-      errorMessage += ` Error Code: ${connectionError.code}.`;
+    // Check for common authentication errors
+    if (connectionError.code === 'ELOGIN') {
+      errorMessage = 'Login failed. Please verify your SQL Server credentials. ' +
+        'Note: Windows Integrated Security is not supported. Use SQL Server authentication (User Id and Password).';
+    } else {
+      if (connectionError.code) {
+        errorMessage += ` Error Code: ${connectionError.code}.`;
+      }
+
+      if (connectionError.message) {
+        errorMessage += ` Message: ${connectionError.message}.`;
+      }
+
+      if (connectionError.originalError?.message) {
+        errorMessage += ` Details: ${connectionError.originalError.message}.`;
+      }
     }
 
-    if (connectionError.message) {
-      errorMessage += ` Message: ${connectionError.message}.`;
-    }
-
-    if (connectionError.originalError?.message) {
-      errorMessage += ` Details: ${connectionError.originalError.message}.`;
-    }
-
-    console.error(errorMessage);
-    vscode.window.showErrorMessage("!" + errorMessage);
+    console.error('SQL Connection Error:', connectionError);
+    await showErrorMessageWithTimeout(errorMessage);
     return undefined;
   }
 }
@@ -240,24 +258,24 @@ export async function getPotentialLinkedTables(
 /**
  * Retrieves metadata of user-defined tables from the database, including primary keys and all columns.
  * @param pool - The SQL Server connection pool.
- * @returns An array of objects containing schemaName, tableName, primaryKeys, and allColumns.
+ * @returns An array of objects containing schemaName, tableName, primaryKeys, allColumns, and columnDetails.
  */
-export async function getTableMetadata(pool: sql.ConnectionPool): Promise<{ schemaName: string; tableName: string; primaryKeys: string; allColumns: string }[]> {
+export async function getTableMetadata(pool: sql.ConnectionPool): Promise<{ schemaName: string; tableName: string; primaryKeys: string; allColumns: string; columnDetails: Array<{name: string; type: string; isPrimaryKey: boolean}> }[]> {
   const query = `
-    SELECT
-      schemaName,
-      tableName,
-      STRING_AGG(primaryKey, ',') AS primaryKeys,
-      STRING_AGG(columnName, ',') AS allColumns
-    FROM (
+    WITH TableColumns AS (
       SELECT
         s.name AS schemaName,
         t.name AS tableName,
         c.name AS columnName,
+        TYPE_NAME(c.user_type_id) AS columnType,
         CASE 
           WHEN i.is_primary_key = 1 THEN c.name 
           ELSE NULL 
-        END AS primaryKey
+        END AS primaryKey,
+        CASE 
+          WHEN i.is_primary_key = 1 THEN 1 
+          ELSE 0 
+        END AS isPrimaryKey
       FROM 
         sys.tables t
       INNER JOIN 
@@ -271,7 +289,19 @@ export async function getTableMetadata(pool: sql.ConnectionPool): Promise<{ sche
       WHERE 
         t.is_ms_shipped = 0 
         AND t.name != 'sysdiagrams'
-    ) AS TableColumns
+    )
+    SELECT
+      schemaName,
+      tableName,
+      STRING_AGG(primaryKey, ',') AS primaryKeys,
+      STRING_AGG(columnName, ',') AS allColumns,
+      (
+        SELECT columnName as name, columnType as type, CAST(isPrimaryKey AS BIT) as isPrimaryKey
+        FROM TableColumns tc2
+        WHERE tc2.schemaName = tc.schemaName AND tc2.tableName = tc.tableName
+        FOR JSON PATH
+      ) AS columnDetails
+    FROM TableColumns tc
     GROUP BY 
       schemaName, 
       tableName;
@@ -279,9 +309,12 @@ export async function getTableMetadata(pool: sql.ConnectionPool): Promise<{ sche
 
   try {
     const result = await pool.request().query(query);
-    return result.recordset;
+    return result.recordset.map((row: any) => ({
+      ...row,
+      columnDetails: row.columnDetails ? JSON.parse(row.columnDetails) : []
+    }));
   } catch (error) {
-    vscode.window.showErrorMessage(`Error fetching table metadata: ${error}`);
+    await showErrorMessageWithTimeout(`Error fetching table metadata: ${error}`);
     return [];
   }
 }
@@ -289,14 +322,20 @@ export async function getTableMetadata(pool: sql.ConnectionPool): Promise<{ sche
 /**
  * Retrieves metadata of user-defined views from the database, including all columns.
  * @param pool - The SQL Server connection pool.
- * @returns An array of objects containing schemaName, viewName, and columns.
+ * @returns An array of objects containing schemaName, viewName, columns, and columnDetails.
  */
-export async function getViewMetadata(pool: sql.ConnectionPool): Promise<{ schemaName: string; viewName: string; columns: string }[]> {
+export async function getViewMetadata(pool: sql.ConnectionPool): Promise<{ schemaName: string; viewName: string; columns: string; columnDetails: Array<{name: string; type: string}> }[]> {
   const query = `
       SELECT
         s.name AS schemaName,
         v.name AS viewName,
-        STRING_AGG(c.name, ',') AS columns
+        STRING_AGG(c.name, ',') AS columns,
+        (
+          SELECT c2.name as name, TYPE_NAME(c2.user_type_id) as type
+          FROM sys.columns c2
+          WHERE c2.object_id = v.object_id
+          FOR JSON PATH
+        ) AS columnDetails
       FROM 
         sys.views v
       INNER JOIN 
@@ -306,16 +345,19 @@ export async function getViewMetadata(pool: sql.ConnectionPool): Promise<{ schem
       WHERE 
         v.is_ms_shipped = 0
       GROUP BY 
-        s.name, v.name
+        s.name, v.name, v.object_id
       ORDER BY 
         s.name, v.name;
     `;
 
   try {
     const result = await pool.request().query(query);
-    return result.recordset;
+    return result.recordset.map((row: any) => ({
+      ...row,
+      columnDetails: row.columnDetails ? JSON.parse(row.columnDetails) : []
+    }));
   } catch (error) {
-    vscode.window.showErrorMessage(`Error fetching view metadata: ${error}`);
+    await showErrorMessageWithTimeout(`Error fetching view metadata: ${error}`);
     return [];
   }
 }
@@ -323,9 +365,9 @@ export async function getViewMetadata(pool: sql.ConnectionPool): Promise<{ schem
 /**
  * Retrieves metadata of user-defined stored procedures from the database, including parameters, result columns, and T-SQL script.
  * @param pool - The SQL Server connection pool.
- * @returns An array of objects containing name, paramInfo, colInfo, and script.
+ * @returns An array of objects containing name, paramInfo, colInfo, script, and parameters.
  */
-export async function getProcedureMetadata(pool: sql.ConnectionPool): Promise<{ name: string; paramInfo: string; colInfo: string; script: string }[]> {
+export async function getProcedureMetadata(pool: sql.ConnectionPool): Promise<{ name: string; paramInfo: string; colInfo: string; script: string; parameters: Array<{name: string; type: string}> }[]> {
   const query = `
 /* name | paramInfo (no @) | colInfo | script */
 WITH Procs AS (
@@ -357,6 +399,23 @@ ParamAgg AS (
       ON p.object_id = pr.object_id
     GROUP BY pr.object_id
 ),
+ParamDetails AS (
+    SELECT
+        pr.object_id,
+        paramDetails = (
+            SELECT 
+                STUFF(pr2.name, 1, 1, '') as name,
+                TYPE_NAME(pr2.user_type_id) as type
+            FROM sys.parameters AS pr2
+            WHERE pr2.object_id = pr.object_id
+            ORDER BY pr2.parameter_id
+            FOR JSON PATH
+        )
+    FROM sys.parameters AS pr
+    INNER JOIN Procs AS p
+      ON p.object_id = pr.object_id
+    GROUP BY pr.object_id
+),
 ColAgg AS (
     SELECT
         p.object_id,
@@ -372,22 +431,28 @@ SELECT
     p.name,
     paramInfo = ISNULL(pa.paramInfo, ''),
     colInfo   = ISNULL(ca.colInfo, ''),
-    script    = p.script
+    script    = p.script,
+    paramDetails = ISNULL(pd.paramDetails, '[]')
 FROM Procs AS p
 LEFT JOIN ParamAgg AS pa
   ON pa.object_id = p.object_id
 LEFT JOIN ColAgg AS ca
   ON ca.object_id = p.object_id
+LEFT JOIN ParamDetails AS pd
+  ON pd.object_id = p.object_id
 ORDER BY p.name;
   `;
 
   try {
     const result = await pool.request().query(query);
-    return result.recordset;
+    return result.recordset.map((row: any) => ({
+      ...row,
+      parameters: row.paramDetails ? JSON.parse(row.paramDetails) : []
+    }));
   } catch (error) {
     // Assert or typecast error to `Error` type
     const errorMessage = (error as Error).message || 'Unknown error occurred';
-    vscode.window.showErrorMessage(`Error fetching procedure metadata: ${errorMessage}`);
+    await showErrorMessageWithTimeout(`Error fetching procedure metadata: ${errorMessage}`);
     return [];
   }
 }

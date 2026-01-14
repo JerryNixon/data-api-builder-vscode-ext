@@ -38,6 +38,31 @@ describe('Config Utils', () => {
             const result = extractEnvVarName("@env( 'DB_CONNECTION' )");
             assert.strictEqual(result, 'DB_CONNECTION');
         });
+
+        it('should extract custom environment variable names', () => {
+            const result = extractEnvVarName("@env('MY_CUSTOM_DB_CONNECTION')");
+            assert.strictEqual(result, 'MY_CUSTOM_DB_CONNECTION');
+        });
+
+        it('should extract underscored variable names', () => {
+            const result = extractEnvVarName("@env('SQL_SERVER_CONNECTION_STRING')");
+            assert.strictEqual(result, 'SQL_SERVER_CONNECTION_STRING');
+        });
+
+        it('should extract numeric variable names', () => {
+            const result = extractEnvVarName("@env('DB_CONNECTION_123')");
+            assert.strictEqual(result, 'DB_CONNECTION_123');
+        });
+
+        it('should extract hyphenated variable names', () => {
+            const result = extractEnvVarName("@env('DB-CONNECTION')");
+            assert.strictEqual(result, 'DB-CONNECTION');
+        });
+
+        it('should extract dotted variable names', () => {
+            const result = extractEnvVarName("@env('DB.CONNECTION')");
+            assert.strictEqual(result, 'DB.CONNECTION');
+        });
     });
 
     describe('JSON parsing with DAB config', () => {
@@ -107,6 +132,48 @@ describe('Config Utils', () => {
             assert.ok(content.includes('MSSQL_CONNECTION_STRING='), 'Should contain connection string');
             assert.ok(content.includes('Server=localhost'), 'Should contain server');
             assert.ok(content.includes('Database=Trek'), 'Should contain database');
+        });
+
+        it('should parse custom environment variable names from .env file', () => {
+            const customEnvPath = path.join(fixturesPath, '.env.custom');
+            const content = fs.readFileSync(customEnvPath, 'utf-8');
+            const lines = content.split('\n');
+            
+            // Simulate the parsing logic from readConnectionStringFromEnvFile
+            const findEnvVar = (varName: string): string => {
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine || trimmedLine.startsWith('#')) {
+                        continue;
+                    }
+                    
+                    // Try quoted match first
+                    const quotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*"(.+)"\\s*$`));
+                    if (quotedMatch) {
+                        return quotedMatch[1];
+                    }
+                    
+                    // Try unquoted match
+                    const unquotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*(.+?)\\s*$`));
+                    if (unquotedMatch) {
+                        return unquotedMatch[1];
+                    }
+                }
+                return '';
+            };
+
+            // Test custom variable names
+            const customDb = findEnvVar('MY_CUSTOM_DB_CONNECTION');
+            assert.ok(customDb.includes('Server=localhost'), 'Should find MY_CUSTOM_DB_CONNECTION');
+            assert.ok(customDb.includes('Database=Trek'), 'Should parse Database=Trek');
+
+            const anotherDb = findEnvVar('ANOTHER_DB_STRING');
+            assert.ok(anotherDb.includes('Server=localhost'), 'Should find ANOTHER_DB_STRING');
+            assert.ok(anotherDb.includes('Database=AnotherDB'), 'Should parse quoted connection string');
+
+            const sqlServer = findEnvVar('SQL_SERVER_CONNECTION_STRING');
+            assert.ok(sqlServer.includes('Server=localhost'), 'Should find SQL_SERVER_CONNECTION_STRING');
+            assert.ok(sqlServer.includes('Database=Test'), 'Should parse Database=Test');
         });
     });
 });

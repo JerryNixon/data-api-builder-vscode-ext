@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { buildConfigCommand, buildInitCommand, resolveConfigPath, waitForFile } from '../utils';
-import type { PromptResult } from 'dab-vscode-shared';
 
 suite('Init utils', () => {
 	test('resolveConfigPath increments suffix when file exists', () => {
@@ -19,22 +18,15 @@ suite('Init utils', () => {
 		fs.rmSync(temp, { recursive: true, force: true });
 	});
 
-	test('buildInitCommand formats host mode and env variable', () => {
-		const prompt: PromptResult = {
-			connection: { name: 'MSSQL_CONNECTION_STRING', value: 'Server=.;Database=db;' },
-			enableRest: true,
-			enableGraphQL: false,
-			enableCache: true,
-			hostMode: 'development',
-			security: 'StaticWebApps'
-		};
-
-		const command = buildInitCommand('/project/dab-config.json', 'MSSQL_CONNECTION_STRING', prompt);
+	test('buildInitCommand formats with hardcoded defaults', () => {
+		const command = buildInitCommand('/project/dab-config.json', 'MSSQL_CONNECTION_STRING');
 
 		assert.ok(command.includes("--connection-string \"@env('MSSQL_CONNECTION_STRING')\""));
 		assert.ok(command.includes('--host-mode Development'));
 		assert.ok(command.includes('--rest.enabled true'));
-		assert.ok(command.includes('--graphql.enabled false'));
+		assert.ok(command.includes('--graphql.enabled true'));
+		assert.ok(command.includes('--mcp.enabled true'));
+		assert.ok(command.includes('--auth.provider StaticWebApps'));
 		assert.ok(command.endsWith('-c "dab-config.json"'));
 	});
 

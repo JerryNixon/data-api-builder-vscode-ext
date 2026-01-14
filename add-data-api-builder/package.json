@@ -110,11 +110,15 @@
     "webpack": "^5.97.1",
     "webpack-cli": "^6.0.1"
   },
-  "keywords": [ "Data API builder" ],
+  "keywords": [
+    "Data API builder"
+  ],
   "author": "Jerry Nixon",
   "license": "MIT",
   "dependencies": {
     "@types/mssql": "^9.1.6",
+    "dab-vscode-shared": "file:../shared",
+    "dab-vscode-shared-database": "file:../shared-database",
     "mssql": "^9.3.2"
   }
 }

@@ -2,13 +2,11 @@ import * as vscode from 'vscode';
 import * as sql from 'mssql';
 import * as path from 'path';
 import { openConnection } from './querySql';
-import {
-  getConfiguredEntities,
-  validateConfigPath,
-  getExistingRelationships
-} from '../readConfig';
+import { getConfiguredEntities, validateConfigPath } from 'dab-vscode-shared';
+import { getExistingRelationships } from '../readConfig';
 import { getDatabaseRelationships } from './relationshipHelpers';
-import { runCommand } from '../runTerminal';
+import { runCommand } from 'dab-vscode-shared';
+import { showErrorMessageWithTimeout } from '../utils/messageTimeout';
 
 interface Relationship {
   cardinality: string;
@@ -24,25 +22,37 @@ interface EntityConfig {
 
 export async function addRelationshipExisting(configPath: string, connectionString: string) {
   if (!validateConfigPath(configPath)) {
-    return vscode.window.showErrorMessage("❌ Configuration file not found.");
+    return showErrorMessageWithTimeout("❌ Configuration file not found.");
   }
 
   const pool = await openConnection(connectionString);
   if (!pool) {
-    return vscode.window.showErrorMessage("❌ Failed to connect to the database.");
+    return;
   }
 
   const dbRelationships = await getDatabaseRelationships(pool, configPath);
   const aliasMap = await getConfiguredEntities(configPath);
   const existingRelationships = await getExistingRelationships(configPath);
 
+  console.log('Existing relationships from config:', JSON.stringify(existingRelationships, null, 2));
+  console.log('DB relationships:', JSON.stringify(dbRelationships.map(r => ({
+    source: r.sourceTableName,
+    target: r.targetTableName,
+    sourceFields: r.sourceColumnNames,
+    targetFields: r.targetColumnNames
+  })), null, 2));
+
   const available = getFilteredRelationshipsFromDatabase(dbRelationships, aliasMap, existingRelationships);
+  
+  console.log('Available after filtering:', available.length);
   if (!available.length) {
     return vscode.window.showInformationMessage("No valid 1:N relationships found.");
   }
 
   const selected = await userSelectRelationships(available, aliasMap);
-  if (!selected?.length) return;
+  if (!selected?.length) {
+    return;
+  }
 
   for (const item of selected) {
     const { sourceAlias, targetAlias, relationship } = item;
@@ -72,17 +82,51 @@ function getFilteredRelationshipsFromDatabase(
   return dbRelationships.filter((r: any) => {
     const sourceAlias = aliasMap.get(r.sourceTableName.toLowerCase());
     const targetAlias = aliasMap.get(r.targetTableName.toLowerCase());
-    if (!sourceAlias || !targetAlias) return false;
+    if (!sourceAlias || !targetAlias) {
+      return false;
+    }
 
-    return !entities.some(entity =>
-      entity.name === sourceAlias &&
-      (entity.relationships)?.some((rel) =>
-        rel.cardinality === 'one' &&
-        rel.target === targetAlias &&
-        arraysMatch(rel.sourceFields, r.sourceColumnNames.split(',')) &&
-        arraysMatch(rel.targetFields, r.targetColumnNames.split(','))
-      )
-    );
+    const sourceFields = r.sourceColumnNames.split(',');
+    const targetFields = r.targetColumnNames.split(',');
+
+    console.log(`\nChecking: ${sourceAlias} -> ${targetAlias}`);
+    console.log(`  DB fields: ${JSON.stringify(sourceFields)} -> ${JSON.stringify(targetFields)}`);
+
+    // Check if relationship exists in either direction:
+    // 1. Source has "one" relationship to target
+    // 2. Target has "many" relationship back to source
+    const exists = entities.some(entity => {
+      if (entity.name === sourceAlias) {
+        const match = (entity.relationships)?.some((rel) => {
+          const matches = rel.cardinality === 'one' &&
+                 rel.target === targetAlias &&
+                 arraysMatch(rel.sourceFields, sourceFields) &&
+                 arraysMatch(rel.targetFields, targetFields);
+          if (rel.target === targetAlias) {
+            console.log(`  ${sourceAlias} rel to ${targetAlias}: card=${rel.cardinality}, srcFields=${JSON.stringify(rel.sourceFields)}, tgtFields=${JSON.stringify(rel.targetFields)}, matches=${matches}`);
+          }
+          return matches;
+        });
+        return match;
+      }
+      if (entity.name === targetAlias) {
+        const match = (entity.relationships)?.some((rel) => {
+          const matches = rel.cardinality === 'many' &&
+                 rel.target === sourceAlias &&
+                 arraysMatch(rel.sourceFields, targetFields) &&
+                 arraysMatch(rel.targetFields, sourceFields);
+          if (rel.target === sourceAlias) {
+            console.log(`  ${targetAlias} rel to ${sourceAlias}: card=${rel.cardinality}, srcFields=${JSON.stringify(rel.sourceFields)}, tgtFields=${JSON.stringify(rel.targetFields)}, matches=${matches}`);
+          }
+          return matches;
+        });
+        return match;
+      }
+      return false;
+    });
+    
+    console.log(`  Exists: ${exists}, Include: ${!exists}`);
+    return !exists;
   });
 }
 
