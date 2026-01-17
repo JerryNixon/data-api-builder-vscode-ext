@@ -24,6 +24,10 @@ export function activate(context: vscode.ExtensionContext) {
       runCommand(buildInitCommand(configPath, connection.name), { cwd: folder });
       runCommand(buildConfigCommand(configPath, 'runtime.rest.request-body-strict', 'false'), { cwd: folder });
       runCommand(buildConfigCommand(configPath, 'runtime.cache.enabled', 'true'), { cwd: folder });
+      runCommand(buildConfigCommand(configPath, 'runtime.rest.enabled', 'true'), { cwd: folder });
+      runCommand(buildConfigCommand(configPath, 'runtime.graphql.enabled', 'true'), { cwd: folder });
+      runCommand(buildConfigCommand(configPath, 'runtime.mcp.enabled', 'true'), { cwd: folder });
+      runCommand(buildConfigCommand(configPath, 'runtime.host.mode', 'development'), { cwd: folder });
 
       await new Promise(resolve => setTimeout(resolve, 2000));
       await openFile(configPath);

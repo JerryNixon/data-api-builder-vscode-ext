@@ -8,7 +8,16 @@ interface EntityDefinition {
     source: {
         object: string; // The schema-qualified name (e.g., "dbo.SampleProcedure")
         type: string;
+        parameters?: Array<{
+            name: string;
+            required?: boolean;
+            default?: string;
+        }>;
     };
+    fields?: Array<{
+        name: string;
+        alias?: string;
+    }>;
 }
 
 /**
@@ -17,6 +26,8 @@ interface EntityDefinition {
 export interface StoredProcedureEntity {
     name: string;       // The cleansed entity name
     sourceName: string; // The schema-qualified source name
+    parameters: Array<{ name: string; required: boolean; default?: string }>;
+    fields: Array<{ name: string }>;
 }
 
 /**
@@ -40,9 +51,21 @@ export function getProcs(configPath: string): StoredProcedureEntity[] {
 
     for (const [entityName, entityDefinition] of Object.entries(config.entities)) {
         if (entityDefinition.source?.type === 'stored-procedure') {
+            const parameters = (entityDefinition.source.parameters || []).map(p => ({
+                name: p.name,
+                required: p.required || false,
+                default: p.default
+            }));
+            
+            const fields = (entityDefinition.fields || []).map(f => ({
+                name: f.name
+            }));
+            
             procedures.push({
                 name: entityName,
                 sourceName: entityDefinition.source.object,
+                parameters: parameters,
+                fields: fields
             });
         }
     }

@@ -16,13 +16,32 @@ interface EntitySource {
     parameters?: Record<string, string>; // Proc parameters dictionary
 }
 
+interface EntityField {
+    name: string;
+    alias?: string;
+    description?: string;
+    'primary-key'?: boolean;
+}
+
+interface EntityRelationship {
+    'target.entity': string;
+    cardinality?: 'one' | 'many';
+    'source.fields'?: string[];
+    'target.fields'?: string[];
+    'linking.object'?: string;
+    'linking.source.fields'?: string[];
+    'linking.target.fields'?: string[];
+}
+
 export interface EntityDefinition {
     restPath: string;
     source: EntitySource;
+    fields?: EntityField[];
     mappings?: Record<string, string>;
     type?: 'table' | 'view' | 'stored-procedure';
     rest?: EntityRest; // entities.entity.rest
     runtimeRestPath?: string; // runtime.rest.path
+    relationships?: Record<string, EntityRelationship>;
 }
 
 /**

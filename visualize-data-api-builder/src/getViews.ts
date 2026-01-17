@@ -9,6 +9,10 @@ interface EntityDefinition {
         object: string; // The schema-qualified name (e.g., "dbo.SampleView")
         type: string;
     };
+    fields?: Array<{
+        name: string;
+        alias?: string;
+    }>;
 }
 
 /**
@@ -17,6 +21,7 @@ interface EntityDefinition {
 export interface ViewEntity {
     name: string;       // The cleansed entity name
     sourceName: string; // The schema-qualified source name
+    fields: Array<{ name: string }>;
 }
 
 /**
@@ -40,9 +45,14 @@ export function getViews(configPath: string): ViewEntity[] {
 
     for (const [entityName, entityDefinition] of Object.entries(config.entities)) {
         if (entityDefinition.source?.type === 'view') {
+            const fields = (entityDefinition.fields || []).map(f => ({
+                name: f.name
+            }));
+            
             views.push({
                 name: entityName,
                 sourceName: entityDefinition.source.object,
+                fields: fields
             });
         }
     }

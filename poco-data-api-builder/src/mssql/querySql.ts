@@ -182,41 +182,47 @@ async function queryProcedureMetadata(pool: sql.ConnectionPool, schemaName: stri
   }
 }
 
-function formatCsharpProperty(columnName: string, dataType: string, alias?: string, isKey: boolean = false): string {
-  const jsonName = genJsonName(alias || columnName);
-  const propertyName = getCsharpName(alias || columnName);
-  const propertyType = mapSqlTypeToCSharp(dataType);
-  const keyAttribute = isKey ? "    [Key]\n" : "";
-  return `${keyAttribute}    [JsonPropertyName("${jsonName}")]
-    public ${propertyType} ${propertyName} { get; set; }
-`;
-}
-
 function formatMetadataAsPoco(
   className: string,
   columns: any[],
   mappings?: Record<string, string>,
   keyFields: string[] = []
 ): string {
+  const keyFieldsLower = keyFields.map(k => k.toLowerCase());
+  
   const parameters = columns.map((col) => {
     const columnName = col.COLUMN_NAME;
     const alias = mappings?.[columnName];
     const jsonName = alias ?? columnName;
     const paramName = getCsharpName(columnName);
     const type = mapSqlTypeToCSharp(col.DATA_TYPE);
-    const isKey = keyFields.includes(columnName);
+    const isKey = keyFieldsLower.includes(columnName.toLowerCase());
 
-    const attributes = [`JsonPropertyName("${jsonName}")`];
+    const attributes: string[] = [];
     if (isKey) {
-      attributes.unshift('Key');
+      attributes.push('property: Key');
     }
+    attributes.push(`property: JsonPropertyName("${jsonName}")`);
 
-    return `[property: ${attributes.join(', ')}] ${type} ${paramName}`;
+    return `[${attributes.join('][')}] ${type} ${paramName}`;
   });
+
+  // Build WithoutKeys method body only if there are keys
+  const hasKeys = keyFieldsLower.length > 0;
+  const nonKeyProperties = columns
+    .filter(col => !keyFieldsLower.includes(col.COLUMN_NAME.toLowerCase()))
+    .map(col => {
+      const alias = mappings?.[col.COLUMN_NAME];
+      return getCsharpName(alias ?? col.COLUMN_NAME);
+    });
+
+  const withoutKeysMethod = hasKeys && nonKeyProperties.length > 0
+    ? `\n{\n    public object WithoutKeys() => new\n    {\n        ${nonKeyProperties.join(',\n        ')}\n    };\n}`
+    : '';
 
   return `public record ${className}(
     ${parameters.join(',\n    ')}
-);`;
+)${withoutKeysMethod};`;
 }
 
 function mapSqlTypeToCSharp(sqlType: string): string {

@@ -71,10 +71,15 @@ function getTables(configPath) {
                     relDef['source.fields']?.forEach(field => inferredIdColumns.add(field));
                 }
             }
+            const fields = (entityDefinition.fields || []).map(f => ({
+                name: f.name,
+                isPrimaryKey: f['primary-key'] || false
+            }));
             tables.push({
                 name: entityName,
                 source: entityDefinition.source.object,
                 keyFields: entityDefinition.source['key-fields'] || [],
+                fields: fields,
                 relationships: relationships,
                 idColumns: Array.from(inferredIdColumns),
             });

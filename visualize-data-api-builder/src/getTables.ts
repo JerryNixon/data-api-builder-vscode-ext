@@ -10,6 +10,11 @@ interface EntityDefinition {
     type: string;
     'key-fields'?: string[];
   };
+  fields?: Array<{
+    name: string;
+    alias?: string;
+    'primary-key'?: boolean;
+  }>;
   relationships?: Record<string, RelationshipDefinition>;
 }
 
@@ -27,6 +32,7 @@ interface TableEntity {
   name: string;
   source: string;
   keyFields: string[];
+  fields: Array<{ name: string; isPrimaryKey: boolean }>;
   relationships: Record<string, Relationship>;
   idColumns?: string[];
 }
@@ -86,10 +92,16 @@ export function getTables(configPath: string): TableEntity[] {
         }
       }
 
+      const fields = (entityDefinition.fields || []).map(f => ({
+        name: f.name,
+        isPrimaryKey: f['primary-key'] || false
+      }));
+
       tables.push({
         name: entityName,
         source: entityDefinition.source.object,
         keyFields: entityDefinition.source['key-fields'] || [],
+        fields: fields,
         relationships: relationships,
         idColumns: Array.from(inferredIdColumns),
       });

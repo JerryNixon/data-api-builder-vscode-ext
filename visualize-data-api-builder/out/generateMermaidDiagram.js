@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateMermaidDiagram = generateMermaidDiagram;
 /**
- * Generates a Mermaid state diagram representing tables, views, and procedures.
+ * Generates a Mermaid ER diagram representing tables, views, and procedures.
  * @param tables - An array of TableEntity objects representing tables.
  * @param procedures - An array of StoredProcedureEntity objects representing stored procedures.
  * @param views - An array of ViewEntity objects representing views.
@@ -10,19 +10,12 @@ exports.generateMermaidDiagram = generateMermaidDiagram;
  */
 function generateMermaidDiagram(tables, procedures, views) {
     const lines = [];
-    lines.push('stateDiagram-v2');
-    lines.push('direction LR');
+    lines.push('erDiagram');
     lines.push('');
-    // Style definitions
-    lines.push('  classDef empty fill:none,stroke:none');
-    lines.push('  classDef table stroke:black;');
-    lines.push('  classDef view stroke:black;');
-    lines.push('  classDef proc stroke:black;');
-    lines.push('  classDef phantom stroke:gray,stroke-dasharray:5 5;');
-    lines.push('');
-    // Add empty class nodes only if tables is empty
-    if (tables.length === 0)
-        lines.push('  class NoTables empty');
+    // Add empty message if no entities
+    if (tables.length === 0 && views.length === 0 && procedures.length === 0) {
+        lines.push('  %% No entities found');
+    }
     lines.push('');
     writeTables(lines, tables);
     writeViews(lines, views);
@@ -35,93 +28,105 @@ function sanitizeEntityName(entityName) {
         .replace(/[\[\]]/g, '');
 }
 function writeTables(lines, tables) {
-    const phantomEntities = new Set();
-    const tablesGroup = [];
-    const noRelationshipTables = [];
-    for (const table of tables) {
-        for (const relationship of Object.values(table.relationships)) {
-            const { linkingObject } = relationship;
-            if (linkingObject) {
-                const sanitizedLinkingObject = sanitizeEntityName(linkingObject);
-                if (!tables.some(t => sanitizeEntityName(t.name) === sanitizedLinkingObject)) {
-                    phantomEntities.add(sanitizedLinkingObject);
-                }
-            }
-        }
-        const sanitizedTableName = sanitizeEntityName(table.name);
-        tablesGroup.push(sanitizedTableName);
-        if (Object.keys(table.relationships).length === 0) {
-            noRelationshipTables.push(sanitizedTableName);
-        }
+    if (tables.length === 0) {
+        return;
     }
-    phantomEntities.forEach(phantom => tablesGroup.push(phantom));
-    tablesGroup.forEach(table => lines.push(`  class ${table} table`));
-    phantomEntities.forEach(phantom => lines.push(`  class ${phantom} phantom`));
-    lines.push('  state Tables {');
-    if (tablesGroup.length === 0) {
-        lines.push('    NoTables');
-    }
-    else {
-        noRelationshipTables.forEach(table => lines.push(`    ${table}`));
-        writeRelationships(lines, tables, phantomEntities);
-    }
-    lines.push('  }');
-}
-function writeRelationships(lines, tables, phantomEntities) {
     const addedRelationships = new Set();
+    // Define table entities with their fields
+    for (const table of tables) {
+        const sanitizedTableName = sanitizeEntityName(table.name);
+        lines.push(`  "T:${sanitizedTableName}" {`);
+        // Add all fields with PK/FK indicators
+        if (table.fields && table.fields.length > 0) {
+            table.fields.forEach(field => {
+                const pkIndicator = field.isPrimaryKey ? ' PK' : '';
+                lines.push(`    string ${field.name}${pkIndicator}`);
+            });
+        }
+        else if (table.keyFields && table.keyFields.length > 0) {
+            // Fallback to key fields if no detailed fields available
+            table.keyFields.forEach(field => {
+                lines.push(`    string ${field} PK`);
+            });
+        }
+        lines.push(`  }`);
+    }
+    lines.push('');
+    // Write relationships
     for (const table of tables) {
         const sanitizedTableName = sanitizeEntityName(table.name);
         for (const relationship of Object.values(table.relationships)) {
-            const { targetEntity, linkingObject } = relationship;
+            const { targetEntity, linkingObject, cardinality } = relationship;
             const sanitizedTargetEntity = sanitizeEntityName(targetEntity);
-            let sanitizedLinkingObject;
+            let relationshipKey;
+            let relationshipLine;
             if (linkingObject) {
-                sanitizedLinkingObject = sanitizeEntityName(linkingObject);
-                if (phantomEntities.has(sanitizedLinkingObject)) {
-                    const linkToTargetKey = `${sanitizedLinkingObject} --> ${sanitizedTargetEntity}`;
-                    if (!addedRelationships.has(linkToTargetKey)) {
-                        addedRelationships.add(linkToTargetKey);
-                        lines.push(`    ${sanitizedLinkingObject} --> ${sanitizedTargetEntity}`);
-                    }
-                }
-                else {
-                    const sourceToLinkKey = `${sanitizedTableName} --> ${sanitizedLinkingObject}`;
-                    if (!addedRelationships.has(sourceToLinkKey)) {
-                        addedRelationships.add(sourceToLinkKey);
-                        lines.push(`    ${sanitizedTableName} --> ${sanitizedLinkingObject}`);
-                    }
+                // Many-to-many relationship (via linking table)
+                // Draw direct relationship with different notation
+                relationshipKey = [sanitizedTableName, sanitizedTargetEntity].sort().join('-->');
+                if (!addedRelationships.has(relationshipKey)) {
+                    addedRelationships.add(relationshipKey);
+                    relationshipLine = `  "T:${sanitizedTableName}" }o--o{ "T:${sanitizedTargetEntity}" : "many-to-many"`;
+                    lines.push(relationshipLine);
                 }
             }
             else {
-                const sourceToTargetKey = `${sanitizedTableName} --> ${sanitizedTargetEntity}`;
-                if (!addedRelationships.has(sourceToTargetKey)) {
-                    addedRelationships.add(sourceToTargetKey);
-                    lines.push(`    ${sanitizedTableName} --> ${sanitizedTargetEntity}`);
+                // Direct relationship (one-to-one or one-to-many)
+                relationshipKey = `${sanitizedTableName}-->${sanitizedTargetEntity}`;
+                if (!addedRelationships.has(relationshipKey)) {
+                    addedRelationships.add(relationshipKey);
+                    if (cardinality === 'one') {
+                        // Many-to-one relationship
+                        relationshipLine = `  "T:${sanitizedTableName}" }o--|| "T:${sanitizedTargetEntity}" : "belongs to"`;
+                    }
+                    else {
+                        // One-to-many relationship
+                        relationshipLine = `  "T:${sanitizedTableName}" ||--o{ "T:${sanitizedTargetEntity}" : "has many"`;
+                    }
+                    lines.push(relationshipLine);
                 }
             }
         }
     }
+    lines.push('');
 }
 function writeViews(lines, views) {
     if (views.length > 0) {
-        views.forEach(view => lines.push(`  class ${sanitizeEntityName(view.name)} view`));
-        lines.push('  state Views {');
-        views.forEach(view => lines.push(`    ${sanitizeEntityName(view.name)}`));
-        lines.push('  }');
+        views.forEach(view => {
+            const sanitizedViewName = sanitizeEntityName(view.name);
+            lines.push(`  "V:${sanitizedViewName}" {`);
+            // Add view fields
+            if (view.fields && view.fields.length > 0) {
+                view.fields.forEach(field => {
+                    lines.push(`    string ${field.name}`);
+                });
+            }
+            lines.push(`  }`);
+        });
+        lines.push('');
     }
 }
 function writeProcs(lines, procedures) {
     if (procedures.length > 0) {
         procedures.forEach(procedure => {
             const sanitizedProcName = sanitizeEntityName(procedure.name);
-            lines.push(`  class ${sanitizedProcName} proc`);
+            lines.push(`  "P:${sanitizedProcName}" {`);
+            // Add parameters first
+            if (procedure.parameters && procedure.parameters.length > 0) {
+                procedure.parameters.forEach(param => {
+                    const suffix = param.required ? '_req' : '_opt';
+                    lines.push(`    string ${param.name}${suffix} "in"`);
+                });
+            }
+            // Add result fields (no label since "out" is reserved)
+            if (procedure.fields && procedure.fields.length > 0) {
+                procedure.fields.forEach(field => {
+                    lines.push(`    string ${field.name}`);
+                });
+            }
+            lines.push(`  }`);
         });
-        lines.push('  state Procedures {');
-        procedures.forEach(procedure => {
-            const sanitizedProcName = sanitizeEntityName(procedure.name);
-            lines.push(`    ${sanitizedProcName}`);
-        });
-        lines.push('  }');
+        lines.push('');
     }
 }
 //# sourceMappingURL=generateMermaidDiagram.js.map

@@ -16,3 +16,5 @@ public partial class ResponseRoot
     [JsonPropertyName("error")]
     public ResponseError? Error { get; set; }
 }
+
+

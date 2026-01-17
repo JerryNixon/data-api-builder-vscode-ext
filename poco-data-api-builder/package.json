@@ -1,9 +1,9 @@
 {
   "name": "poco-data-api-builder",
   "displayName": "DAB Poco Gen (Data API builder)",
-  "description": "Generate C# POCO (Plain Old CLR Object) models and REST client from a DAB config.",
+  "description": "Generate self-contained C# models, repositories, and client from a DAB config with no third-party dependencies.",
   "publisher": "jerry-nixon",
-  "version": "0.0.9",
+  "version": "0.1.0",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -66,7 +66,9 @@
   },
   "dependencies": {
     "@types/mssql": "^9.1.6",
-    "mssql": "^9.3.2"
+    "mssql": "^9.3.2",
+    "dab-vscode-shared": "*",
+    "dab-vscode-shared-database": "*"
   },
   "keywords": ["Data API builder"],
   "author": "Jerry Nixon",

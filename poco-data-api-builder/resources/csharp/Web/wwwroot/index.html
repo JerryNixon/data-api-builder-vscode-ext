@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data API Builder Explorer</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        :root { --pico-font-size: 16px; }
+        main { padding-top: 1rem; }
+        table { font-size: 0.875rem; }
+        .status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; }
+        .status.ok { background: #2ecc40; }
+        .status.error { background: #ff4136; }
+        #output { max-height: 60vh; overflow: auto; }
+        pre { font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <hgroup>
+            <h1>📊 Data API Builder Explorer</h1>
+            <p><span id="status" class="status"></span><span id="statusText">Checking DAB...</span></p>
+        </hgroup>
+
+        <div class="grid">
+            <select id="entitySelect" aria-label="Select entity">
+                <option value="">-- Select an entity --</option>
+            </select>
+            <button id="loadBtn" disabled>Load Data</button>
+            <button id="refreshBtn" class="secondary outline">↻ Check DAB</button>
+        </div>
+
+        <article id="output">
+            <p>Select an entity to view data.</p>
+        </article>
+
+        <details>
+            <summary>View as JSON</summary>
+            <pre id="jsonOutput"></pre>
+        </details>
+    </main>
+
+    <script>
+        // Configuration - injected by generator
+        const DAB_BASE_URL = '{{DAB_BASE_URL}}';
+        const API_PATH = '{{API_PATH}}';
+        const ENTITIES = {{ENTITIES_JSON}};
+
+        const entitySelect = document.getElementById('entitySelect');
+        const loadBtn = document.getElementById('loadBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const output = document.getElementById('output');
+        const jsonOutput = document.getElementById('jsonOutput');
+        const status = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (text === null || text === undefined) return '<em>null</em>';
+            const str = typeof text === 'object' ? JSON.stringify(text) : String(text);
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        async function checkHealth() {
+            try {
+                // Try to fetch the first entity to verify DAB is responding
+                // DAB doesn't have a dedicated health endpoint, so we use $top=0 for minimal data
+                const testEntity = ENTITIES.length > 0 ? ENTITIES[0].name : null;
+                if (!testEntity) {
+                    status.className = 'status error';
+                    statusText.textContent = 'No entities configured';
+                    return false;
+                }
+                
+                const res = await fetch(`${DAB_BASE_URL}${API_PATH}/${testEntity}?$top=0`);
+                if (res.ok) {
+                    status.className = 'status ok';
+                    statusText.textContent = 'DAB Connected';
+                    loadBtn.disabled = !entitySelect.value;
+                    return true;
+                } else {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+            } catch (err) {
+                status.className = 'status error';
+                statusText.textContent = 'DAB Unavailable - run: dab start';
+                loadBtn.disabled = true;
+                return false;
+            }
+        }
+
+        function loadEntities() {
+            entitySelect.innerHTML = '<option value="">-- Select an entity --</option>';
+            ENTITIES.forEach(e => {
+                const opt = document.createElement('option');
+                opt.value = e.name;
+                opt.textContent = `${e.icon} ${e.name} (${e.type})`;
+                entitySelect.appendChild(opt);
+            });
+        }
+
+        async function loadData(entityName) {
+            if (!entityName) return;
+            output.innerHTML = '<p aria-busy="true">Loading...</p>';
+            
+            try {
+                const url = `${DAB_BASE_URL}${API_PATH}/${entityName}`;
+                const res = await fetch(url);
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
+                
+                const json = await res.json();
+                const data = json.value || json; // DAB returns { value: [...] }
+                
+                jsonOutput.textContent = JSON.stringify(data, null, 2);
+                
+                if (!Array.isArray(data) || data.length === 0) {
+                    output.innerHTML = '<p>No data found.</p>';
+                    return;
+                }
+
+                // Build table with escaped HTML to prevent XSS
+                const keys = Object.keys(data[0]);
+                let html = '<table><thead><tr>';
+                keys.forEach(k => html += `<th>${escapeHtml(k)}</th>`);
+                html += '</tr></thead><tbody>';
+                data.forEach(row => {
+                    html += '<tr>';
+                    keys.forEach(k => {
+                        html += `<td>${escapeHtml(row[k])}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                output.innerHTML = html;
+            } catch (err) {
+                output.innerHTML = `<p>Error: ${escapeHtml(err.message)}</p>`;
+                jsonOutput.textContent = '';
+            }
+        }
+
+        entitySelect.addEventListener('change', () => {
+            loadBtn.disabled = !entitySelect.value;
+        });
+
+        loadBtn.addEventListener('click', () => loadData(entitySelect.value));
+        refreshBtn.addEventListener('click', checkHealth);
+
+        // Init
+        loadEntities();
+        checkHealth();
+    </script>
+</body>
+</html>
