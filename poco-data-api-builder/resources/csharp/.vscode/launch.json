@@ -2,18 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch DAB Client",
-            "type": "coreclr",
-            "request": "launch",
-            "program": "${workspaceFolder}/Gen/${input:clientType}/bin/Debug/net8.0/${input:clientType}.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/Gen/${input:clientType}",
-            "console": "externalTerminal",
-            "stopAtEntry": false,
-            "preLaunchTask": "build"
-        },
-        {
-            "name": "Launch Client (Console)",
+            "name": "🖥️ Console Client",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/Gen/Client/bin/Debug/net8.0/Client.dll",
@@ -24,7 +13,7 @@
             "preLaunchTask": "build"
         },
         {
-            "name": "Launch Web Explorer",
+            "name": "🌐 Web Explorer",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/Gen/Web/bin/Debug/net8.0/Web.dll",
@@ -35,21 +24,9 @@
             "preLaunchTask": "build",
             "serverReadyAction": {
                 "action": "openExternally",
-                "pattern": "\\bhttp://localhost:(\\d+)",
+                "pattern": "Now listening on: http://localhost:(\\d+)",
                 "uriFormat": "http://localhost:%s"
             }
-        }
-    ],
-    "inputs": [
-        {
-            "id": "clientType",
-            "type": "pickString",
-            "description": "Which client to launch?",
-            "options": [
-                { "label": "🖥️ Console Client", "value": "Client" },
-                { "label": "🌐 Web Explorer", "value": "Web" }
-            ],
-            "default": "Client"
         }
     ]
 }

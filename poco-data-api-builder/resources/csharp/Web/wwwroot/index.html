@@ -6,56 +6,95 @@
     <title>Data API Builder Explorer</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
-        :root { --pico-font-size: 16px; }
-        main { padding-top: 1rem; }
-        table { font-size: 0.875rem; }
-        .status { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.5rem; }
+        :root { --pico-font-size: 14px; --pico-spacing: 0.75rem; }
+        body { padding: 1rem; }
+        h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+        .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .header h1 { margin: 0; }
+        .status { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
         .status.ok { background: #2ecc40; }
         .status.error { background: #ff4136; }
-        #output { max-height: 60vh; overflow: auto; }
-        pre { font-size: 0.75rem; }
+        .status-text { font-size: 0.75rem; color: #666; }
+        .controls { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+        .controls select { flex: 1; margin: 0; padding: 0.4rem 0.6rem; font-size: 0.875rem; }
+        .controls button { margin: 0; padding: 0.4rem 0.75rem; font-size: 0.8rem; white-space: nowrap; }
+        table { font-size: 0.8rem; }
+        th, td { padding: 0.4rem 0.6rem; }
+        #output { max-height: 65vh; overflow: auto; }
+        pre { font-size: 0.7rem; margin: 0; }
+        .panels { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .panels details { flex: 1; }
+        .panels summary { 
+            font-size: 0.75rem; 
+            padding: 0.3rem 0.6rem; 
+            background: #f0f0f0; 
+            border-radius: 4px; 
+            cursor: pointer;
+            list-style: none;
+        }
+        .panels summary::-webkit-details-marker { display: none; }
+        .panels summary::before { content: '▶ '; font-size: 0.6rem; }
+        .panels details[open] summary::before { content: '▼ '; }
+        .panels details[open] summary { border-radius: 4px 4px 0 0; }
+        .panel-content { background: #f8f8f8; padding: 0.5rem; border-radius: 0 0 4px 4px; font-size: 0.7rem; }
+        .debug p { margin: 0.2rem 0; font-family: monospace; }
+        .debug-label { font-weight: bold; color: #666; }
+        .debug-url { word-break: break-all; }
+        .error-box { background: #ffebee; border: 1px solid #f44336; padding: 0.75rem; border-radius: 4px; font-size: 0.8rem; }
     </style>
 </head>
 <body>
-    <main class="container">
-        <hgroup>
-            <h1>📊 Data API Builder Explorer</h1>
-            <p><span id="status" class="status"></span><span id="statusText">Checking DAB...</span></p>
-        </hgroup>
+    <div class="header">
+        <h1>📊 Data API Builder Explorer</h1>
+        <span><span id="status" class="status"></span> <span id="statusText" class="status-text">Checking...</span></span>
+    </div>
 
-        <div class="grid">
-            <select id="entitySelect" aria-label="Select entity">
-                <option value="">-- Select an entity --</option>
-            </select>
-            <button id="loadBtn" disabled>Load Data</button>
-            <button id="refreshBtn" class="secondary outline">↻ Check DAB</button>
-        </div>
+    <div class="controls">
+        <select id="entitySelect" aria-label="Select entity">
+            <option value="">-- Select entity --</option>
+        </select>
+        <button id="loadBtn">Load</button>
+    </div>
 
-        <article id="output">
-            <p>Select an entity to view data.</p>
-        </article>
+    <div id="output">
+        <p>Select an entity to view data.</p>
+    </div>
 
+    <div class="panels">
         <details>
-            <summary>View as JSON</summary>
-            <pre id="jsonOutput"></pre>
+            <summary>JSON Response</summary>
+            <div class="panel-content"><pre id="jsonOutput">-</pre></div>
         </details>
-    </main>
+        <details>
+            <summary>Debug Info</summary>
+            <div class="panel-content debug">
+                <p><span class="debug-label">DAB:</span> <span id="debugBaseUrl" class="debug-url"></span></p>
+                <p><span class="debug-label">Path:</span> <span id="debugApiPath"></span></p>
+                <p><span class="debug-label">Last:</span> <span id="debugLastUrl" class="debug-url">-</span></p>
+                <p><span class="debug-label">Status:</span> <span id="debugLastStatus">-</span></p>
+            </div>
+        </details>
+    </div>
 
     <script>
-        // Configuration - injected by generator
         const DAB_BASE_URL = '{{DAB_BASE_URL}}';
         const API_PATH = '{{API_PATH}}';
         const ENTITIES = {{ENTITIES_JSON}};
 
         const entitySelect = document.getElementById('entitySelect');
         const loadBtn = document.getElementById('loadBtn');
-        const refreshBtn = document.getElementById('refreshBtn');
         const output = document.getElementById('output');
         const jsonOutput = document.getElementById('jsonOutput');
         const status = document.getElementById('status');
         const statusText = document.getElementById('statusText');
+        const debugBaseUrl = document.getElementById('debugBaseUrl');
+        const debugApiPath = document.getElementById('debugApiPath');
+        const debugLastUrl = document.getElementById('debugLastUrl');
+        const debugLastStatus = document.getElementById('debugLastStatus');
 
-        // Escape HTML to prevent XSS
+        debugBaseUrl.textContent = DAB_BASE_URL;
+        debugApiPath.textContent = API_PATH;
+
         function escapeHtml(text) {
             if (text === null || text === undefined) return '<em>null</em>';
             const str = typeof text === 'object' ? JSON.stringify(text) : String(text);
@@ -64,36 +103,13 @@
             return div.innerHTML;
         }
 
-        async function checkHealth() {
-            try {
-                // Try to fetch the first entity to verify DAB is responding
-                // DAB doesn't have a dedicated health endpoint, so we use $top=0 for minimal data
-                const testEntity = ENTITIES.length > 0 ? ENTITIES[0].name : null;
-                if (!testEntity) {
-                    status.className = 'status error';
-                    statusText.textContent = 'No entities configured';
-                    return false;
-                }
-                
-                const res = await fetch(`${DAB_BASE_URL}${API_PATH}/${testEntity}?$top=0`);
-                if (res.ok) {
-                    status.className = 'status ok';
-                    statusText.textContent = 'DAB Connected';
-                    loadBtn.disabled = !entitySelect.value;
-                    return true;
-                } else {
-                    throw new Error(`HTTP ${res.status}`);
-                }
-            } catch (err) {
-                status.className = 'status error';
-                statusText.textContent = 'DAB Unavailable - run: dab start';
-                loadBtn.disabled = true;
-                return false;
-            }
+        function updateDebug(url, stat) {
+            debugLastUrl.textContent = url;
+            debugLastStatus.textContent = stat;
         }
 
         function loadEntities() {
-            entitySelect.innerHTML = '<option value="">-- Select an entity --</option>';
+            entitySelect.innerHTML = '<option value="">-- Select entity --</option>';
             ENTITIES.forEach(e => {
                 const opt = document.createElement('option');
                 opt.value = e.name;
@@ -103,57 +119,69 @@
         }
 
         async function loadData(entityName) {
-            if (!entityName) return;
+            if (!entityName) {
+                output.innerHTML = '<p>Select an entity to view data.</p>';
+                return;
+            }
+            
             output.innerHTML = '<p aria-busy="true">Loading...</p>';
+            const url = `${DAB_BASE_URL}${API_PATH}/${entityName}`;
             
             try {
-                const url = `${DAB_BASE_URL}${API_PATH}/${entityName}`;
                 const res = await fetch(url);
+                updateDebug(url, `${res.status} ${res.statusText}`);
                 
                 if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    const body = await res.text();
+                    status.className = 'status error';
+                    statusText.textContent = `Error ${res.status}`;
+                    output.innerHTML = `<div class="error-box"><strong>${res.status}</strong> <code>${escapeHtml(url)}</code><pre>${escapeHtml(body)}</pre></div>`;
+                    jsonOutput.textContent = body;
+                    return;
                 }
                 
-                const json = await res.json();
-                const data = json.value || json; // DAB returns { value: [...] }
+                status.className = 'status ok';
+                statusText.textContent = 'Connected';
                 
+                const json = await res.json();
+                const data = json.value || json;
                 jsonOutput.textContent = JSON.stringify(data, null, 2);
                 
                 if (!Array.isArray(data) || data.length === 0) {
-                    output.innerHTML = '<p>No data found.</p>';
+                    output.innerHTML = '<p>No data.</p>';
                     return;
                 }
 
-                // Build table with escaped HTML to prevent XSS
                 const keys = Object.keys(data[0]);
                 let html = '<table><thead><tr>';
                 keys.forEach(k => html += `<th>${escapeHtml(k)}</th>`);
                 html += '</tr></thead><tbody>';
                 data.forEach(row => {
                     html += '<tr>';
-                    keys.forEach(k => {
-                        html += `<td>${escapeHtml(row[k])}</td>`;
-                    });
+                    keys.forEach(k => html += `<td>${escapeHtml(row[k])}</td>`);
                     html += '</tr>';
                 });
                 html += '</tbody></table>';
                 output.innerHTML = html;
             } catch (err) {
-                output.innerHTML = `<p>Error: ${escapeHtml(err.message)}</p>`;
+                updateDebug(url, `FAILED: ${err.message}`);
+                status.className = 'status error';
+                statusText.textContent = 'Unavailable';
+                output.innerHTML = `<div class="error-box">
+                    <strong>Connection failed</strong>
+                    <p><code>${escapeHtml(url)}</code></p>
+                    <p>${escapeHtml(err.message)}</p>
+                    <p>1. Run <code>dab start</code><br>
+                    2. Enable CORS: <code>dab configure --runtime.host.cors.origins "http://localhost:5001"</code></p>
+                </div>`;
                 jsonOutput.textContent = '';
             }
         }
 
-        entitySelect.addEventListener('change', () => {
-            loadBtn.disabled = !entitySelect.value;
-        });
-
         loadBtn.addEventListener('click', () => loadData(entitySelect.value));
-        refreshBtn.addEventListener('click', checkHealth);
-
-        // Init
         loadEntities();
-        checkHealth();
+        status.className = 'status';
+        statusText.textContent = 'Ready';
     </script>
 </body>
 </html>

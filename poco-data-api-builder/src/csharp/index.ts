@@ -204,11 +204,24 @@ export async function generateCSharpCode(
       const diagramPath = path.join(genFolder, 'diagram.md');
       await writeDiagram(diagramContent, diagramPath);
       await openDiagramPreview(diagramPath);
+
+      // Configure CORS for Web Explorer
+      progress.report({ message: 'Configuring CORS for Web Explorer...' });
+      await configureCors(configDir);
     }
   );
 
   result.success = result.errors.length === 0;
   return result;
+}
+
+async function configureCors(configDir: string): Promise<void> {
+  const terminal = vscode.window.createTerminal({
+    name: 'DAB Configure CORS',
+    cwd: configDir
+  });
+  terminal.sendText('dab configure --runtime.host.cors.origins "http://localhost:5001"');
+  terminal.show();
 }
 
 async function getColumnMetadata(
