@@ -49,6 +49,10 @@ Always verify shared code is used and stale code is removed:
 
 **IMPORTANT:** Always reference these documentation files when working with DAB extensions. They contain critical context, patterns, and solutions.
 
+### Extensions & Overview
+- **[Extensions Overview](dab-extension/extensions-overview.md)** - Complete catalog of all 10 DAB extensions, their purposes, features, dependencies, and relationships. Comprehensive reference for understanding the full extension suite.
+- **[Packaging & Deployment](dab-extension/packaging.md)** - Detailed guide to `package.bat`, VSIX creation, publishing workflow, and extension distribution. Essential for packaging and releasing extensions.
+
 ### Architecture & Migration
 - **[Shared Package Migration Guide](dab-extension/shared-migration.md)** - Complete migration strategy, package structure, extension dependencies, migration checklists, and testing setup. Start here for migration tasks.
 - **[Testing Guidelines](dab-extension/testing.md)** - Unit testing, integration testing, fixture management, VS Code API limitations, and best practices. Critical for understanding what can/cannot be tested in Mocha.
