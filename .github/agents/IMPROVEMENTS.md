@@ -1,4 +1,4 @@
-# DAB Agent Improvements - Learning from Azure SWA Skill
+ DAB Agent Improvements - Learning from Azure SWA Skill
 
 ## Summary of Improvements Applied
 

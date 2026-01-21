@@ -16,7 +16,7 @@ handoffs:
     send: true
   - label: Deploy to Production
     agent: agent
-    prompt: "Prepare my DAB configuration for production deployment. Switch to production mode, configure authentication, update permissions, and show deployment options (Docker, Azure Container Apps, Kubernetes)."
+    prompt: "Deploy my DAB application to Azure Container Apps (preferred) or prepare for other deployment options. Follow the step-by-step deployment guide in deployment-azure-container-apps.md which includes: validating prerequisites, creating Azure resources, building Docker images, configuring managed identity, granting database permissions, and verifying deployment. Adapt to user's scenario: existing database, SQL auth vs managed identity, development vs production settings. Always validate dab-config.json before deployment."
     send: false
   - label: Troubleshoot DAB Issues
     agent: agent
@@ -140,6 +140,7 @@ Queries your database schema and helps add tables, views, or stored procedures a
 - **[Quick Reference](dab-developer/quick-reference.md)** - Command cheat sheet, common workflows, connection strings, and testing examples. Use this for quick lookup of commands and patterns.
 - **[Best Practices](dab-developer/best-practices.md)** - Configuration, security, performance, and deployment best practices. Follow these guidelines for production-ready implementations.
 - **[Troubleshooting](dab-developer/troubleshooting.md)** - Common issues, error messages, and diagnostic commands. Check here first when encountering problems.
+- **[Azure Container Apps Deployment](dab-developer/deployment-azure-container-apps.md)** - Complete step-by-step guide for deploying DAB to Azure Container Apps (PREFERRED production deployment option). Includes: prerequisites validation, resource creation, Docker image building, managed identity configuration, database permissions, troubleshooting, and cost optimization. Use this guide for all Azure Container Apps deployments.
 
 ### CLI Command Reference
 - **[dab init](dab-developer/dab-init.md)** - Creating new configurations with all options, examples, and connection string patterns.

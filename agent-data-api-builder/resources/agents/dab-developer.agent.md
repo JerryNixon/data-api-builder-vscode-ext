@@ -16,7 +16,7 @@ handoffs:
     send: true
   - label: Deploy to Production
     agent: agent
-    prompt: "Prepare my DAB configuration for production deployment. Switch to production mode, configure authentication, update permissions, and show deployment options (Docker, Azure Container Apps, Kubernetes)."
+    prompt: "Deploy my DAB application to Azure Container Apps (preferred) or prepare for other deployment options. Follow the step-by-step deployment guide in deployment-azure-container-apps.md which includes: validating prerequisites, creating Azure resources, building Docker images, configuring managed identity, granting database permissions, and verifying deployment. Adapt to user's scenario: existing database, SQL auth vs managed identity, development vs production settings. Always validate dab-config.json before deployment."
     send: false
   - label: Troubleshoot DAB Issues
     agent: agent
@@ -140,6 +140,7 @@ Queries your database schema and helps add tables, views, or stored procedures a
 - **[Quick Reference](dab-developer/quick-reference.md)** - Command cheat sheet, common workflows, connection strings, and testing examples. Use this for quick lookup of commands and patterns.
 - **[Best Practices](dab-developer/best-practices.md)** - Configuration, security, performance, and deployment best practices. Follow these guidelines for production-ready implementations.
 - **[Troubleshooting](dab-developer/troubleshooting.md)** - Common issues, error messages, and diagnostic commands. Check here first when encountering problems.
+- **[Azure Container Apps Deployment](dab-developer/deployment-azure-container-apps.md)** - Complete step-by-step guide for deploying DAB to Azure Container Apps (PREFERRED production deployment option). Includes: prerequisites validation, resource creation, Docker image building, managed identity configuration, database permissions, troubleshooting, and cost optimization. Use this guide for all Azure Container Apps deployments.
 
 ### CLI Command Reference
 - **[dab init](dab-developer/dab-init.md)** - Creating new configurations with all options, examples, and connection string patterns.
@@ -3715,7 +3716,435 @@ dab start
 
 ---
 
-# SECTION 8: ENTITIES
+# SECTION 8: DEPLOYMENT AZURE CONTAINER APPS
+
+﻿# Deploying DAB to Azure Container Apps
+
+## Overview
+
+Azure Container Apps (ACA) is the **preferred production deployment option** for Data API Builder unless the user has an existing production infrastructure plan. This guide provides step-by-step deployment guidance with exact commands, retry requirements, and troubleshooting.
+
+---
+
+## Why Azure Container Apps?
+
+**Recommended for DAB because:**
+-  **Managed infrastructure** - No VM or Kubernetes cluster management
+-  **Auto-scaling** - Scales to zero when idle, saves costs
+-  **Built-in ingress** - HTTPS endpoints without manual configuration
+-  **Managed identity** - Passwordless database authentication
+-  **Fast deployment** - 5-8 minutes from zero to production API
+-  **Cost-effective** - Pay-per-use, free tier available
+
+**Alternative options:** Docker on VM, Azure Kubernetes Service (AKS), Azure App Service (requires custom container)
+
+---
+
+## Prerequisites
+
+### Required Tools
+
+**Azure CLI** (Required for all Azure operations):
+```powershell
+# Check if installed
+az --version
+
+# Install if needed
+# Windows: https://aka.ms/installazurecliwindows
+# Mac: brew install azure-cli
+# Linux: curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+```
+
+**DAB CLI** (Required for config validation):
+```powershell
+# Check if installed
+dab --version
+
+# Install if needed
+dotnet tool install --global Microsoft.DataApiBuilder
+
+# Minimum version: 1.2.10 (check for latest)
+```
+
+**SQLCMD** (Required for SQL Server/Azure SQL only):
+```powershell
+# Check if installed
+sqlcmd -?
+
+# Install if needed
+# Windows: winget install sqlcmd
+# Mac/Linux: https://aka.ms/sqlcmd
+```
+
+**Docker** (Optional - only if building custom images locally):
+```powershell
+docker --version
+```
+
+---
+
+## Deployment Architecture
+
+### Resources Created
+
+```
+Resource Group
+  Azure SQL Server (or existing database)
+     SQL Database
+  Azure Container Registry (ACR)
+  Log Analytics Workspace
+  Container Apps Environment
+     Container App (DAB API)
+  Managed Identity (for passwordless auth)
+```
+
+### Configuration Strategy
+
+**Baked Configuration** (Recommended):
+- `dab-config.json` baked into Docker image
+- Connection string via environment variable
+- No secrets in config file
+- Simpler deployment, faster startup
+
+**Runtime Configuration** (Alternative):
+- Mount config from Azure Files or Blob Storage
+- Allows config updates without rebuild
+- More complex setup
+
+**This guide uses the baked configuration approach.**
+
+
+---
+
+## Authentication Scenarios
+
+### Scenario 1: Managed Identity (Recommended)
+
+**Best for:** Azure SQL Database, Azure SQL Managed Instance
+
+**Connection string format:**
+```
+Server=myserver.database.windows.net;Database=mydb;Authentication=Active Directory Default;
+```
+
+**Benefits:**
+-  No passwords to manage
+-  Automatic credential rotation
+-  Azure AD security integration
+
+**Grants needed:**
+```sql
+CREATE USER [container-app-identity] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [container-app-identity];
+ALTER ROLE db_datawriter ADD MEMBER [container-app-identity];
+GRANT EXECUTE TO [container-app-identity];
+```
+
+### Scenario 2: SQL Authentication
+
+**Best for:** On-premises SQL Server, Azure SQL with SQL auth
+
+**Connection string format:**
+```
+Server=myserver.database.windows.net;Database=mydb;User ID=username;Password=password;
+```
+
+**Requirements:**
+- Store password in Azure Key Vault
+- Reference via Container App secret
+- Less secure than managed identity
+
+### Scenario 3: Existing Database
+
+**User may have:**
+- Existing Azure SQL Database
+- On-premises SQL Server (requires VNet integration)
+- PostgreSQL, MySQL, Cosmos DB
+
+**Check what user has before creating new resources.**
+
+
+---
+
+## Deployment Steps
+
+### Step 1: Validate Prerequisites (1 minute)
+
+Check tools installation:
+```powershell
+# Azure CLI
+az --version
+if ($LASTEXITCODE -ne 0) { Write-Error "Install Azure CLI" }
+
+# DAB CLI
+dab --version
+if ($LASTEXITCODE -ne 0) { Write-Error "Install DAB CLI" }
+
+# SQL CMD (for SQL Server only)
+sqlcmd -?
+```
+
+Validate configuration files:
+```powershell
+# Verify dab-config.json exists
+if (-not (Test-Path "./dab-config.json")) {
+    Write-Error "dab-config.json not found"
+}
+
+# Validate DAB config
+dab validate --config ./dab-config.json
+```
+
+Create Dockerfile if needed:
+```dockerfile
+ARG DAB_VERSION=1.2.10
+FROM mcr.microsoft.com/azure-databases/data-api-builder:${DAB_VERSION}
+
+COPY dab-config.json /App/dab-config.json
+RUN chmod 444 /App/dab-config.json || true
+
+EXPOSE 5000
+```
+
+# # #   S t e p   8 :   D e p l o y   C o n t a i n e r   A p p 
+ 
+ C r e a t e   C o n t a i n e r   A p p   w i t h   m a n a g e d   i d e n t i t y : 
+ ` ` ` p o w e r s h e l l 
+ $ c o n t a i n e r A p p   =   " d a b - a p i " 
+ a z   c o n t a i n e r a p p   c r e a t e   \ 
+     - - n a m e   $ c o n t a i n e r A p p   \ 
+     - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   \ 
+     - - e n v i r o n m e n t   $ a c a E n v   \ 
+     - - i m a g e   " $ a c r L o g i n S e r v e r / $ i m a g e T a g "   \ 
+     - - t a r g e t - p o r t   5 0 0 0   \ 
+     - - i n g r e s s   e x t e r n a l   \ 
+     - - m i n - r e p l i c a s   1   \ 
+     - - m a x - r e p l i c a s   1 0   \ 
+     - - c p u   0 . 5   \ 
+     - - m e m o r y   1 . 0 G i   \ 
+     - - s y s t e m - a s s i g n e d 
+ 
+ $ p r i n c i p a l I d   =   a z   c o n t a i n e r a p p   s h o w   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   i d e n t i t y . p r i n c i p a l I d   - - o u t p u t   t s v 
+ ` ` ` 
+ 
+ # # #   S t e p   9 :   G r a n t   P e r m i s s i o n s 
+ 
+ G r a n t   A C R   a c c e s s : 
+ ` ` ` p o w e r s h e l l 
+ $ a c r I d   =   a z   a c r   s h o w   - - n a m e   $ a c r N a m e   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   i d   - - o u t p u t   t s v 
+ a z   r o l e   a s s i g n m e n t   c r e a t e   - - a s s i g n e e   $ p r i n c i p a l I d   - - r o l e   A c r P u l l   - - s c o p e   $ a c r I d 
+ a z   c o n t a i n e r a p p   r e g i s t r y   s e t   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - s e r v e r   $ a c r L o g i n S e r v e r   - - i d e n t i t y   s y s t e m 
+ ` ` ` 
+ 
+ G r a n t   d a t a b a s e   a c c e s s : 
+ ` ` ` p o w e r s h e l l 
+ $ i d e n t i t y N a m e   =   a z   a d   s p   s h o w   - - i d   $ p r i n c i p a l I d   - - q u e r y   d i s p l a y N a m e   - - o u t p u t   t s v 
+ s q l c m d   - S   $ s q l F q d n   - d   $ s q l D a t a b a s e   - G   - Q   " 
+ C R E A T E   U S E R   [ $ i d e n t i t y N a m e ]   F R O M   E X T E R N A L   P R O V I D E R ; 
+ A L T E R   R O L E   d b _ d a t a r e a d e r   A D D   M E M B E R   [ $ i d e n t i t y N a m e ] ; 
+ A L T E R   R O L E   d b _ d a t a w r i t e r   A D D   M E M B E R   [ $ i d e n t i t y N a m e ] ; 
+ G R A N T   E X E C U T E   T O   [ $ i d e n t i t y N a m e ] ; " 
+ ` ` ` 
+ 
+ # # #   S t e p   1 0 :   C o n f i g u r e   C o n n e c t i o n   S t r i n g 
+ 
+ ` ` ` p o w e r s h e l l 
+ $ c o n n e c t i o n S t r i n g   =   " S e r v e r = $ s q l F q d n ; D a t a b a s e = $ s q l D a t a b a s e ; A u t h e n t i c a t i o n = A c t i v e   D i r e c t o r y   D e f a u l t ; " 
+ a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - s e t - e n v - v a r s   " M S S Q L _ C O N N E C T I O N _ S T R I N G = $ c o n n e c t i o n S t r i n g " 
+ ` ` ` 
+ 
+ # # #   S t e p   1 1 :   R e s t a r t   a n d   V e r i f y 
+ 
+ ` ` ` p o w e r s h e l l 
+ $ r e v i s i o n   =   a z   c o n t a i n e r a p p   r e v i s i o n   l i s t   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   " [ 0 ] . n a m e "   - - o u t p u t   t s v 
+ a z   c o n t a i n e r a p p   r e v i s i o n   r e s t a r t   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - r e v i s i o n   $ r e v i s i o n 
+ S t a r t - S l e e p   - S e c o n d s   1 5 
+ 
+ $ c o n t a i n e r U r l   =   a z   c o n t a i n e r a p p   s h o w   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   p r o p e r t i e s . c o n f i g u r a t i o n . i n g r e s s . f q d n   - - o u t p u t   t s v 
+ $ a p i U r l   =   " h t t p s : / / $ c o n t a i n e r U r l " 
+ 
+ #   H e a l t h   c h e c k   w i t h   r e t r y 
+ $ m a x R e t r i e s   =   1 0 ;   $ r e t r y C o u n t   =   0 ;   $ s u c c e s s   =   $ f a l s e 
+ w h i l e   ( $ r e t r y C o u n t   - l t   $ m a x R e t r i e s   - a n d   - n o t   $ s u c c e s s )   { 
+         t r y   { 
+                 I n v o k e - W e b R e q u e s t   - U r i   " $ a p i U r l / a p i "   - U s e B a s i c P a r s i n g   |   O u t - N u l l 
+                 $ s u c c e s s   =   $ t r u e 
+                 W r i t e - H o s t   "   H e a l t h   c h e c k   p a s s e d " 
+         }   c a t c h   { 
+                 $ r e t r y C o u n t + + 
+                 S t a r t - S l e e p   - S e c o n d s   5 
+         } 
+ } 
+ ` ` ` 
+ 
+ - - - 
+ 
+ # #   T r o u b l e s h o o t i n g   C o m m o n   I s s u e s 
+ 
+ # # #   I s s u e   1 :   C o n t a i n e r   K e e p s   R e s t a r t i n g 
+ 
+ * * S y m p t o m s : * *   R e s t a r t   c o u n t   >   0 ,   c o n t a i n e r   c y c l i n g 
+ 
+ * * D i a g n o s i s : * * 
+ ` ` ` p o w e r s h e l l 
+ a z   c o n t a i n e r a p p   r e p l i c a   l i s t   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   " [ 0 ] . p r o p e r t i e s . c o n t a i n e r s [ 0 ] . r e s t a r t C o u n t " 
+ a z   c o n t a i n e r a p p   l o g s   s h o w   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p 
+ ` ` ` 
+ 
+ * * C o m m o n   c a u s e s : * * 
+ 1 .   I n v a l i d   c o n n e c t i o n   s t r i n g   -   C h e c k   e n v   v a r s 
+ 2 .   D a t a b a s e   p e r m i s s i o n s   n o t   g r a n t e d   -   R e - r u n   g r a n t   s c r i p t 
+ 3 .   I n v a l i d   d a b - c o n f i g . j s o n   -   R u n   ` d a b   v a l i d a t e `   l o c a l l y 
+ 
+ * * F i x : * * 
+ ` ` ` p o w e r s h e l l 
+ #   U p d a t e   c o n n e c t i o n   s t r i n g 
+ a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - s e t - e n v - v a r s   " M S S Q L _ C O N N E C T I O N _ S T R I N G = < c o r r e c t e d > " 
+ #   R e s t a r t 
+ a z   c o n t a i n e r a p p   r e v i s i o n   r e s t a r t   - - n a m e   $ c o n t a i n e r A p p   - - r e v i s i o n   $ r e v i s i o n 
+ ` ` ` 
+ 
+ # # #   I s s u e   2 :   4 0 4   o n   A P I   E n d p o i n t s 
+ 
+ * * C o m m o n   c a u s e s : * * 
+ 1 .   R E S T   d i s a b l e d   i n   d a b - c o n f i g . j s o n 
+ 2 .   W r o n g   e n t i t y   n a m e   ( c a s e - s e n s i t i v e ) 
+ 3 .   W r o n g   R E S T   p a t h   c o n f i g u r a t i o n 
+ 
+ * * F i x : * * 
+ ` ` ` p o w e r s h e l l 
+ #   V e r i f y   c o n f i g   l o c a l l y 
+ d a b   v a l i d a t e   - - c o n f i g   . / d a b - c o n f i g . j s o n 
+ #   R e b u i l d   i m a g e 
+ a z   a c r   b u i l d   - - r e g i s t r y   $ a c r N a m e   - - i m a g e   d a b - a p i : l a t e s t   - - f i l e   . / D o c k e r f i l e   . 
+ #   U p d a t e   a p p 
+ a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - i m a g e   " $ a c r L o g i n S e r v e r / d a b - a p i : l a t e s t " 
+ ` ` ` 
+ 
+ # # #   I s s u e   3 :   D a t a b a s e   C o n n e c t i o n   F a i l e d 
+ 
+ * * D i a g n o s i s : * * 
+ ` ` ` p o w e r s h e l l 
+ #   C h e c k   f i r e w a l l 
+ a z   s q l   s e r v e r   f i r e w a l l - r u l e   l i s t   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - s e r v e r   $ s q l S e r v e r 
+ #   T e s t   c o n n e c t i o n 
+ s q l c m d   - S   $ s q l F q d n   - d   $ s q l D a t a b a s e   - G   - Q   " S E L E C T   1 " 
+ ` ` ` 
+ 
+ * * F i x : * * 
+ ` ` ` p o w e r s h e l l 
+ #   E n s u r e   A z u r e   s e r v i c e s   a l l o w e d 
+ a z   s q l   s e r v e r   f i r e w a l l - r u l e   c r e a t e   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - s e r v e r   $ s q l S e r v e r   - - n a m e   A l l o w A z u r e   - - s t a r t - i p - a d d r e s s   0 . 0 . 0 . 0   - - e n d - i p - a d d r e s s   0 . 0 . 0 . 0 
+ #   R e - g r a n t   p e r m i s s i o n s 
+ s q l c m d   - S   $ s q l F q d n   - d   $ s q l D a t a b a s e   - G   - Q   " A L T E R   R O L E   d b _ d a t a r e a d e r   A D D   M E M B E R   [ $ i d e n t i t y N a m e ] ; " 
+ ` ` ` 
+ 
+ # # #   I s s u e   4 :   S l o w   C o l d   S t a r t s 
+ 
+ * * C a u s e : * *   S c a l e - t o - z e r o   w i t h   m i n - r e p l i c a s   =   0 
+ 
+ * * F i x : * * 
+ ` ` ` p o w e r s h e l l 
+ #   K e e p   a l w a y s   r u n n i n g 
+ a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - m i n - r e p l i c a s   1 
+ ` ` ` 
+ 
+ - - - 
+ 
+ # #   U p d a t i n g   D e p l o y e d   A p p l i c a t i o n 
+ 
+ U p d a t e   c o n f i g u r a t i o n : 
+ ` ` ` p o w e r s h e l l 
+ #   V a l i d a t e   c h a n g e s 
+ d a b   v a l i d a t e   - - c o n f i g   . / d a b - c o n f i g . j s o n 
+ #   R e b u i l d   w i t h   n e w   t a g 
+ $ n e w T a g   =   " d a b - a p i : $ ( G e t - D a t e   - F o r m a t   ' y y y y M M d d H H m m s s ' ) " 
+ a z   a c r   b u i l d   - - r e g i s t r y   $ a c r N a m e   - - i m a g e   $ n e w T a g   - - f i l e   . / D o c k e r f i l e   . 
+ #   U p d a t e   a p p 
+ a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - i m a g e   " $ a c r L o g i n S e r v e r / $ n e w T a g " 
+ ` ` ` 
+ 
+ - - - 
+ 
+ # #   C o s t   O p t i m i z a t i o n 
+ 
+ * * D e v e l o p m e n t : * * 
+ -   ` - - m i n - r e p l i c a s   0 `   ( s c a l e   t o   z e r o ) 
+ -   S Q L   F r e e   t i e r   ( 3 2 G B   l i m i t ) 
+ -   A C R   B a s i c   ( $ 5 / m o n t h ) 
+ 
+ * * P r o d u c t i o n : * * 
+ -   ` - - m i n - r e p l i c a s   1 `   ( a l w a y s   a v a i l a b l e ) 
+ -   S Q L   S t a n d a r d   S 1 + 
+ -   A C R   S t a n d a r d   ( b e t t e r   p e r f o r m a n c e ) 
+ 
+ - - - 
+ 
+ # #   S e c u r i t y   B e s t   P r a c t i c e s 
+ 
+ 1 .   * * A l w a y s   u s e   M a n a g e d   I d e n t i t y * *   f o r   A z u r e   S Q L 
+ 2 .   * * N e v e r   h a r d c o d e   p a s s w o r d s * *   -   u s e   s e c r e t s   o r   K e y   V a u l t     
+ 3 .   * * E n a b l e   H T T P S   o n l y * *   ( d e f a u l t   i n   C o n t a i n e r   A p p s ) 
+ 4 .   * * U s e   p r i v a t e   e n d p o i n t s * *   f o r   p r o d u c t i o n   d a t a b a s e s 
+ 5 .   * * C o n f i g u r e   A z u r e   A D   a u t h e n t i c a t i o n * *   i n   D A B   r u n t i m e   c o n f i g 
+ 
+ - - - 
+ 
+ # #   D e p l o y m e n t   C h e c k l i s t 
+ 
+ ` ` ` m a r k d o w n 
+ P r e r e q u i s i t e s : 
+ -   [   ]   A z u r e   C L I   i n s t a l l e d   a n d   a u t h e n t i c a t e d 
+ -   [   ]   D A B   C L I   i n s t a l l e d   ( v 1 . 2 . 1 0 + ) 
+ -   [   ]   d a b - c o n f i g . j s o n   v a l i d a t e d 
+ -   [   ]   D o c k e r f i l e   c r e a t e d 
+ 
+ R e s o u r c e s   ( 8 - 1 0   m i n u t e s ) : 
+ -   [   ]   R e s o u r c e   G r o u p   c r e a t e d 
+ -   [   ]   S Q L   S e r v e r   +   D a t a b a s e   c o n f i g u r e d 
+ -   [   ]   D a t a b a s e   s c h e m a   d e p l o y e d 
+ -   [   ]   L o g   A n a l y t i c s   w o r k s p a c e   c r e a t e d 
+ -   [   ]   C o n t a i n e r   A p p s   e n v i r o n m e n t   c r e a t e d 
+ -   [   ]   C o n t a i n e r   R e g i s t r y   c r e a t e d 
+ -   [   ]   D o c k e r   i m a g e   b u i l t   a n d   p u s h e d 
+ -   [   ]   C o n t a i n e r   A p p   c r e a t e d   w i t h   m a n a g e d   i d e n t i t y 
+ -   [   ]   P e r m i s s i o n s   g r a n t e d   ( A C R   +   d a t a b a s e ) 
+ -   [   ]   C o n n e c t i o n   s t r i n g   c o n f i g u r e d 
+ -   [   ]   C o n t a i n e r   r e s t a r t e d 
+ 
+ V e r i f i c a t i o n : 
+ -   [   ]   H e a l t h   c h e c k   p a s s e d   ( 2 0 0   o n   / a p i ) 
+ -   [   ]   E n t i t y   q u e r y   s u c c e s s f u l 
+ -   [   ]   L o g s   s h o w   s u c c e s s f u l   s t a r t u p 
+ -   [   ]   R e s t a r t   c o u n t   =   0 
+ ` ` ` 
+ 
+ - - - 
+ 
+ # #   T i m e   E s t i m a t e s 
+ 
+ * * T o t a l : * *   8 - 1 0   m i n u t e s   f o r   n e w   d e p l o y m e n t 
+ 
+ * * B r e a k d o w n : * * 
+ -   P r e r e q u i s i t e s :   1   m i n 
+ -   A u t h e n t i c a t i o n :   3 0   s e c     
+ -   R e s o u r c e   g r o u p :   1 5   s e c 
+ -   S Q L   S e r v e r   +   D a t a b a s e :   5   m i n 
+ -   C o n t a i n e r   i n f r a s t r u c t u r e :   2   m i n 
+ -   B u i l d   &   p u s h   i m a g e :   2   m i n 
+ -   D e p l o y   C o n t a i n e r   A p p :   1   m i n 
+ -   C o n f i g u r e   &   v e r i f y :   2   m i n 
+ 
+ * * U p d a t e   e x i s t i n g : * *   2 - 3   m i n u t e s 
+ 
+ - - - 
+ 
+ T h i s   i s   t h e   * * g o l d e n   p a t h * *   f o r   D A B   p r o d u c t i o n   d e p l o y m e n t   o n   A z u r e   C o n t a i n e r   A p p s .   A d j u s t   b a s e d   o n   u s e r ' s   s p e c i f i c   s c e n a r i o   ( e x i s t i n g   d a t a b a s e ,   d i f f e r e n t   a u t h e n t i c a t i o n ,   e t c . ) .  
+ 
+
+---
+
+# SECTION 9: ENTITIES
 
 # Entity Configuration Reference
 
@@ -4324,7 +4753,7 @@ Policies use OData-style expressions.
 
 ---
 
-# SECTION 9: GOLDEN PATH
+# SECTION 10: GOLDEN PATH
 
 # The Golden Path to REST & GraphQL APIs
 
@@ -4756,7 +5185,7 @@ The golden path is tested, documented, and ready to use. Start building APIs in 
 
 ---
 
-# SECTION 10: MCP
+# SECTION 11: MCP
 
 # MCP Server Configuration Reference
 
@@ -5269,7 +5698,7 @@ The MCP server now exposes:
 
 ---
 
-# SECTION 11: OVERVIEW
+# SECTION 12: OVERVIEW
 
 # Data API Builder Overview
 
@@ -5588,7 +6017,7 @@ dab --version
 
 ---
 
-# SECTION 12: QUICK REFERENCE
+# SECTION 13: QUICK REFERENCE
 
 # DAB Quick Reference
 
@@ -6063,7 +6492,7 @@ appsettings.Development.json
 
 ---
 
-# SECTION 13: RELATIONSHIPS
+# SECTION 14: RELATIONSHIPS
 
 # Relationship Configuration Reference
 
@@ -6668,7 +7097,7 @@ dab configure --runtime.graphql.depth-limit 5
 
 ---
 
-# SECTION 14: RUNTIME
+# SECTION 15: RUNTIME
 
 # Runtime Configuration Reference
 
@@ -7263,7 +7692,7 @@ Use for:
 
 ---
 
-# SECTION 15: SCENARIOS
+# SECTION 16: SCENARIOS
 
 # DAB Scenarios & Workflows
 
@@ -7899,7 +8328,7 @@ Choose the scenario closest to your use case and follow the workflow. Each has b
 
 ---
 
-# SECTION 16: SQL METADATA
+# SECTION 17: SQL METADATA
 
 # SQL Metadata Queries Reference
 
@@ -8291,7 +8720,7 @@ dab update ChildEntity --relationship "parent" --cardinality one --target.entity
 
 ---
 
-# SECTION 17: TROUBLESHOOTING
+# SECTION 18: TROUBLESHOOTING
 
 # DAB Troubleshooting Guide
 
