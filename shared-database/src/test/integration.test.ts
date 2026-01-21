@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { openConnection, getTables, getViews } from '../../mssql';
+import { openConnection, getTables, getViews } from '../mssql';
+import { TableMetadata, ColumnMetadata } from '../types';
 
 // Integration tests - only run if TEST_SQL_CONNECTION_STRING is set
 const connectionString = process.env.TEST_SQL_CONNECTION_STRING || 
@@ -32,7 +33,7 @@ describe('SQL Server Integration Tests', function() {
             assert.ok(tables.length > 0, 'Should have at least one table');
             
             // Check for expected Trek tables
-            const tableNames = tables.map(t => t.name);
+            const tableNames = tables.map((t: TableMetadata) => t.name);
             assert.ok(tableNames.includes('Actor'), 'Should include Actor table');
             assert.ok(tableNames.includes('Character'), 'Should include Character table');
             assert.ok(tableNames.includes('Series'), 'Should include Series table');
@@ -48,11 +49,11 @@ describe('SQL Server Integration Tests', function() {
             const tables = await getTables(pool);
             await pool.close();
 
-            const actor = tables.find(t => t.name === 'Actor');
+            const actor = tables.find((t: TableMetadata) => t.name === 'Actor');
             assert.ok(actor, 'Actor table should exist');
             assert.ok(actor!.columns.length > 0, 'Actor should have columns');
             
-            const idColumn = actor!.columns.find(c => c.name === 'Id');
+            const idColumn = actor!.columns.find((c: ColumnMetadata) => c.name === 'Id');
             assert.ok(idColumn, 'Should have Id column');
             assert.strictEqual(idColumn!.isPrimaryKey, true, 'Id should be primary key');
         });

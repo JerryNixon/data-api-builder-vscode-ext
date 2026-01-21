@@ -106,11 +106,53 @@ This separation keeps lightweight extensions small while allowing database-depen
 | start | Start DAB engine | shared | No |
 | validate | Validate DAB config | shared | No |
 | health | Check DAB health | shared | No |
-| config | Configure entities | shared, shared-database | Yes |
 | add | Add entities to config | shared, shared-database | Yes |
 | poco | Generate C# POCOs | shared, shared-database | Yes |
-| mcp | MCP server integration | shared, shared-database | Yes |
 | visualize | Visualize config | shared | No |
+| agent | @dab Copilot chat participant | shared | No |
+
+### Agent Extension Architecture
+
+The `agent-data-api-builder` extension provides the `@dab` GitHub Copilot chat participant. It uses VS Code's `contributes.chatAgents` contribution point to bundle agent files directly in the extension.
+
+**Key Feature:** Agent is automatically available on install - no user action required!
+
+**Source of Truth:** `/.github/agents/dab-developer/` (root of workspace)
+
+**Build Flow:**
+1. `npm run copy-resources` → Copies from `/.github/agents/dab-developer/` to `/agent-data-api-builder/resources/agents/`
+2. `vsce package` auto-runs `copy-resources` via `vscode:prepublish` hook
+3. VSIX bundles the agent files in `resources/agents/`
+4. VS Code loads agent via `contributes.chatAgents` in package.json
+
+**package.json contribution:**
+```json
+"contributes": {
+  "chatAgents": [
+    {
+      "path": "resources/agents/dab-developer.agent.md"
+    }
+  ]
+}
+```
+
+**File Locations:**
+| Path | Purpose | Git Tracked |
+|------|---------|-------------|
+| `/.github/agents/dab-developer/` | Source files - edit here | ✅ Yes |
+| `/.github/agents/dab-developer.agent.md` | Main agent file - edit here | ✅ Yes |
+| `/agent-data-api-builder/resources/agents/` | Build output - auto-generated | ❌ No (.gitignore) |
+
+**When updating agent documentation:**
+1. Edit files in `/.github/agents/dab-developer/`
+2. Run `npm run copy-resources` in the agent extension folder
+3. Test with `vsce package` or F5 Extension Development Host
+4. Commit only the source files in `/.github/agents/`
+
+**User-facing flow:**
+1. User installs the extension
+2. Agent is immediately available - no setup needed
+3. Agent works with GitHub Copilot and other AI assistants automatically
 
 ### Testing Strategy
 

@@ -1,0 +1,164 @@
+{
+  "name": "agent-data-api-builder",
+  "displayName": "DAB Agent - Copilot Chat Participant",
+  "description": "GitHub Copilot @dab chat participant for Data API Builder - create REST, GraphQL, and MCP APIs from SQL Server, Azure SQL, PostgreSQL, MySQL, and Cosmos DB without writing code.",
+  "publisher": "jerry-nixon",
+  "version": "1.2.0",
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "galleryBanner": {
+    "color": "#0078d7",
+    "theme": "dark"
+  },
+  "homepage": "https://learn.microsoft.com/azure/data-api-builder/",
+  "bugs": {
+    "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JerryNixon/data-api-builder-vscode-ext.git"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Data Science",
+    "Other"
+  ],
+  "extensionDependencies": [
+    "github.copilot-chat"
+  ],
+  "activationEvents": [
+    "onChatParticipant:dab.participant"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "dab.participant",
+        "name": "dab",
+        "fullName": "Data API Builder",
+        "description": "Create REST, GraphQL, and MCP APIs from your database",
+        "isSticky": true,
+        "disambiguation": [
+          {
+            "category": "dab_setup",
+            "description": "The user wants to set up Data API Builder, create APIs from a database, or generate REST/GraphQL endpoints without writing code.",
+            "examples": [
+              "Create a REST API from my SQL Server database",
+              "Set up Data API Builder for my project",
+              "Generate GraphQL endpoints from database tables",
+              "Initialize DAB with my connection string",
+              "Create an MCP server for my database"
+            ]
+          },
+          {
+            "category": "dab_entities",
+            "description": "The user wants to add database tables, views, or stored procedures to their DAB configuration.",
+            "examples": [
+              "Add the Products table to DAB",
+              "Expose my stored procedures as API endpoints",
+              "Add all tables from my database",
+              "Create an entity for the Orders view",
+              "Add relationships between entities"
+            ]
+          },
+          {
+            "category": "dab_config",
+            "description": "The user wants to configure DAB settings like authentication, caching, CORS, or endpoint paths.",
+            "examples": [
+              "Enable caching for my DAB API",
+              "Configure JWT authentication for DAB",
+              "Set up CORS for localhost",
+              "Enable the MCP endpoint",
+              "Change the REST API path"
+            ]
+          },
+          {
+            "category": "dab_run",
+            "description": "The user wants to start, stop, validate, or troubleshoot Data API Builder.",
+            "examples": [
+              "Start the DAB server",
+              "Validate my DAB configuration",
+              "Why is DAB not connecting to my database",
+              "Check if my DAB config is valid",
+              "Run Data API Builder"
+            ]
+          }
+        ]
+      }
+    ],
+    "chatAgents": [
+      {
+        "path": "resources/agents/dab-developer.agent.md"
+      }
+    ],
+    "commands": [
+      {
+        "command": "dab.openChat",
+        "title": "Open DAB Chat",
+        "category": "DAB"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "dab.openChat"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run merge-agent-docs && npm run compile",
+    "merge-agent-docs": "node scripts/merge-agent-docs.js",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test",
+    "test:unit": "mocha --require ts-node/register src/test/**/*.test.ts"
+  },
+  "files": [
+    "out/**/*",
+    "images/**/*",
+    "resources/**/*"
+  ],
+  "dependencies": {
+    "dab-vscode-shared": "*"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.95.0",
+    "@types/mocha": "^10.0.9",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.10.0",
+    "@typescript-eslint/parser": "^8.7.0",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "mocha": "^10.2.0",
+    "ts-node": "^10.9.2"
+  },
+  "keywords": [
+    "data api builder",
+    "dab",
+    "rest api",
+    "graphql",
+    "mcp",
+    "model context protocol",
+    "sql server",
+    "azure sql",
+    "postgresql",
+    "mysql",
+    "cosmos db",
+    "copilot",
+    "chat participant",
+    "ai",
+    "agent",
+    "agentskills",
+    "microsoft fabric"
+  ],
+  "author": "Jerry Nixon",
+  "license": "MIT"
+}

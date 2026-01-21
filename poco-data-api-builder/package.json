@@ -3,7 +3,7 @@
   "displayName": "DAB Poco Gen (Data API builder)",
   "description": "Generate self-contained C# models, repositories, and client from a DAB config with no third-party dependencies.",
   "publisher": "jerry-nixon",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"

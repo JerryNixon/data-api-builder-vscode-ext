@@ -1,6 +1,7 @@
 const path = require('path');
 
 module.exports = {
+    mode: 'production',
     devtool: 'source-map',
     target: 'node',
     entry: './src/extension.ts',

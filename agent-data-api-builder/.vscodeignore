@@ -1,0 +1,17 @@
+# Development files
+.vscode/**
+src/**
+tsconfig.json
+eslint.config.mjs
+CONTRIBUTING.md
+
+# Build/test artifacts
+node_modules/**
+.git/**
+*.vsix
+
+# Keep these
+!out/**
+!images/**
+!resources/**
+!resources/agents/**

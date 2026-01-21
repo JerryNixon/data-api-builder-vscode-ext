@@ -16,10 +16,12 @@ The workspace uses a batch script (`package.bat`) to automate the packaging of a
 
 `package.bat` is a Windows batch script that provides an interactive menu for packaging individual or all DAB extensions. It handles:
 
-1. Building extensions (including webpack when needed)
-2. Creating `.vsix` package files
-3. Moving packaged files to centralized `out/` directory
-4. Opening output folder or marketplace publisher page
+1. Suppressing Node.js deprecation warnings
+2. Building extensions (including webpack when needed)
+3. Creating `.vsix` package files using `--no-dependencies` flag
+4. Moving packaged files to centralized `out/` directory
+5. Publishing packages to VS Code Marketplace
+6. Opening output folder or marketplace publisher page
 
 ### Menu System
 
@@ -29,17 +31,18 @@ When executed, `package.bat` displays an interactive menu:
 ==========================================
   Data API Builder - VS Code Extensions
 ==========================================
-[a]  PACKAGE mcp-data-api-builder
-[b]  PACKAGE omnibus-data-api-builder
-[c]  PACKAGE poco-data-api-builder
-[d]  PACKAGE init-data-api-builder
-[e]  PACKAGE config-data-api-builder
-[f]  PACKAGE start-data-api-builder
-[g]  PACKAGE add-data-api-builder
-[h]  PACKAGE validate-data-api-builder
-[i]  PACKAGE visualize-data-api-builder
-[j]  PACKAGE health-data-api-builder
+[a]  PACKAGE omnibus-data-api-builder
+[b]  PACKAGE poco-data-api-builder
+[c]  PACKAGE init-data-api-builder
+[d]  PACKAGE start-data-api-builder
+[e]  PACKAGE add-data-api-builder
+[f]  PACKAGE validate-data-api-builder
+[g]  PACKAGE visualize-data-api-builder
+[h]  PACKAGE health-data-api-builder
+[i]  PACKAGE agent-data-api-builder
 [0]  PACKAGE RUN ALL
+==========================================
+[w]  PUBLISH all packages in out folder
 ==========================================
 [x]  Exit this script
 [y]  Open Out Folder in File Explorer
@@ -49,20 +52,17 @@ When executed, `package.bat` displays an interactive menu:
 
 ### Extensions Order
 
-The menu lists extensions in a specific order (not alphabetical):
+The menu lists extensions in order:
 
-1. **mcp-data-api-builder** - MCP integration (planned, not yet created)
-2. **omnibus-data-api-builder** - Extension pack (recommended to package first/early)
-3. **poco-data-api-builder** - C# code generator (requires webpack)
-4. **init-data-api-builder** - Config initialization
-5. **config-data-api-builder** - Runtime config editor (planned, not yet created)
-6. **start-data-api-builder** - Start DAB engine
-7. **add-data-api-builder** - Add entities (requires webpack)
-8. **validate-data-api-builder** - Validate config
-9. **visualize-data-api-builder** - Visualize as diagram
-10. **health-data-api-builder** - Health check
-
-**Note**: The order appears to prioritize meta/important extensions first (mcp, omnibus, poco) followed by workflow order (init, config, start, add, validate, visualize, health).
+1. **omnibus-data-api-builder** - Extension pack (all-in-one)
+2. **poco-data-api-builder** - C# code generator (requires webpack)
+3. **init-data-api-builder** - Config initialization
+4. **start-data-api-builder** - Start DAB engine
+5. **add-data-api-builder** - Add entities (requires webpack)
+6. **validate-data-api-builder** - Validate config
+7. **visualize-data-api-builder** - Visualize as diagram
+8. **health-data-api-builder** - Health check
+9. **agent-data-api-builder** - @dab Copilot chat participant
 
 ---
 
@@ -72,15 +72,19 @@ The menu lists extensions in a specific order (not alphabetical):
 
 ```batch
 @echo off
+:: Suppress Node.js deprecation warnings (punycode)
+set NODE_OPTIONS=--no-deprecation
+
 :: Create 'out' directory if it doesn't exist
 rd out /s /q
 md out
 ```
 
 **Actions**:
-1. Deletes existing `out/` directory and all contents (`rd out /s /q`)
-2. Creates fresh `out/` directory (`md out`)
-3. Ensures clean slate for new packages
+1. Suppresses Node.js deprecation warnings (e.g., punycode module warning)
+2. Deletes existing `out/` directory and all contents (`rd out /s /q`)
+3. Creates fresh `out/` directory (`md out`)
+4. Ensures clean slate for new packages
 
 **Warning**: This DELETES all previous `.vsix` files in `out/`. Make sure to back up or publish any needed packages before running.
 
@@ -90,16 +94,15 @@ The `:RUN` function handles packaging a single extension:
 
 ```batch
 :RUN
-@echo on
-cd ./%1
-echo ------------------------------------------
+echo.
+echo ==========================================
 echo   BUILDING: %1
-echo ------------------------------------------
+echo ==========================================
+cd ./%1
 if not "%~2"=="" call %~2
-call vsce package
-move /Y *.vsix ../out
+call vsce package --no-dependencies
+move /Y *.vsix ../out >nul
 cd ..
-@echo off
 goto :eof
 ```
 
@@ -107,12 +110,17 @@ goto :eof
 - `%1` - Extension folder name (e.g., `init-data-api-builder`)
 - `%2` - Optional pre-build command (e.g., `npx webpack`)
 
+**Key Details**:
+- Uses `--no-dependencies` flag to avoid npm workspace symlink issues
+- Suppresses move output with `>nul` for cleaner console
+- Uses `goto :eof` to return without closing the terminal
+
 **Process**:
-1. Navigate to extension folder (`cd ./%1`)
-2. Display build header
+1. Display build header with extension name
+2. Navigate to extension folder (`cd ./%1`)
 3. Run pre-build command if specified (e.g., webpack)
-4. Run `vsce package` to create `.vsix` file
-5. Move `.vsix` file to `../out` directory
+4. Run `vsce package --no-dependencies` to create `.vsix` file
+5. Move `.vsix` file to `../out` directory (silently)
 6. Return to root directory
 
 ### Package All Extensions
@@ -124,29 +132,50 @@ The `:RUN_ALL` function packages all extensions sequentially:
 call :RUN omnibus-data-api-builder
 call :RUN poco-data-api-builder "npx webpack"
 call :RUN init-data-api-builder
-call :RUN config-data-api-builder
 call :RUN start-data-api-builder
 call :RUN add-data-api-builder "npx webpack"
 call :RUN validate-data-api-builder
 call :RUN visualize-data-api-builder
 call :RUN health-data-api-builder
-call :RUN mcp-data-api-builder
+call :RUN agent-data-api-builder
 goto MENU
 ```
 
-**Order** (different from menu display order):
-1. omnibus (extension pack - should be last to reference latest versions)
+**Order**:
+1. omnibus (extension pack)
 2. poco (requires webpack)
 3. init
-4. config (planned, will fail if not created)
-5. start
-6. add (requires webpack)
-7. validate
-8. visualize
-9. health
-10. mcp (planned, will fail if not created)
+4. start
+5. add (requires webpack)
+6. validate
+7. visualize
+8. health
+9. agent (bundles agent files via `copy-resources` prepublish script)
 
-**Note**: The `RUN_ALL` function will fail on `config-data-api-builder` and `mcp-data-api-builder` since these folders don't exist yet. Consider this when using option [0].
+### Publishing All Extensions
+
+The `:PUBLISH_ALL` function publishes all VSIX files from the `out/` folder:
+
+```batch
+:PUBLISH_ALL
+echo.
+echo ==========================================
+echo   PUBLISHING ALL PACKAGES IN OUT FOLDER
+echo ==========================================
+for %%f in (out\*.vsix) do (
+    echo Publishing: %%~nxf
+    call vsce publish --packagePath "%%f"
+)
+echo.
+echo ==========================================
+echo   PUBLISH COMPLETE
+echo ==========================================
+goto MENU
+```
+
+**Prerequisites**:
+- Must be logged in: `vsce login jerry-nixon`
+- Requires Personal Access Token (PAT) from Azure DevOps
 
 ### Utility Options
 
@@ -189,7 +218,7 @@ call :RUN poco-data-api-builder "npx webpack"
 **Process**:
 1. Runs `npx webpack` (uses `webpack.config.js`)
 2. Bundles TypeScript + dependencies → `dist/extension.js`
-3. Runs `vsce package`
+3. Runs `vsce package --no-dependencies`
 4. Moves `.vsix` to `out/`
 
 ### 2. add-data-api-builder
@@ -207,10 +236,46 @@ call :RUN add-data-api-builder "npx webpack"
 **Process**:
 1. Runs `npx webpack` (uses `webpack.config.js`)
 2. Bundles TypeScript + mssql driver → `dist/extension.js`
-3. Runs `vsce package`
+3. Runs `vsce package --no-dependencies`
 4. Moves `.vsix` to `out/`
 
 **Note**: The `mssql` driver includes native bindings, which webpack handles via configuration.
+
+### Webpack Configuration Requirements
+
+Both webpack configs **must** include `mode: 'production'` to avoid warnings:
+
+```javascript
+// webpack.config.js
+const path = require('path');
+
+module.exports = {
+    mode: 'production',  // Required to suppress mode warning
+    devtool: 'source-map',
+    target: 'node',
+    entry: './src/extension.ts',
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: 'extension.js',
+        libraryTarget: 'commonjs2',
+    },
+    resolve: {
+        extensions: ['.ts', '.js'],
+    },
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use: 'ts-loader',
+                exclude: /node_modules/,
+            },
+        ],
+    },
+    externals: {
+        vscode: 'commonjs vscode',
+    },
+};
+```
 
 ---
 
@@ -230,16 +295,24 @@ VSIX files follow this pattern:
 <extension-name>-<version>.vsix
 ```
 
-Examples:
-- `init-data-api-builder-0.2.0.vsix`
-- `omnibus-data-api-builder-0.0.8.vsix`
-- `poco-data-api-builder-0.1.0.vsix`
+Examples (all synced to version 1.2.0):
+- `omnibus-data-api-builder-1.2.0.vsix`
+- `poco-data-api-builder-1.2.0.vsix`
+- `init-data-api-builder-1.2.0.vsix`
+- `start-data-api-builder-1.2.0.vsix`
+- `add-data-api-builder-1.2.0.vsix`
+- `validate-data-api-builder-1.2.0.vsix`
+- `visualize-api-builder-1.2.0.vsix`
+- `health-data-api-builder-1.2.0.vsix`
+- `agent-data-api-builder-1.2.0.vsix`
+
+**Best Practice**: Keep all extension versions synced for consistency. When updating, update all extensions to the same version.
 
 Version numbers come from each extension's `package.json`:
 ```json
 {
   "name": "init-data-api-builder",
-  "version": "0.2.0",
+  "version": "1.2.0",
   ...
 }
 ```
@@ -271,8 +344,8 @@ npm run build
 # OR
 tsc
 
-# Package with vsce
-vsce package
+# Package with vsce (use --no-dependencies for npm workspaces)
+vsce package --no-dependencies
 
 # VSIX file created in current directory
 ```
@@ -286,8 +359,8 @@ cd add-data-api-builder
 # Run webpack build
 npx webpack
 
-# Package with vsce
-vsce package
+# Package with vsce (use --no-dependencies for npm workspaces)
+vsce package --no-dependencies
 
 # VSIX file created in current directory
 ```
@@ -300,8 +373,18 @@ vsce package
 npm install -g @vscode/vsce
 
 # Or run via npx
-npx @vscode/vsce package
+npx @vscode/vsce package --no-dependencies
 ```
+
+### Why --no-dependencies?
+
+In npm workspaces, symlinks in `node_modules` point to sibling packages in the parent directory. When `vsce` follows these symlinks, it may try to include files from the parent `.git` folder, causing errors like:
+
+```
+ERROR invalid relative path: extension/../.git/COMMIT_EDITMSG
+```
+
+The `--no-dependencies` flag tells vsce to skip following symlinked dependencies, avoiding this issue.
 
 ---
 
@@ -459,36 +542,61 @@ node_modules/**
 # Manually delete out/ folder before running package.bat
 ```
 
-#### 6. config-data-api-builder or mcp-data-api-builder not found
-
-These extensions are planned but not yet created. Package.bat references them, which causes:
+#### 6. npm workspace symlink errors with vsce
 
 **Error**:
 ```
-The system cannot find the path specified.
+ERROR invalid relative path: extension/../.git/COMMIT_EDITMSG
 ```
 
-**Solutions**:
+**Cause**: npm workspaces create symlinks in `node_modules` that point to parent directories. vsce follows these symlinks and attempts to include files from the parent `.git` folder.
 
-**Option 1**: Package extensions individually (avoid [0] RUN ALL)
-
-**Option 2**: Modify `package.bat` to skip missing extensions:
+**Solution**: Always use `--no-dependencies` flag:
 ```batch
-:RUN_ALL
-call :RUN omnibus-data-api-builder
-call :RUN poco-data-api-builder "npx webpack"
-call :RUN init-data-api-builder
-REM call :RUN config-data-api-builder
-call :RUN start-data-api-builder
-call :RUN add-data-api-builder "npx webpack"
-call :RUN validate-data-api-builder
-call :RUN visualize-data-api-builder
-call :RUN health-data-api-builder
-REM call :RUN mcp-data-api-builder
-goto MENU
+vsce package --no-dependencies
 ```
 
-**Option 3**: Create stub folders with minimal `package.json` for planned extensions
+The `package.bat` script already includes this flag.
+
+#### 7. Webpack "mode" warning
+
+**Warning**:
+```
+WARNING in configuration
+The 'mode' option has not been set, webpack will fallback to 'production' for this value.
+```
+
+**Solution**: Add `mode: 'production'` to `webpack.config.js`:
+```javascript
+module.exports = {
+    mode: 'production',
+    // ... rest of config
+};
+```
+
+#### 8. Node.js deprecation warnings (punycode)
+
+**Warning**:
+```
+(node:12345) [DEP0040] DeprecationWarning: The `punycode` module is deprecated.
+```
+
+**Cause**: Dependency libraries use the deprecated built-in `punycode` module (deprecated in Node.js 21+).
+
+**Solution**: Suppress with environment variable (already set in `package.bat`):
+```batch
+set NODE_OPTIONS=--no-deprecation
+```
+
+#### 9. Terminal closes when exiting package.bat
+
+**Cause**: Using `exit` command closes the terminal window.
+
+**Solution**: Use `goto :eof` instead of `exit`:
+```batch
+:EXIT
+goto :eof
+```
 
 ---
 
@@ -728,30 +836,35 @@ jobs:
 
 | Key | Action |
 |-----|--------|
-| a | Package mcp-data-api-builder |
-| b | Package omnibus-data-api-builder |
-| c | Package poco-data-api-builder (webpack) |
-| d | Package init-data-api-builder |
-| e | Package config-data-api-builder |
-| f | Package start-data-api-builder |
-| g | Package add-data-api-builder (webpack) |
-| h | Package validate-data-api-builder |
-| i | Package visualize-data-api-builder |
-| j | Package health-data-api-builder |
+| a | Package omnibus-data-api-builder |
+| b | Package poco-data-api-builder (webpack) |
+| c | Package init-data-api-builder |
+| d | Package start-data-api-builder |
+| e | Package add-data-api-builder (webpack) |
+| f | Package validate-data-api-builder |
+| g | Package visualize-data-api-builder |
+| h | Package health-data-api-builder |
+| i | Package agent-data-api-builder |
 | 0 | Package ALL extensions |
+| w | Publish all packages in out/ folder |
+| x | Exit script |
 | y | Open out/ folder |
 | z | Open Marketplace publisher page |
-| x | Exit script |
 
 ### Webpack-Required Extensions
 
 - poco-data-api-builder
 - add-data-api-builder
 
-### Missing Extensions (Planned)
+### Key Flags and Settings
 
-- config-data-api-builder
-- mcp-data-api-builder
+| Setting | Purpose |
+|---------|---------|
+| `vsce package --no-dependencies` | Avoids npm workspace symlink issues |
+| `set NODE_OPTIONS=--no-deprecation` | Suppresses punycode deprecation warning |
+| `mode: 'production'` in webpack.config.js | Suppresses webpack mode warning |
+| `goto :eof` | Exits script without closing terminal |
+| `>nul` | Suppresses command output |
 
 ### Output Directory
 
@@ -760,3 +873,9 @@ jobs:
 ### Publisher
 
 jerry-nixon (https://marketplace.visualstudio.com/manage/publishers/jerry-nixon)
+
+### Publishing Prerequisites
+
+1. Login to vsce: `vsce login jerry-nixon`
+2. Provide Personal Access Token (PAT) from Azure DevOps
+3. PAT must have Marketplace → Manage scope

@@ -423,6 +423,101 @@ cd shared
 npm run build
 ```
 
+### Packaging Issues
+
+#### Issue: "ERROR invalid relative path: extension/../.git/COMMIT_EDITMSG"
+**Symptoms:**
+```
+ERROR invalid relative path: extension/../.git/COMMIT_EDITMSG
+```
+
+**Cause:** npm workspaces create symlinks in `node_modules` that point to sibling packages in the parent directory. When `vsce` follows these symlinks, it attempts to include files from the parent `.git` folder.
+
+**Solution:** Always use `--no-dependencies` flag when packaging:
+```bash
+vsce package --no-dependencies
+```
+
+The `package.bat` script already includes this flag.
+
+#### Issue: Webpack "mode" warning during build
+**Symptoms:**
+```
+WARNING in configuration
+The 'mode' option has not been set, webpack will fallback to 'production' for this value.
+```
+
+**Cause:** webpack.config.js doesn't specify a mode.
+
+**Solution:** Add `mode: 'production'` to the webpack config:
+```javascript
+// webpack.config.js
+module.exports = {
+    mode: 'production',  // Add this line
+    devtool: 'source-map',
+    target: 'node',
+    // ... rest of config
+};
+```
+
+#### Issue: Node.js deprecation warnings (punycode)
+**Symptoms:**
+```
+(node:12345) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+```
+
+**Cause:** Dependency libraries (vsce, mssql, etc.) use the deprecated built-in `punycode` module. This was deprecated in Node.js 21+.
+
+**Solution:** Suppress with environment variable:
+```batch
+set NODE_OPTIONS=--no-deprecation
+```
+
+The `package.bat` script already sets this variable. This is a cosmetic issue - the warning doesn't affect functionality.
+
+#### Issue: Terminal closes when exiting package.bat
+**Cause:** Using the `exit` command closes the terminal window.
+
+**Solution:** Use `goto :eof` instead of `exit` at the end of the script:
+```batch
+:EXIT
+goto :eof
+```
+
+#### Issue: package.bat output is too verbose
+**Symptoms:** Every command is echoed before execution, creating cluttered output.
+
+**Cause:** Using `@echo on` in the :RUN function.
+
+**Solution:** Keep `@echo off` throughout and use explicit `echo` statements for headers:
+```batch
+:RUN
+echo.
+echo ==========================================
+echo   BUILDING: %1
+echo ==========================================
+cd ./%1
+if not "%~2"=="" call %~2
+call vsce package --no-dependencies
+move /Y *.vsix ../out >nul
+cd ..
+goto :eof
+```
+
+Use `>nul` to suppress output from commands like `move`.
+
+#### Issue: Version mismatch between extensions
+**Symptoms:** Different extensions have different versions, causing confusion.
+
+**Solution:** Keep all extension versions synced. Update all extensions to the same version:
+```json
+{
+  "version": "1.2.0"
+}
+```
+
+Search and replace in all `package.json` files when bumping versions.
+
 ## Debugging Checklist
 
 ### Before Migration

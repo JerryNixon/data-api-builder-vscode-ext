@@ -282,72 +282,6 @@ public sealed class RestRepository
 
 ---
 
-### 9. config-data-api-builder
-
-**Display Name**: DAB Config (Data API Builder)  
-**Purpose**: Edit runtime settings in the config file  
-**Command**: `dab configure`
-
-**Status**: ⚠️ PLANNED - Not yet implemented  
-**Migration Status**: Not started
-
-**Planned Features**:
-- Edit runtime configuration (REST, GraphQL, MCP settings)
-- Modify data-source connection strings
-- Update telemetry and logging settings
-- Change host mode and CORS settings
-
-**Expected Dependencies**:
-- `dab-vscode-shared` - Config reading/writing
-- No database dependencies expected
-
-**Related Files**:
-- Referenced in workspace package.json
-- Mentioned in shared-migration.md checklist
-
----
-
-### 10. mcp-data-api-builder
-
-**Display Name**: DAB MCP (Data API Builder)  
-**Purpose**: MCP (Model Context Protocol) server integration  
-**Command**: Custom MCP operations
-
-**Status**: ⚠️ PLANNED - Not yet implemented  
-**Migration Status**: Not started
-
-**Planned Features**:
-- Configure MCP endpoint in DAB config
-- Enable/disable MCP for specific entities
-- Configure custom tools for stored procedures
-- Set parameter descriptions and defaults for tools
-
-**MCP Configuration Pattern** (from dab-extension.agent.md):
-```bash
-# 1. Enable MCP in config
-dab init --mcp.enabled true --mcp.path "/mcp"
-
-# 2. Add stored procedure as entity
-dab add GetBook --source "get_book_by_id" --source.type "stored-procedure"
-
-# 3. Configure parameters
-dab update GetBook --parameters.name id --parameters.description "Book identifier"
-
-# 4. Enable as MCP tool
-dab update GetBook --mcp.custom-tool true
-```
-
-**Expected Dependencies**:
-- `dab-vscode-shared` - Config management
-- `dab-vscode-shared-database` - Stored procedure introspection
-- May need HTTP client for MCP endpoint testing
-
-**Related Files**:
-- Referenced in workspace package.json
-- MCP documentation in agent file
-
----
-
 ## Shared Packages
 
 ### shared (dab-vscode-shared)
@@ -599,18 +533,15 @@ All extensions are published under the `jerry-nixon` publisher account on the VS
 6. **visualize-data-api-builder** - Visualize as diagram
 7. **health-data-api-builder** - Check DAB health
 8. **poco-data-api-builder** - Generate C# code
-9. **config-data-api-builder** - Edit runtime settings (planned)
-10. **mcp-data-api-builder** - MCP integration (planned)
+9. **agent-data-api-builder** - @dab Copilot chat participant
 
 ### Extension Count by Status
 
-- ✅ **Implemented**: 8 extensions
-- ⚠️ **Planned**: 2 extensions (config, mcp)
+- ✅ **Implemented**: 9 extensions
 - 📦 **Extension Pack**: 1 (omnibus)
 
 ### Shared Package Usage
 
-- **Using dab-vscode-shared only**: 6 extensions
+- **Using dab-vscode-shared only**: 7 extensions
 - **Using both shared packages**: 2 extensions (add, poco)
 - **Using no shared packages**: 1 extension (omnibus - extension pack)
-- **Planned to use both**: 2 extensions (config, mcp)

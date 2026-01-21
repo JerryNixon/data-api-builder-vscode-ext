@@ -10,15 +10,14 @@ data-api-builder-vscode-ext/
 ├── shared/
 ├── shared-database/
 ├── add-data-api-builder/
-├── poco-data-api-builder/
-├── mcp-data-api-builder/
-├── visualize-data-api-builder/
+├── agent-data-api-builder/
+├── health-data-api-builder/
 ├── init-data-api-builder/
+├── omnibus-data-api-builder/
+├── poco-data-api-builder/
 ├── start-data-api-builder/
 ├── validate-data-api-builder/
-├── health-data-api-builder/
-├── config-data-api-builder/
-└── omnibus-data-api-builder/
+└── visualize-data-api-builder/
 ```
 
 ## Root package.json
@@ -32,15 +31,14 @@ data-api-builder-vscode-ext/
     "shared",
     "shared-database",
     "add-data-api-builder",
-    "poco-data-api-builder",
-    "mcp-data-api-builder",
-    "visualize-data-api-builder",
+    "agent-data-api-builder",
+    "health-data-api-builder",
     "init-data-api-builder",
+    "omnibus-data-api-builder",
+    "poco-data-api-builder",
     "start-data-api-builder",
     "validate-data-api-builder",
-    "health-data-api-builder",
-    "config-data-api-builder",
-    "omnibus-data-api-builder"
+    "visualize-data-api-builder"
   ],
   "scripts": {
     "build:all-shared": "cd shared && npm run build && cd ../shared-database && npm run build",
