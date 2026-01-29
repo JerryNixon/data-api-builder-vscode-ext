@@ -13,7 +13,7 @@ export function resolveConfigPath(folderPath: string, baseName = 'dab-config', e
   return candidate;
 }
 
-export function buildInitCommand(configPath: string, envKey: string): string {
+export function buildInitCommand(configPath: string, envKey: string, folder: string): string {
   const args = [
     'dab init',
     '--database-type mssql',
@@ -26,11 +26,13 @@ export function buildInitCommand(configPath: string, envKey: string): string {
     `-c "${path.basename(configPath)}"`
   ];
 
-  return args.join(' ');
+  // Change to the target folder before running the dab command
+  return `cd "${folder}"; ${args.join(' ')}`;
 }
 
-export function buildConfigCommand(configPath: string, setting: string, value: string): string {
-  return `dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
+export function buildConfigCommand(configPath: string, setting: string, value: string, folder: string): string {
+  // Change to the target folder before running the dab command
+  return `cd "${folder}"; dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
 }
 
 export function waitForFile(filePath: string, timeoutMs = 3000, intervalMs = 100): Promise<void> {

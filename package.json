@@ -6,6 +6,7 @@
   "workspaces": [
     "shared",
     "shared-database",
+    "mcp-server-dab",
     "add-data-api-builder",
     "agent-data-api-builder",
     "health-data-api-builder",
@@ -19,6 +20,7 @@
   "scripts": {
     "build:shared": "cd shared && npm run build",
     "build:shared-database": "cd shared-database && npm run build",
+    "build:mcp": "cd mcp-server-dab && npm run build",
     "build:all-shared": "npm run build:shared && npm run build:shared-database",
     "test:shared": "cd shared && npm test",
     "test:shared-database": "cd shared-database && npm test",

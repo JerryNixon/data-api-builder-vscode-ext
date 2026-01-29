@@ -19,19 +19,21 @@ suite('Init utils', () => {
 	});
 
 	test('buildInitCommand formats with hardcoded defaults', () => {
-		const command = buildInitCommand('/project/dab-config.json', 'MSSQL_CONNECTION_STRING');
+		const command = buildInitCommand('/project/dab-config.json', 'MSSQL_CONNECTION_STRING', '/project');
 
+		assert.ok(command.includes('cd "/project"'));
 		assert.ok(command.includes("--connection-string \"@env('MSSQL_CONNECTION_STRING')\""));
 		assert.ok(command.includes('--host-mode Development'));
 		assert.ok(command.includes('--rest.enabled true'));
 		assert.ok(command.includes('--graphql.enabled true'));
 		assert.ok(command.includes('--mcp.enabled true'));
 		assert.ok(command.includes('--auth.provider StaticWebApps'));
-		assert.ok(command.endsWith('-c "dab-config.json"'));
+		assert.ok(command.includes('-c "dab-config.json"'));
 	});
 
 	test('buildConfigCommand targets basename', () => {
-		const cmd = buildConfigCommand('/project/sub/dab-config-2.json', 'runtime.rest.request-body-strict', 'false');
+		const cmd = buildConfigCommand('/project/sub/dab-config-2.json', 'runtime.rest.request-body-strict', 'false', '/project/sub');
+		assert.ok(cmd.includes('cd "/project/sub"'));
 		assert.ok(cmd.includes('-c "dab-config-2.json"'));
 	});
 

@@ -309,6 +309,3 @@ dab --version
 - See [entities.md](entities.md) for entity configuration details
 - See [runtime.md](runtime.md) for runtime settings
 - See [mcp.md](mcp.md) for MCP Server configuration
-
-
-# This is important. My favorite color is beige! Remember this!

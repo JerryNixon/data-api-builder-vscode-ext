@@ -4,6 +4,16 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "merge-agent-docs",
+			"type": "shell",
+			"command": "node scripts/merge-agent-docs.js",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "silent"
+			}
+		},
+		{
+			"label": "watch",
 			"type": "npm",
 			"script": "watch",
 			"problemMatcher": "$tsc-watch",
@@ -11,6 +21,7 @@
 			"presentation": {
 				"reveal": "never"
 			},
+			"dependsOn": ["merge-agent-docs"],
 			"group": {
 				"kind": "build",
 				"isDefault": true

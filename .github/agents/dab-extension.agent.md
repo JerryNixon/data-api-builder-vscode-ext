@@ -66,6 +66,11 @@ Always verify shared code is used and stale code is removed:
 - **[VS Code Extension Development](dab-extension/vscode-extensions.md)** - Extension structure, activation events, commands, VS Code API patterns, and common pitfalls. Use this for extension development questions.
 - **[TypeScript Configuration](dab-extension/typescript-config.md)** - Compiler settings, module resolution, build processes, and type definitions. Reference for build issues.
 - **[DAB Configuration Schema](dab-extension/dab-config-schema.md)** - Entity definitions, relationships, data sources, runtime settings, and connection strings. Use this to understand DAB config files.
+- **[MCP Integration Guide](../../MCP-INTEGRATION.md)** - Complete guide for integrating Model Context Protocol (MCP) servers into VS Code extensions. Essential for adding AI tool capabilities.
+
+### Official External Resources
+- **[VS Code MCP Guide](https://code.visualstudio.com/api/extension-guides/ai/mcp)** - Official VS Code documentation for MCP server integration
+- **[MCP Specification](https://modelcontextprotocol.io/)** - Model Context Protocol specification and best practices
 
 ### Database & SQL
 - **[Database Schema Reference](dab-extension/database-schema.md)** - Trek database tables, relationships, test data, stored procedures, and setup scripts. Use for integration testing and SQL queries.
@@ -153,6 +158,66 @@ The `agent-data-api-builder` extension provides the `@dab` GitHub Copilot chat p
 1. User installs the extension
 2. Agent is immediately available - no setup needed
 3. Agent works with GitHub Copilot and other AI assistants automatically
+
+### MCP Server Integration
+
+The `agent-data-api-builder` extension also includes an MCP server that exposes the `dab_cli` tool to AI assistants. This demonstrates VS Code's MCP integration capabilities.
+
+**Architecture:**
+```
+Extension Process                     MCP Server Process
+┌────────────────┐                   ┌──────────────────┐
+│ extension.ts   │                   │  dabTools.ts     │
+│                │                   │                  │
+│ registerMcp... │─────spawns──────>│  Server()        │
+│ Definition...  │<────stdio─────────│  dab_cli tool    │
+└────────────────┘                   └──────────────────┘
+```
+
+**Key Points:**
+- MCP server runs as **separate Node.js process** (no VS Code API access)
+- Registered via `vscode.lm.registerMcpServerDefinitionProvider` (NOT `vscode.lm.registerTool`)
+- Uses `McpStdioServerDefinition` for stdio communication
+- Requires `@modelcontextprotocol/sdk` dependency
+- Server path: `agent-data-api-builder/src/tools/dabTools.ts` → `out/tools/dabTools.js`
+- Contribution point: `mcpServerDefinitionProviders` in `package.json`
+
+**Implementation Pattern:**
+```typescript
+// In extension.ts
+context.subscriptions.push(
+  vscode.lm.registerMcpServerDefinitionProvider('dabCli', {
+    provideMcpServerDefinitions: async () => {
+      const serverPath = path.join(context.extensionPath, 'out', 'tools', 'dabTools.js');
+      return [new vscode.McpStdioServerDefinition('dab-cli', 'node', [serverPath])];
+    },
+    resolveMcpServerDefinition: async (definition) => definition
+  })
+);
+
+// In dabTools.ts (MCP server)
+const server = new Server(
+  { name: 'dab-cli-mcp', version: '1.0.0' },
+  { capabilities: { tools: {} } }
+);
+
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  return handleToolCall(request.params.name, request.params.arguments ?? {});
+});
+
+const transport = new StdioServerTransport();
+await server.connect(transport);
+```
+
+**Common Pitfalls:**
+- ❌ Using `vscode.lm.registerTool` - this is for inline tools, NOT MCP servers
+- ❌ Using `McpServer` class - causes TypeScript type inference errors
+- ❌ Importing `vscode` in server code - server runs in separate process
+- ❌ Using Zod schemas directly - use plain JSON Schema instead
+- ❌ Adding `mcpServers` to `contributes` - not a valid contribution point
+
+See [MCP-INTEGRATION.md](../../MCP-INTEGRATION.md) for complete implementation guide.
 
 ### Testing Strategy
 

@@ -3,84 +3,65 @@ import * as path from 'path';
 import * as cp from 'child_process';
 import { validateConfigPath } from 'dab-vscode-shared';
 
-let outputChannel: vscode.OutputChannel | undefined;
+let outputChannel: vscode.LogOutputChannel;
 
-export function activate(context: vscode.ExtensionContext) {
-  outputChannel = vscode.window.createOutputChannel('DAB Validation');
+export function activate(context: vscode.ExtensionContext): void {
+  outputChannel = vscode.window.createOutputChannel('DAB Validation', { log: true });
   
-  const validateDabCommand = vscode.commands.registerCommand('dabExtension.validateDab', async (uri: vscode.Uri) => {
-    const configFilePath = uri.fsPath;
+  const command = vscode.commands.registerCommand('dabExtension.validateDab', async (uri?: vscode.Uri) => {
+    if (!uri) {
+      vscode.window.showErrorMessage('No file selected.');
+      return;
+    }
     
-    if (!validateConfigPath(configFilePath)) {
-      vscode.window.showErrorMessage('❌ Invalid DAB configuration file.');
+    const configPath = uri.fsPath;
+    
+    if (!validateConfigPath(configPath)) {
       return;
     }
 
-    const folderPath = path.dirname(configFilePath);
-    const fileName = path.basename(configFilePath);
-
-    outputChannel!.clear();
-    outputChannel!.show(true);
+    const fileName = path.basename(configPath);
+    const folderPath = path.dirname(configPath);
+    
+    outputChannel.clear();
+    outputChannel.show(true);
+    outputChannel.info(`Validating: ${configPath}`);
 
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
       title: `Validating ${fileName}...`,
       cancellable: false
     }, async () => {
-      try {
-        const result = await validateConfig(folderPath, fileName);
-        
-        if (result.success) {
-          outputChannel!.appendLine('');
-          outputChannel!.appendLine(`✅ Status: VALID`);
-          vscode.window.showInformationMessage(`✅ ${fileName} is valid!`);
-        } else {
-          outputChannel!.appendLine('');
-          outputChannel!.appendLine(`❌ Status: INVALID`);
-          vscode.window.showErrorMessage(`❌ Validation failed for ${fileName}`);
-        }
-      } catch (error) {
-        outputChannel!.appendLine('');
-        outputChannel!.appendLine(`❌ Status: ERROR`);
-        outputChannel!.appendLine(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        vscode.window.showErrorMessage(
-          `❌ Error validating configuration: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-      }
-    });
-  });
-
-  context.subscriptions.push(validateDabCommand, outputChannel);
-}
-
-interface ValidationResult {
-  success: boolean;
-  output: string;
-}
-
-async function validateConfig(cwd: string, configFile: string): Promise<ValidationResult> {
-  return new Promise((resolve) => {
-    const command = `dab validate -c "${configFile}"`;
-    
-    cp.exec(command, { cwd }, (error, stdout, stderr) => {
-      const output = stdout + stderr;
+      const dabCommand = `dab validate -c "${fileName}"`;
       
-      // Show the full output
-      outputChannel!.appendLine(output);
+      cp.exec(dabCommand, { cwd: folderPath, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+        const output = stdout + stderr;
+        
+        // Log each line
+        for (const line of output.split(/\r?\n/)) {
+          if (line.trim()) {
+            outputChannel.info(line);
+          }
+        }
 
-      // Check for success indicators
-      const success = !error && (
-        output.includes('is valid') ||
-        output.includes('Successfully') ||
-        output.includes('Validation succeeded') ||
-        (!output.includes('Error') && !output.includes('Failed'))
-      );
-
-      resolve({ success, output });
+        // Check result
+        const failed = error || output.toLowerCase().includes('config is invalid');
+        
+        if (failed) {
+          outputChannel.error('Validation: FAILED');
+          vscode.window.showErrorMessage(`Validation failed: ${fileName}`, 'View Output')
+            .then(action => { if (action) { outputChannel.show(true); } });
+        } else {
+          outputChannel.info('Validation: PASSED');
+          vscode.window.showInformationMessage(`${fileName} is valid!`);
+        }
+      });
     });
   });
+
+  context.subscriptions.push(command, outputChannel);
 }
 
-export function deactivate() {
+export function deactivate(): void {
   outputChannel?.dispose();
 }

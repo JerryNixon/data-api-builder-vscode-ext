@@ -80,44 +80,21 @@ export class DabChatHandler {
   ): Promise<DabChatResult> {
     const prompt = request.prompt.toLowerCase();
 
-    // Detect intent and route appropriately
+    // Only route very specific commands to static handlers
+    // Everything else goes to LLM so it can use tools
+    
     if (this.isInitIntent(prompt)) {
+      // Init is special - needs guided walkthrough
       return this.handleInit(request, stream, token);
     }
 
-    if (this.isAddIntent(prompt)) {
-      return this.handleAdd(request, stream, token);
-    }
-
-    if (this.isRelationshipIntent(prompt)) {
-      return this.handleRelationship(request, stream, token);
-    }
-
-    if (this.isMcpIntent(prompt)) {
-      return this.handleMcp(request, stream, token);
-    }
-
-    if (this.isStartIntent(prompt)) {
-      return this.handleStart(request, stream, token);
-    }
-
-    if (this.isValidateIntent(prompt)) {
-      return this.handleValidate(request, stream, token);
-    }
-
-    if (this.isConfigureIntent(prompt)) {
-      return this.handleConfigure(request, stream, token);
-    }
-
-    if (this.isFixIntent(prompt)) {
-      return this.handleFix(request, stream, token);
-    }
-
     if (this.isHelpIntent(prompt)) {
+      // Help shows documentation
       return this.handleHelp(request, stream, token);
     }
 
-    // Default: Use LLM with DAB context
+    // Route everything else to LLM with tools
+    // This includes: add, relationship, mcp, start, validate, configure, fix
     return this.handleWithLLM(request, context, stream, token);
   }
 
@@ -139,16 +116,10 @@ export class DabChatHandler {
 
     // Check if config already exists
     if (fs.existsSync(configPath)) {
-      stream.markdown('⚠️ A `dab-config.json` already exists in this workspace.\n\n');
-      stream.markdown('Would you like to:\n');
-      stream.markdown('- Use `/configure` to modify runtime settings\n');
-      stream.markdown('- Use `/add` to add entities\n');
-      stream.markdown('- Or manually delete the file and try again\n');
-      
-      stream.button({
-        command: 'dab.openChat',
-        title: 'Configure DAB'
-      });
+      stream.markdown('Config already exists.\n');
+      stream.button({ command: 'dab.configureRuntime', title: 'Configure runtime' });
+      stream.button({ command: 'dab.addEntities', title: 'Add entities' });
+      stream.button({ command: 'dab.deleteConfig', title: 'Delete & reinit' });
 
       return { metadata: { command: 'init', success: false, configPath } };
     }
@@ -158,34 +129,27 @@ export class DabChatHandler {
     const connectionInfo = await this.findConnectionString(workspaceFolder);
 
     if (connectionInfo) {
-      stream.markdown(`✅ Found connection string in \`${connectionInfo.source}\`\n\n`);
-      stream.markdown(`Using environment variable: \`@env('${connectionInfo.envVar}')\`\n\n`);
-      
-      // Build the init command
-      const initCommand = this.buildInitCommand(connectionInfo.envVar);
-      
-      stream.markdown('### Creating DAB Configuration\n\n');
-      stream.markdown('```bash\n' + initCommand + '\n```\n\n');
-      
-      stream.button({
-        command: 'workbench.action.terminal.sendSequence',
-        title: 'Run Command',
-        arguments: [{ text: initCommand + '\n' }]
-      });
+      const fullDevCommand = this.buildInitCommand(connectionInfo.envVar);
+      const restProdCommand = this.buildInitCommand(connectionInfo.envVar, { hostMode: 'production', restEnabled: true, graphqlEnabled: false, mcpEnabled: false });
+      const restDevCommand = this.buildInitCommand(connectionInfo.envVar, { hostMode: 'development', restEnabled: true, graphqlEnabled: false, mcpEnabled: false });
 
-      stream.markdown('\n### What\'s Next?\n\n');
-      stream.markdown('After initialization, use `@dab /add` to add tables, views, or stored procedures.\n');
+      // Default to the most helpful path: full dev enablement
+      runCommand(fullDevCommand, { cwd: workspaceFolder });
+
+      stream.markdown(`✅ Started quick dev init (REST+GraphQL+MCP).\n`);
+      stream.button({ command: 'workbench.action.terminal.sendSequence', title: 'Switch: REST-only (prod)', arguments: [{ text: restProdCommand + '\n' }] });
+      stream.button({ command: 'workbench.action.terminal.sendSequence', title: 'Switch: REST-only (dev)', arguments: [{ text: restDevCommand + '\n' }] });
+      stream.button({ command: 'dab.addEntities', title: 'Add tables/views now' });
 
       return { metadata: { command: 'init', success: true, configPath } };
     } else {
-      stream.markdown('### Connection String Required\n\n');
-      stream.markdown('I couldn\'t find a connection string in your workspace. You\'ll need to provide one.\n\n');
-      stream.markdown('**For SQL Server/Azure SQL:**\n');
-      stream.markdown('```\nServer=localhost;Database=YourDb;Integrated Security=true;TrustServerCertificate=true\n```\n\n');
-      stream.markdown('**Recommended:** Create a `.env` file with:\n');
-      stream.markdown('```\nDATABASE_CONNECTION_STRING=Server=localhost;Database=YourDb;...\n```\n\n');
-      stream.markdown('Then run:\n');
-      stream.markdown('```bash\ndab init --database-type mssql --connection-string "@env(\'DATABASE_CONNECTION_STRING\')"\n```\n');
+      const defaultEnvVar = 'DATABASE_CONNECTION_STRING';
+      const fullDevCommand = this.buildInitCommand(defaultEnvVar);
+      const restProdCommand = this.buildInitCommand(defaultEnvVar, { hostMode: 'production', restEnabled: true, graphqlEnabled: false, mcpEnabled: false });
+
+      stream.markdown('Connection string needed.\n');
+      stream.button({ command: 'dab.createEnvTemplate', title: 'Create .env template' });
+      stream.button({ command: 'dab.skipInit', title: 'Skip for now' });
 
       return { metadata: { command: 'init', success: false } };
     }
@@ -202,26 +166,12 @@ export class DabChatHandler {
     const configPath = await this.findConfigFile();
     
     if (!configPath) {
-      stream.markdown('❌ No `dab-config.json` found. Use `/init` first to create one.\n');
+      stream.markdown('❌ No `dab-config.json` found. Run init first and I will add entities for you.');
       return { metadata: { command: 'add', success: false } };
     }
 
-    stream.markdown('### Adding Entities to DAB\n\n');
-    stream.markdown('To add database objects, use the `dab add` command:\n\n');
-    
-    stream.markdown('**Add a table:**\n');
-    stream.markdown('```bash\ndab add Product --source dbo.Products --permissions "anonymous:read"\n```\n\n');
-    
-    stream.markdown('**Add a view (requires key-fields):**\n');
-    stream.markdown('```bash\ndab add ProductSummary --source dbo.vw_ProductSummary --source.type view --source.key-fields "ProductId" --permissions "anonymous:read"\n```\n\n');
-    
-    stream.markdown('**Add a stored procedure:**\n');
-    stream.markdown('```bash\ndab add GetProducts --source dbo.usp_GetProducts --source.type stored-procedure --permissions "anonymous:execute"\n```\n\n');
-
-    if (request.prompt) {
-      stream.markdown(`\n---\n\nYou mentioned: "${request.prompt}"\n\n`);
-      stream.markdown('Tell me more about what you\'d like to add, and I\'ll generate the exact command.\n');
-    }
+    stream.button({ command: 'dab.discoverEntities', title: 'Discover & add all tables' });
+    stream.markdown('Or tell me specific names.');
 
     return { metadata: { command: 'add', success: true, configPath } };
   }
@@ -237,28 +187,20 @@ export class DabChatHandler {
     const configPath = await this.findConfigFile();
     
     if (!configPath) {
-      stream.markdown('❌ No `dab-config.json` found. Use `/init` first to create one.\n');
+      stream.markdown('No config found.');
+      stream.button({ command: 'dab.init', title: 'Initialize DAB' });
       return { metadata: { command: 'start', success: false } };
     }
 
-    stream.markdown('### Starting Data API Builder\n\n');
-    
     const configName = path.basename(configPath);
     const startCommand = `dab start -c "${configName}"`;
-    
-    stream.markdown('```bash\n' + startCommand + '\n```\n\n');
-    
-    stream.button({
-      command: 'workbench.action.terminal.sendSequence',
-      title: '🚀 Start DAB',
-      arguments: [{ text: startCommand + '\n' }]
-    });
+    const workspaceFolder = this.getWorkspaceFolder();
+    runCommand(startCommand, { cwd: workspaceFolder });
 
-    stream.markdown('\n**Endpoints available after start:**\n');
-    stream.markdown('- REST: `http://localhost:5000/api`\n');
-    stream.markdown('- GraphQL: `http://localhost:5000/graphql`\n');
-    stream.markdown('- MCP: `http://localhost:5000/mcp` (if enabled)\n');
-    stream.markdown('- Health: `http://localhost:5000/health` (if enabled)\n');
+    stream.markdown('✅ Started DAB.\n');
+    stream.button({ command: 'dab.openRest', title: 'Open REST' });
+    stream.button({ command: 'dab.openGraphQL', title: 'Open GraphQL' });
+    stream.button({ command: 'dab.openHealth', title: 'Health check' });
 
     return { metadata: { command: 'start', success: true, configPath } };
   }
@@ -274,29 +216,18 @@ export class DabChatHandler {
     const configPath = await this.findConfigFile();
     
     if (!configPath) {
-      stream.markdown('❌ No `dab-config.json` found. Use `/init` first to create one.\n');
+      stream.markdown('No config found.');
+      stream.button({ command: 'dab.init', title: 'Initialize DAB' });
       return { metadata: { command: 'validate', success: false } };
     }
 
-    stream.markdown('### Validating DAB Configuration\n\n');
-    
     const configName = path.basename(configPath);
     const validateCommand = `dab validate -c "${configName}"`;
-    
-    stream.markdown('```bash\n' + validateCommand + '\n```\n\n');
-    
-    stream.button({
-      command: 'workbench.action.terminal.sendSequence',
-      title: '✅ Validate Config',
-      arguments: [{ text: validateCommand + '\n' }]
-    });
+    const workspaceFolder = this.getWorkspaceFolder();
+    runCommand(validateCommand, { cwd: workspaceFolder });
 
-    stream.markdown('\n**Validation checks:**\n');
-    stream.markdown('1. Schema validation (JSON syntax)\n');
-    stream.markdown('2. Config properties validation\n');
-    stream.markdown('3. Permission validation\n');
-    stream.markdown('4. Database connection validation\n');
-    stream.markdown('5. Entity metadata validation\n');
+    stream.markdown('✅ Ran validation. Check terminal for results.\n');
+    stream.button({ command: 'dab.start', title: 'Start DAB' });
 
     return { metadata: { command: 'validate', success: true, configPath } };
   }
@@ -312,29 +243,17 @@ export class DabChatHandler {
     const configPath = await this.findConfigFile();
     
     if (!configPath) {
-      stream.markdown('❌ No `dab-config.json` found. Use `/init` first to create one.\n');
+      stream.markdown('No config found.');
+      stream.button({ command: 'dab.init', title: 'Initialize DAB' });
       return { metadata: { command: 'configure', success: false } };
     }
 
-    stream.markdown('### Configuring DAB Runtime\n\n');
-    stream.markdown('Use `dab configure` to modify runtime settings:\n\n');
-    
-    stream.markdown('**Enable/disable endpoints:**\n');
-    stream.markdown('```bash\ndab configure --runtime.rest.enabled true\ndab configure --runtime.graphql.enabled true\ndab configure --runtime.mcp.enabled true\n```\n\n');
-    
-    stream.markdown('**Configure caching:**\n');
-    stream.markdown('```bash\ndab configure --runtime.cache.enabled true --runtime.cache.ttl-seconds 30\n```\n\n');
-    
-    stream.markdown('**Set CORS origins:**\n');
-    stream.markdown('```bash\ndab configure --runtime.host.cors.origins "http://localhost:3000"\n```\n\n');
-    
-    stream.markdown('**Set host mode:**\n');
-    stream.markdown('```bash\ndab configure --runtime.host.mode development\n```\n\n');
-
-    if (request.prompt) {
-      stream.markdown(`\n---\n\nYou mentioned: "${request.prompt}"\n\n`);
-      stream.markdown('Tell me what you\'d like to configure, and I\'ll generate the exact command.\n');
-    }
+    stream.markdown('What to configure?\n');
+    stream.button({ command: 'dab.enableRest', title: 'Enable REST' });
+    stream.button({ command: 'dab.enableGraphQL', title: 'Enable GraphQL' });
+    stream.button({ command: 'dab.enableMcp', title: 'Enable MCP' });
+    stream.button({ command: 'dab.enableCache', title: 'Enable caching' });
+    stream.button({ command: 'dab.setCors', title: 'Set CORS' });
 
     return { metadata: { command: 'configure', success: true, configPath } };
   }
@@ -347,38 +266,12 @@ export class DabChatHandler {
     stream: vscode.ChatResponseStream,
     token: vscode.CancellationToken
   ): Promise<DabChatResult> {
-    stream.markdown('# Data API Builder Help\n\n');
-    
-    stream.markdown('**Data API Builder (DAB)** creates REST, GraphQL, and MCP APIs from your database without writing code.\n\n');
-    
-    stream.markdown('## Commands\n\n');
-    stream.markdown('| Command | Description |\n');
-    stream.markdown('|---------|-------------|\n');
-    stream.markdown('| `/init` | Create a new DAB configuration file |\n');
-    stream.markdown('| `/add` | Add tables, views, or stored procedures |\n');
-    stream.markdown('| `/start` | Start the DAB engine |\n');
-    stream.markdown('| `/validate` | Validate your configuration |\n');
-    stream.markdown('| `/configure` | Configure runtime settings |\n');
-    stream.markdown('| `/relationship` | Set up entity relationships |\n');
-    stream.markdown('| `/mcp` | Enable MCP for AI tool integration |\n');
-    stream.markdown('| `/fix` | Troubleshoot common issues |\n');
-    stream.markdown('| `/help` | Show this help |\n\n');
-    
-    stream.markdown('## Getting Started\n\n');
-    stream.markdown('1. **Initialize**: `@dab /init` - Creates `dab-config.json`\n');
-    stream.markdown('2. **Add entities**: `@dab /add` - Add your database tables\n');
-    stream.markdown('3. **Relationships**: `@dab /relationship` - Link entities together\n');
-    stream.markdown('4. **Validate**: `@dab /validate` - Check your configuration\n');
-    stream.markdown('5. **Start**: `@dab /start` - Run the API server\n\n');
-    
-    stream.markdown('## Learn More\n\n');
-    stream.markdown('- [Official Documentation](https://learn.microsoft.com/azure/data-api-builder/)\n');
-    stream.markdown('- [CLI Reference](https://learn.microsoft.com/azure/data-api-builder/reference-command-line-interface)\n');
-    stream.markdown('- [REST API](https://learn.microsoft.com/azure/data-api-builder/rest)\n');
-    stream.markdown('- [GraphQL API](https://learn.microsoft.com/azure/data-api-builder/graphql)\n');
-    stream.markdown('- [Configuration Schema](https://learn.microsoft.com/azure/data-api-builder/reference-configuration)\n');
-    stream.markdown('- [GitHub Repository](https://github.com/Azure/data-api-builder)\n');
-    stream.markdown('- [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.omnibus-data-api-builder)\n');
+    stream.markdown('DAB creates REST, GraphQL & MCP APIs from your database—zero code.\n');
+    stream.button({ command: 'dab.init', title: 'Initialize' });
+    stream.button({ command: 'dab.addEntities', title: 'Add entities' });
+    stream.button({ command: 'dab.start', title: 'Start' });
+    stream.button({ command: 'dab.validate', title: 'Validate' });
+    stream.button({ command: 'dab.openDocs', title: 'Docs' });
 
     return { metadata: { command: 'help', success: true } };
   }
@@ -532,14 +425,15 @@ export class DabChatHandler {
     token: vscode.CancellationToken
   ): Promise<DabChatResult> {
     try {
-      // Build context-aware prompt
+      // Build context-aware prompt with workspace information
       const systemPrompt = this.buildSystemPrompt();
+      const workspaceContext = await this.buildWorkspaceContext();
       
       // Get the language model from the request
       const model = request.model;
       
       const messages = [
-        vscode.LanguageModelChatMessage.User(systemPrompt),
+        vscode.LanguageModelChatMessage.User(systemPrompt + workspaceContext),
         vscode.LanguageModelChatMessage.User(request.prompt)
       ];
 
@@ -558,18 +452,202 @@ export class DabChatHandler {
         }
       }
 
-      // Send to LLM
-      const response = await model.sendRequest(messages, {}, token);
+      // Get available tools (MCP tools like dab_cli and get_schema)
+      const tools = await this.getAvailableTools();
       
-      // Stream the response
-      for await (const chunk of response.text) {
-        stream.markdown(chunk);
+      // Send to LLM with tools
+      const options: vscode.LanguageModelChatRequestOptions = {};
+      if (tools.length > 0) {
+        options.tools = tools;
+      }
+      
+      // Process response with tool call loop - keep going until LLM stops calling tools
+      let continueLoop = true;
+      let currentMessages = [...messages];
+      const maxIterations = 10; // Prevent infinite loops
+      let iteration = 0;
+      
+      while (continueLoop && iteration < maxIterations) {
+        iteration++;
+        continueLoop = false;
+        
+        const response = await model.sendRequest(currentMessages, options, token);
+        const toolCallsInThisRound: vscode.LanguageModelToolCallPart[] = [];
+        
+        // Collect all parts from this response
+        for await (const part of response.stream) {
+          if (part instanceof vscode.LanguageModelTextPart) {
+            stream.markdown(part.value);
+          } else if (part instanceof vscode.LanguageModelToolCallPart) {
+            toolCallsInThisRound.push(part);
+          }
+        }
+        
+        // Process any tool calls from this round
+        if (toolCallsInThisRound.length > 0) {
+          continueLoop = true; // Continue the loop since we had tool calls
+          
+          for (const toolCall of toolCallsInThisRound) {
+            // Execute the tool call
+            const toolResult = await this.executeToolCall(toolCall, request.toolInvocationToken, token);
+            
+            // Add tool call and result to conversation
+            currentMessages.push(vscode.LanguageModelChatMessage.Assistant([toolCall]));
+            currentMessages.push(vscode.LanguageModelChatMessage.User([toolResult]));
+          }
+        }
       }
 
       return { metadata: { success: true } };
     } catch (error) {
       stream.markdown(`\n\n⚠️ Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`);
       return { metadata: { success: false } };
+    }
+  }
+
+  /**
+   * Get available language model tools (MCP tools)
+   */
+  private async getAvailableTools(): Promise<vscode.LanguageModelChatTool[]> {
+    const tools: vscode.LanguageModelChatTool[] = [];
+    
+    // Define the dab_cli tool for the LLM
+    tools.push({
+      name: 'dab_cli',
+      description: `Execute Data API Builder (DAB) CLI commands to create and manage REST, GraphQL, and MCP APIs from databases.
+
+USE THIS TOOL WHEN:
+- Creating a new DAB configuration (init)
+- Adding database tables, views, or stored procedures as API entities (add)
+- Updating entity configurations like permissions, mappings, or relationships (update)
+- Configuring runtime settings like authentication, CORS, caching, or endpoints (configure)
+- Validating a DAB configuration file for errors (validate)
+- Starting or checking the status of the DAB server (start, status)
+
+DO NOT use this tool to discover database schema - use get_schema instead.`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          subcommand: {
+            type: 'string',
+            enum: ['init', 'add', 'update', 'configure', 'validate', 'start', 'status'],
+            description: 'DAB CLI operation to perform'
+          },
+          config_path: {
+            type: 'string',
+            description: 'Path to dab-config.json'
+          },
+          parameters: {
+            type: 'object',
+            description: 'Parameters for the command (e.g., entityName, source, databaseType)'
+          }
+        },
+        required: ['subcommand']
+      }
+    });
+    
+    // Define the get_schema tool for the LLM
+    tools.push({
+      name: 'get_schema',
+      description: `Retrieve database schema metadata including tables, columns, and FOREIGN KEY RELATIONSHIPS from SQL Server.
+
+USE THIS TOOL WHEN:
+- Discovering what tables exist in the database
+- Finding foreign key relationships between tables (returned in "relationships" array)
+- Getting column details (names, types, primary keys, foreign keys)
+- Before adding entities or relationships to DAB
+
+IMPORTANT: The result includes a "relationships" array showing all foreign keys:
+- parentTable: The table with the foreign key column
+- referencedTable: The table being referenced (the "one" side)
+- parentColumn/referencedColumn: The FK column mappings
+
+Use this information to configure DAB relationships via dab_cli update.`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          connection_string: {
+            type: 'string',
+            description: 'SQL Server connection string'
+          },
+          filter: {
+            type: 'string',
+            enum: ['all', 'tables', 'views', 'procedures', 'functions', 'summary'],
+            description: 'Filter results to specific object types. Use "tables" for relationship discovery.'
+          },
+          schema_name: {
+            type: 'string',
+            description: 'Filter to a specific schema (e.g., "dbo")'
+          },
+          object_name: {
+            type: 'string',
+            description: 'Filter to a specific object name'
+          }
+        },
+        required: ['connection_string']
+      }
+    });
+    
+    return tools;
+  }
+
+  /**
+   * Execute a tool call from the LLM
+   */
+  private async executeToolCall(
+    toolCall: vscode.LanguageModelToolCallPart,
+    toolInvocationToken: vscode.ChatParticipantToolToken | undefined,
+    token: vscode.CancellationToken
+  ): Promise<vscode.LanguageModelToolResultPart> {
+    const { name, input } = toolCall;
+    
+    console.log(`DAB executeToolCall: Calling tool '${name}' with input:`, JSON.stringify(input).substring(0, 200));
+    
+    try {
+      // Invoke the tool using VS Code's tool invocation API
+      const result = await vscode.lm.invokeTool(name, { 
+        input,
+        toolInvocationToken
+      }, token);
+      
+      // Extract text content from the LanguageModelToolResult
+      let resultText = '';
+      
+      // The result is a LanguageModelToolResult which has a content property that is iterable
+      if (result) {
+        // Try to iterate over the result content
+        for (const part of result.content) {
+          if (!part) continue;
+          if (part instanceof vscode.LanguageModelTextPart) {
+            resultText += part.value;
+          } else if (typeof part === 'object' && 'value' in part) {
+            resultText += (part as { value: string }).value;
+          } else if (typeof part === 'object' && 'text' in part) {
+            resultText += (part as { text: string }).text;
+          }
+        }
+      }
+      
+      // Fallback: try JSON stringify if we still have nothing
+      if (!resultText && result) {
+        try {
+          resultText = JSON.stringify(result, null, 2);
+        } catch {
+          resultText = String(result);
+        }
+      }
+      
+      console.log(`DAB executeToolCall: Tool '${name}' returned ${resultText.length} chars. Preview:`, resultText.substring(0, 500));
+      
+      return new vscode.LanguageModelToolResultPart(toolCall.callId, [
+        new vscode.LanguageModelTextPart(resultText)
+      ]);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Tool execution failed';
+      console.log(`DAB executeToolCall: Tool '${name}' error:`, errorMessage);
+      return new vscode.LanguageModelToolResultPart(toolCall.callId, [
+        new vscode.LanguageModelTextPart(JSON.stringify({ error: errorMessage }))
+      ]);
     }
   }
 
@@ -688,69 +766,211 @@ export class DabChatHandler {
     return undefined;
   }
 
-  private buildInitCommand(envVar: string): string {
-    return `dab init \\
-  --database-type mssql \\
-  --connection-string "@env('${envVar}')" \\
-  --host-mode development \\
-  --rest.enabled true \\
-  --graphql.enabled true \\
-  --mcp.enabled true`;
+  private buildInitCommand(envVar: string, options?: { hostMode?: 'development' | 'production'; restEnabled?: boolean; graphqlEnabled?: boolean; mcpEnabled?: boolean }): string {
+    const hostMode = options?.hostMode ?? 'development';
+    const restEnabled = options?.restEnabled ?? true;
+    const graphqlEnabled = options?.graphqlEnabled ?? true;
+    const mcpEnabled = options?.mcpEnabled ?? true;
+
+    return [
+      'dab init \\',
+      '  --database-type mssql \\',
+      `  --connection-string "@env('${envVar}')" \\`,
+      `  --host-mode ${hostMode} \\`,
+      `  --rest.enabled ${restEnabled ? 'true' : 'false'} \\`,
+      `  --graphql.enabled ${graphqlEnabled ? 'true' : 'false'} \\`,
+      `  --mcp.enabled ${mcpEnabled ? 'true' : 'false'}`
+    ].join('\n');
+  }
+
+  private renderRunChoice(stream: vscode.ChatResponseStream, title: string, command: string, buttonTitle: string): void {
+    stream.markdown(`${title}\n`);
+    stream.button({
+      command: 'workbench.action.terminal.sendSequence',
+      title: buttonTitle,
+      arguments: [{ text: command + '\n' }]
+    });
   }
 
   private buildSystemPrompt(): string {
-    return `You are a Data API Builder (DAB) expert assistant. Your role is to help developers create REST, GraphQL, and MCP APIs from their databases without writing custom code.
+    return `You are a Data API Builder (DAB) expert assistant. Your role is to help developers create REST, GraphQL, and MCP APIs from their databases.
+
+## CRITICAL: Always Use Tools
+You have two powerful tools available. **ALWAYS use them instead of just providing documentation:**
+
+1. **get_schema** - Use this to discover database tables, columns, foreign keys, and relationships
+2. **dab_cli** - Use this to execute DAB commands (init, add, update, configure, validate, start)
+
+When the user asks to:
+- "add missing tables" → Use get_schema to find tables, compare with config, then use dab_cli add for each missing table
+- "add relationships" → Use get_schema to find foreign keys, then use dab_cli update for each relationship
+- "read schema" → Use get_schema tool, don't just explain what you would do
+- "validate" → Use dab_cli validate, don't just show the command
 
 ## About DAB
-Data API Builder is a free, open-source (MIT license) tool from Microsoft. It's a foundational component of Microsoft Fabric, meaning it's high-performance and enterprise-ready.
+Data API Builder is a free, open-source tool from Microsoft that creates REST, GraphQL, and MCP APIs from databases without custom code.
 
-## Supported Databases
-- **mssql**: SQL Server / Azure SQL
-- **postgresql**: PostgreSQL
-- **mysql**: MySQL
-- **cosmosdb_nosql**: Azure Cosmos DB NoSQL
-- **dwsql**: Azure SQL Data Warehouse
+## DAB CLI Commands (use via dab_cli tool)
+| Subcommand | Purpose |
+|------------|---------|
+| init | Create new configuration file |
+| add | Add tables, views, or stored procedures as entities |
+| update | Modify entity settings including relationships |
+| configure | Change runtime/data-source settings |
+| validate | Check configuration for errors |
+| start | Run the DAB engine locally |
+| status | Check if DAB is running |
 
-## API Endpoints
-- **REST**: http://localhost:5000/api/{entity} - Full CRUD with OData-style filtering
-- **GraphQL**: http://localhost:5000/graphql - Queries, mutations, nested relationships
-- **MCP**: http://localhost:5000/mcp - Model Context Protocol for AI tool integration
-- **Health**: http://localhost:5000/health - Health check endpoint
-- **OpenAPI**: http://localhost:5000/swagger - API documentation (when enabled)
+## Adding Relationships (via dab_cli update)
+Relationships enable nested GraphQL queries. Use dab_cli with subcommand "update" and these parameters:
+- entityName: The entity to update
+- relationship: Name of the relationship (e.g., "books", "author")
+- targetEntity: The related entity name
+- cardinality: "one" or "many"
+- relationshipFields: Optional FK mapping like "AuthorId:Id"
 
-## DAB CLI Commands
-| Command | Purpose |
-|---------|----------|
-| dab init | Create new configuration file |
-| dab add | Add tables, views, or stored procedures as entities |
-| dab update | Modify existing entity settings |
-| dab configure | Change runtime/data-source settings |
-| dab validate | Check configuration for errors |
-| dab start | Run the DAB engine locally |
-| dab export | Export current configuration |
-
-## Key Concepts
-- **Entities**: Database objects (tables, views, stored procedures) exposed as API endpoints
-- **Permissions**: Role-based access with actions (read, create, update, delete, execute, *)
-- **Relationships**: Links between entities enabling nested GraphQL queries
-- **Caching**: L1 (in-memory) and L2 (Redis) caching for performance
-- **Policies**: Row-level security using database predicates
+Example: To add a "characters" relationship to Series pointing to Character with many cardinality:
+\`\`\`json
+{
+  "subcommand": "update",
+  "config_path": "path/to/dab-config.json",
+  "parameters": {
+    "entityName": "Series",
+    "relationship": "characters",
+    "targetEntity": "Character",
+    "cardinality": "many"
+  }
+}
+\`\`\`
 
 ## Best Practices
-- Always use @env('VAR_NAME') for connection strings (never hardcode secrets)
-- Use descriptive entity names different from source object names
-- Apply least-privilege permissions (start with anonymous:read)
+- Use @env('VAR_NAME') for connection strings (never hardcode secrets)
 - Validate configuration before deployment
-- Use development host mode for local testing
-
-## Official Documentation
-- Main docs: https://learn.microsoft.com/azure/data-api-builder/
-- CLI reference: https://learn.microsoft.com/azure/data-api-builder/reference-command-line-interface
-- GitHub: https://github.com/Azure/data-api-builder
-
-When providing commands, format them as code blocks so users can easily copy them.
+- For many-to-many relationships, you need a linking table
 
 ${this.instructions}`;
+  }
+
+  /**
+   * Build workspace context for the LLM including config files and connection strings
+   */
+  private async buildWorkspaceContext(): Promise<string> {
+    const workspaceFolder = this.getWorkspaceFolder();
+    if (!workspaceFolder) {
+      return '\n\n## Workspace Context\nNo workspace folder is open.';
+    }
+
+    const contextParts: string[] = ['\n\n## Workspace Context'];
+    contextParts.push(`Workspace folder: ${workspaceFolder}`);
+
+    // Find DAB config file
+    const configPath = await this.findConfigFile();
+    if (configPath) {
+      contextParts.push(`\n### DAB Configuration Found`);
+      contextParts.push(`Config path: ${configPath}`);
+      
+      // Read and summarize the config
+      try {
+        const configContent = fs.readFileSync(configPath, 'utf-8');
+        const config = JSON.parse(configContent);
+        
+        // Extract key info
+        const dbType = config['data-source']?.['database-type'] || 'unknown';
+        const entities = Object.keys(config.entities || {});
+        const connStr = config['data-source']?.['connection-string'] || '';
+        
+        contextParts.push(`Database type: ${dbType}`);
+        contextParts.push(`Connection string reference: ${connStr}`);
+        contextParts.push(`Entities configured: ${entities.length > 0 ? entities.join(', ') : 'none'}`);
+        
+        if (entities.length > 0) {
+          contextParts.push('\n**Existing entity details:**');
+          const relationshipSummary: string[] = [];
+          
+          for (const [name, entity] of Object.entries(config.entities || {})) {
+            const e = entity as any;
+            const sourceObj = e.source?.object || 'unknown';
+            const sourceType = e.source?.type || 'table';
+            
+            // Check for relationships
+            const rels = e.relationships || {};
+            const relCount = Object.keys(rels).length;
+            
+            if (relCount > 0) {
+              for (const [relName, rel] of Object.entries(rels)) {
+                const r = rel as any;
+                relationshipSummary.push(`  - ${name}.${relName} → ${r['target.entity']} (${r.cardinality || 'unknown'})`);
+              }
+            }
+            
+            contextParts.push(`- ${name}: source="${sourceObj}", type="${sourceType}", relationships=${relCount}`);
+          }
+          
+          if (relationshipSummary.length > 0) {
+            contextParts.push('\n**Existing relationships:**');
+            contextParts.push(...relationshipSummary);
+          } else {
+            contextParts.push('\n**No relationships configured yet.** Use get_schema to find foreign keys and add relationships.');
+          }
+        }
+      } catch (e) {
+        contextParts.push('(Could not parse config file)');
+      }
+    } else {
+      contextParts.push('\n### No DAB Configuration Found');
+      contextParts.push('No dab-config.json exists in the workspace. Use dab_cli with subcommand "init" to create one.');
+    }
+
+    // Find connection string
+    const connectionInfo = await this.findConnectionString(workspaceFolder);
+    if (connectionInfo) {
+      contextParts.push(`\n### Connection String Found`);
+      contextParts.push(`Environment variable: ${connectionInfo.envVar}`);
+      contextParts.push(`Source file: ${connectionInfo.source}`);
+      
+      // Try to read the actual connection string value for schema discovery
+      const connStrValue = await this.readConnectionStringValue(workspaceFolder, connectionInfo.envVar);
+      if (connStrValue) {
+        contextParts.push(`\n**IMPORTANT**: When using get_schema tool, use this connection string:`);
+        contextParts.push(`\`${connStrValue}\``);
+      }
+    } else {
+      contextParts.push('\n### No Connection String Found');
+      contextParts.push('No .env or local.settings.json with a database connection string was found.');
+    }
+
+    return contextParts.join('\n');
+  }
+
+  /**
+   * Read the actual connection string value from environment files
+   */
+  private async readConnectionStringValue(folder: string, envVar: string): Promise<string | undefined> {
+    // Check .env file
+    const envPath = path.join(folder, '.env');
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8');
+      const match = content.match(new RegExp(`^${envVar}=(.+)$`, 'm'));
+      if (match) {
+        return match[1].trim().replace(/^["']|["']$/g, ''); // Remove quotes if present
+      }
+    }
+
+    // Check local.settings.json
+    const localSettingsPath = path.join(folder, 'local.settings.json');
+    if (fs.existsSync(localSettingsPath)) {
+      try {
+        const content = JSON.parse(fs.readFileSync(localSettingsPath, 'utf-8'));
+        const values = content.Values || {};
+        if (values[envVar]) {
+          return values[envVar];
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+
+    return undefined;
   }
 
   // Intent detection helpers

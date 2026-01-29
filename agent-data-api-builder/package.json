@@ -30,7 +30,7 @@
     "github.copilot-chat"
   ],
   "activationEvents": [
-    "onChatParticipant:dab.participant"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -94,10 +94,90 @@
         "path": "resources/agents/dab-developer.agent.md"
       }
     ],
+    "languageModelTools": [
+      {
+        "name": "dab_cli",
+        "displayName": "DAB CLI",
+        "modelDescription": "Execute Data API Builder (DAB) CLI commands to create and manage REST, GraphQL, and MCP APIs from databases. Use this tool to: initialize DAB configs (init), add entities like tables/views/stored procedures (add), update entity settings (update), configure runtime options (configure), validate configs (validate), start the server (start), or check status (status). DO NOT use this for schema discovery - use get_schema instead.",
+        "icon": "$(database)",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "dab_cli",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "subcommand": {
+              "type": "string",
+              "enum": ["init", "add", "update", "configure", "validate", "start", "status"],
+              "description": "DAB CLI operation to perform"
+            },
+            "config_path": {
+              "type": "string",
+              "description": "Path to dab-config.json"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "Parameters for the command (e.g., entityName, source, databaseType)"
+            }
+          },
+          "required": ["subcommand"]
+        }
+      },
+      {
+        "name": "get_schema",
+        "displayName": "Get Database Schema",
+        "modelDescription": "Retrieve comprehensive database schema metadata from SQL Server including tables, views, stored procedures, functions, columns, parameters, indexes, and foreign key relationships. Use this tool to discover database structure before adding entities to DAB. This is read-only and does not modify anything.",
+        "icon": "$(symbol-structure)",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "get_schema",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "connection_string": {
+              "type": "string",
+              "description": "SQL Server connection string (e.g., Server=localhost;Database=mydb;Integrated Security=true)"
+            },
+            "filter": {
+              "type": "string",
+              "enum": ["all", "tables", "views", "procedures", "functions", "summary"],
+              "description": "Filter results to specific object types"
+            },
+            "schema_name": {
+              "type": "string",
+              "description": "Filter to a specific schema (e.g., dbo)"
+            },
+            "object_name": {
+              "type": "string",
+              "description": "Filter to a specific object name"
+            }
+          },
+          "required": ["connection_string"]
+        }
+      }
+    ],
     "commands": [
       {
         "command": "dab.openChat",
         "title": "Open DAB Chat",
+        "category": "DAB"
+      },
+      {
+        "command": "dab.validate",
+        "title": "Validate Configuration",
+        "category": "DAB"
+      },
+      {
+        "command": "dab.start",
+        "title": "Start Server",
+        "category": "DAB"
+      },
+      {
+        "command": "dab.addEntity",
+        "title": "Add Entity...",
+        "category": "DAB"
+      },
+      {
+        "command": "dab.configure",
+        "title": "Configure Settings...",
         "category": "DAB"
       }
     ],
@@ -105,6 +185,72 @@
       "commandPalette": [
         {
           "command": "dab.openChat"
+        },
+        {
+          "command": "dab.validate"
+        },
+        {
+          "command": "dab.start"
+        },
+        {
+          "command": "dab.addEntity"
+        },
+        {
+          "command": "dab.configure"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "dab.validate",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@1"
+        },
+        {
+          "command": "dab.start",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@2"
+        },
+        {
+          "command": "dab.addEntity",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@3"
+        },
+        {
+          "command": "dab.configure",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@4"
+        },
+        {
+          "command": "dab.openChat",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@5"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "dab.validate",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@1"
+        },
+        {
+          "command": "dab.start",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@2"
+        },
+        {
+          "command": "dab.addEntity",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@3"
+        },
+        {
+          "command": "dab.configure",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@4"
+        },
+        {
+          "command": "dab.openChat",
+          "when": "resourceFilename =~ /dab-config.*\\.json$/",
+          "group": "dab@5"
         }
       ]
     }
@@ -112,8 +258,8 @@
   "scripts": {
     "vscode:prepublish": "npm run merge-agent-docs && npm run compile",
     "merge-agent-docs": "node scripts/merge-agent-docs.js",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "npm run merge-agent-docs && tsc -p ./",
+    "watch": "npm run merge-agent-docs && tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
@@ -125,7 +271,9 @@
     "resources/**/*"
   ],
   "dependencies": {
-    "dab-vscode-shared": "*"
+    "dab-vscode-shared": "*",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/vscode": "^1.95.0",

@@ -25,8 +25,14 @@ Where `<entity-name>` is the name that will be used in the API (e.g., `Product` 
 |--------|------|---------|-------------|
 | `--source`, `-s` | string | Required | Database object name |
 | `--source.type`, `-st` | string | table | Entity type: `table`, `view`, `stored-procedure` |
-| `--source.key-fields` | string | | Primary key field(s), comma-separated. Required for views |
+| `--source.key-fields` | string | | Primary key field(s), comma-separated. **Required for views** |
 | `--source.params` | string | | Default parameter values for stored procedures |
+
+**IMPORTANT Constraints:**
+- **Views**: Cannot be added automatically - developer MUST specify primary key using `--source.key-fields`
+- **Tables without PKs**: Cannot be added to DAB - database must have primary key constraint defined
+  - Solution 1: Add primary key constraint to the table in database
+  - Solution 2: Create a view with `--source.key-fields` parameter
 
 ## Permission Options
 

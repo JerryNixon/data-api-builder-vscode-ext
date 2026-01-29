@@ -14,7 +14,8 @@ export function activate(context: vscode.ExtensionContext) {
     const folderPath = path.dirname(configFilePath);
     const fileName = path.basename(configFilePath);
 
-    const command = `dab start -c "${fileName}"`;
+    // Change to the config directory first, then run dab with just the file name
+    const command = `cd "${folderPath}" && dab start -c "${fileName}"`;
     runCommand(command, { cwd: folderPath });
   });
 

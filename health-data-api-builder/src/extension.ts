@@ -1,14 +1,11 @@
 import * as vscode from 'vscode';
 import * as https from 'https';
 import * as http from 'http';
-import * as path from 'path';
 import { readConfig } from 'dab-vscode-shared';
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
 export function activate(context: vscode.ExtensionContext) {
-	const disposable = vscode.commands.registerCommand('healthDataApiBuilder.healthCheck', async (uri: vscode.Uri) => {
-		showHealthWebView(uri);
+	const disposable = vscode.commands.registerCommand('healthDataApiBuilder.healthCheck', (uri: vscode.Uri) => {
+		showHealthWebView(context, uri);
 	});
 	context.subscriptions.push(disposable);
 }
@@ -99,7 +96,7 @@ function getDefaultUrlsFromConfig(uri?: vscode.Uri): string[] {
 	}
 }
 
-function showHealthWebView(uri?: vscode.Uri) {
+function showHealthWebView(context: vscode.ExtensionContext, uri?: vscode.Uri) {
 	const urls = getDefaultUrlsFromConfig(uri);
 	
 	const panel = vscode.window.createWebviewPanel(
@@ -110,17 +107,19 @@ function showHealthWebView(uri?: vscode.Uri) {
 	);
 
 	// Handle messages from the webview
-	panel.webview.onDidReceiveMessage(async (message) => {
+	const messageHandler = panel.webview.onDidReceiveMessage(async (message) => {
 		if (message.command === 'fetch') {
 			const result = await fetchHealthData(message.url);
 			panel.webview.postMessage({ command: 'healthData', ...result });
 		}
 	});
+	context.subscriptions.push(messageHandler);
 
 	panel.webview.html = `
 		<html>
 			<head>
 				<meta charset="utf-8" />
+				<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src https://cdn.jsdelivr.net 'unsafe-inline'; script-src 'unsafe-inline';">
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 				<style>
