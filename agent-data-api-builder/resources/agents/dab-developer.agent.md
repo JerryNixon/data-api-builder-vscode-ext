@@ -3850,15 +3850,431 @@ dab start
 
 # SECTION 8: DEPLOYMENT AZURE CONTAINER APPS
 
-﻿# Deploying DAB to Azure Container Apps
+﻿# Deploying DAB to Azure (ACA, ACI, AKS)
 
 ## Overview
 
-Azure Container Apps (ACA) is the **preferred production deployment option** for Data API Builder unless the user has an existing production infrastructure plan. This guide provides step-by-step deployment guidance with exact commands, retry requirements, and troubleshooting.
+This guide helps deploy Data API Builder to Azure container platforms. **Azure Container Apps (ACA)** is the preferred option for most users, but **Azure Container Instances (ACI)** is available for cost-sensitive scenarios, and **Azure Kubernetes Service (AKS)** guidance is provided for users with existing Kubernetes infrastructure.
+
+**AGENT INSTRUCTIONS**: Always start by asking the deployment questionnaire questions (see below) to understand the user's requirements before executing any commands.
 
 ---
 
-## Why Azure Container Apps?
+## Sample Deployment Scripts
+
+Complete, working deployment scripts are available in the [scripts/](./scripts/) folder:
+
+| Script | Use Case | Auth Method |
+|--------|----------|-------------|
+| [deploy-dab-aca-sample.ps1](./scripts/deploy-dab-aca-sample.ps1) | Learning, quick demos | SQL Authentication |
+| [deploy-dab-aca-production.ps1](./scripts/deploy-dab-aca-production.ps1) | Enterprise deployments | Azure AD + Managed Identity |
+| [Dockerfile.sample](./scripts/Dockerfile.sample) | Container image reference | N/A |
+
+### How to Use These Scripts
+
+**IMPORTANT**: These scripts are **reference guides**, not requirements. Users do NOT need PowerShell installed.
+
+**Agent Guidelines for Using These Scripts:**
+
+1. **As a Complete Solution**: If the user wants a quick deployment, point them to the appropriate script
+2. **As a Snippet Source**: Extract specific sections (SQL setup, ACR creation, Container App deployment) when users ask about individual steps
+3. **As an Adaptation Base**: Convert commands to Bash, Azure CLI, or explain them for manual Portal execution
+4. **For Troubleshooting**: Reference the script's patterns when debugging deployment issues
+
+**Choosing a Script:**
+- **Sample Script**: Use for learning, demos, or when SQL authentication is acceptable
+- **Production Script**: Use for enterprise deployments requiring Azure AD-only auth, managed identity, and comprehensive error handling
+
+**Cross-Platform Alternatives:**
+- **Bash/Zsh**: Replace `$VARIABLE` with `$VARIABLE`, remove backticks, use `$(command)` for subshells
+- **Azure Portal**: Use the portal UI following the same logical steps
+- **Terraform/Bicep**: Use infrastructure-as-code templates based on the same resource structure
+- **GitHub Actions/Azure DevOps**: Adapt commands into pipeline steps
+
+---
+
+## Deployment Questionnaire
+
+**AGENT INSTRUCTIONS**: Before starting any deployment, gather the following information from the user. Present this as a checklist with defaults, allowing the user to confirm or override each choice.
+
+### Question 1: Container Platform
+
+**Ask the user**: "Which container platform would you like to use?"
+
+| Platform | Best For | Cost | Complexity |
+|----------|----------|------|------------|
+| **ACA** (Azure Container Apps) | Production APIs, auto-scaling needs | ~$15-50/month | Low |
+| **ACI** (Azure Container Instances) | Dev/test, simple workloads, cost-sensitive | ~$5-15/month | Lowest |
+| **AKS** (Azure Kubernetes Service) | Existing K8s infrastructure | Varies | High |
+
+**Default**: ACA (recommended for most users)
+
+**Agent behavior**:
+- If user has no preference → use ACA
+- If user mentions cost concerns → suggest ACI
+- If user mentions existing Kubernetes → offer AKS guidance (best effort, no sample script)
+
+**Key differences for implementation**:
+
+| Capability | ACA | ACI | AKS |
+|------------|-----|-----|-----|
+| System-Assigned MI | ✅ `--system-assigned` | ✅ `--assign-identity` | ✅ Via pod identity |
+| User-Assigned MI | ✅ `--user-assigned` | ✅ `--assign-identity [id]` | ✅ Via workload identity |
+| ACR Pull via MI | ✅ `--registry-identity system` | ❌ Requires admin creds or MI setup | ✅ Via attach-acr |
+| Auto-scaling | ✅ Built-in | ❌ Manual | ✅ Via HPA |
+| Ingress/HTTPS | ✅ Built-in | ❌ Requires Azure Front Door/App Gateway | ✅ Via Ingress controller |
+
+---
+
+### Question 2: Database Authentication
+
+**Ask the user**: "How should DAB authenticate to your database?"
+
+| Method | Security | Setup Complexity | Best For |
+|--------|----------|------------------|----------|
+| **SAMI** (System-Assigned Managed Identity) | ✅ Highest | Medium | New deployments, single container |
+| **UAMI** (User-Assigned Managed Identity) | ✅ Highest | Medium-High | Shared identity across resources |
+| **SQL Authentication** (Password) | ⚠️ Lower | Low | Quick demos, on-premises SQL |
+
+**Default**: SAMI (recommended for Azure SQL)
+
+**Agent behavior by auth type**:
+
+**SAMI (System-Assigned Managed Identity)**:
+```powershell
+# 1. Create container with system-assigned identity
+az containerapp create ... --system-assigned
+
+# 2. Get the principal ID
+$principalId = az containerapp show --name $app --resource-group $rg --query identity.principalId -o tsv
+
+# 3. Wait for Azure AD propagation (critical!)
+$displayName = az ad sp show --id $principalId --query displayName -o tsv
+# Retry with exponential backoff if not found (can take 30-120 seconds)
+
+# 4. Grant SQL access
+sqlcmd -S $server -d $database -G -Q "
+CREATE USER [$displayName] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [$displayName];
+ALTER ROLE db_datawriter ADD MEMBER [$displayName];
+GRANT EXECUTE TO [$displayName];"
+
+# 5. Connection string (no password!)
+$connString = "Server=tcp:$server,1433;Database=$database;Authentication=Active Directory Managed Identity;"
+```
+
+**UAMI (User-Assigned Managed Identity)**:
+```powershell
+# 1. Create the managed identity first
+az identity create --name $identityName --resource-group $rg
+$identityId = az identity show --name $identityName --resource-group $rg --query id -o tsv
+$clientId = az identity show --name $identityName --resource-group $rg --query clientId -o tsv
+$principalId = az identity show --name $identityName --resource-group $rg --query principalId -o tsv
+
+# 2. Grant SQL access using the identity name
+sqlcmd -S $server -d $database -G -Q "
+CREATE USER [$identityName] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [$identityName];
+ALTER ROLE db_datawriter ADD MEMBER [$identityName];
+GRANT EXECUTE TO [$identityName];"
+
+# 3. Create container with user-assigned identity
+az containerapp create ... --user-assigned $identityId
+
+# 4. Connection string includes client ID
+$connString = "Server=tcp:$server,1433;Database=$database;Authentication=Active Directory Managed Identity;User Id=$clientId;"
+```
+
+**SQL Authentication (Password)**:
+```powershell
+# 1. Store password as secret
+az containerapp create ... --secrets "sql-password=$password" --env-vars "MSSQL_CONNECTION_STRING=secretref:connection-string"
+
+# 2. Connection string with credentials
+$connString = "Server=tcp:$server,1433;Database=$database;User ID=$username;Password=$password;Encrypt=true;"
+```
+
+---
+
+### Question 3: Resource Tags
+
+**Ask the user**: "Does your organization require specific tags on Azure resources?"
+
+**Common required tags**:
+- `environment` (dev/staging/prod)
+- `cost-center` or `billing-code`
+- `owner` or `team`
+- `project` or `application`
+
+**Default**: Apply basic tags (author, version, created-date)
+
+**Agent behavior**:
+- Ask upfront: "Do you have required tags for your Azure resources? Common ones include environment, cost-center, owner, project."
+- If user provides tags → include in all `az` commands via `--tags key1=value1 key2=value2`
+- If deployment fails with tag policy error → ask user for required tags and retry
+
+**Implementation**:
+```powershell
+# Collect tags as array
+$tags = @(
+    "environment=production",
+    "cost-center=12345",
+    "owner=team-api",
+    "project=dab-deployment"
+)
+
+# Apply to all resources
+az group create --name $rg --location $location --tags @tags
+az sql server create ... --tags @tags
+az containerapp create ... --tags @tags
+```
+
+---
+
+### Question 4: Network Access & Firewall
+
+**Ask the user**: "How should the DAB API be accessed?"
+
+| Access Pattern | SQL Firewall Setting | DAB Ingress |
+|----------------|---------------------|-------------|
+| **Public API** (default) | Allow Azure Services (0.0.0.0) | External |
+| **Private API** | VNet integration | Internal |
+| **Restricted Public** | Specific IPs only | External with IP restrictions |
+
+**Default**: Public API with Azure Services allowed on SQL firewall
+
+**CRITICAL**: The SQL Server firewall MUST allow the container to connect. For ACA/ACI, this means:
+
+```powershell
+# REQUIRED: Allow Azure services to access SQL Server
+az sql server firewall-rule create \
+    --resource-group $rg \
+    --server $sqlServer \
+    --name AllowAzureServices \
+    --start-ip-address 0.0.0.0 \
+    --end-ip-address 0.0.0.0
+```
+
+**Agent behavior**:
+- **Always** ensure this firewall rule exists for Azure-hosted containers
+- If user wants tighter security, explain VNet integration requirements
+- If connection fails, check firewall first
+
+**For tighter security (optional)**:
+```powershell
+# Option A: VNet integration (more complex)
+# Requires: VNet, subnet delegation, private endpoint for SQL
+
+# Option B: Outbound IPs (ACA only)
+$outboundIps = az containerapp env show --name $acaEnv --resource-group $rg --query "properties.staticIp" -o tsv
+az sql server firewall-rule create --name AllowACA --start-ip-address $outboundIps --end-ip-address $outboundIps
+```
+
+---
+
+### Question 5: Container Registry Access
+
+**Ask the user**: "Do you have an existing Azure Container Registry, or should we create one?"
+
+**ACR Pull Permissions by Platform**:
+
+| Platform | Recommended Method | Command |
+|----------|-------------------|---------|
+| **ACA** | MI-based pull | `--registry-identity system` or `--registry-identity $uamiId` |
+| **ACI** | ACR admin or MI | `--registry-login-server $acr --registry-username $user --registry-password $pass` |
+| **AKS** | Attach ACR | `az aks update --attach-acr $acrName` |
+
+**ACA with System-Assigned MI (recommended)**:
+```powershell
+# 1. Create app with system identity
+az containerapp create --name $app ... --system-assigned
+
+# 2. Get principal ID
+$principalId = az containerapp show --name $app --resource-group $rg --query identity.principalId -o tsv
+
+# 3. Grant AcrPull role
+$acrId = az acr show --name $acrName --query id -o tsv
+az role assignment create --assignee $principalId --role AcrPull --scope $acrId
+
+# 4. Configure registry to use identity
+az containerapp registry set --name $app --resource-group $rg --server "$acrName.azurecr.io" --identity system
+```
+
+**ACI with ACR Admin Credentials** (simpler but less secure):
+```powershell
+# Enable admin
+az acr update --name $acrName --admin-enabled true
+
+# Get credentials
+$acrServer = az acr show --name $acrName --query loginServer -o tsv
+$acrUser = az acr credential show --name $acrName --query username -o tsv
+$acrPass = az acr credential show --name $acrName --query "passwords[0].value" -o tsv
+
+# Create ACI with credentials
+az container create \
+    --name $containerName \
+    --resource-group $rg \
+    --image "$acrServer/dab-api:latest" \
+    --registry-login-server $acrServer \
+    --registry-username $acrUser \
+    --registry-password $acrPass \
+    --ports 5000 \
+    --ip-address Public
+```
+
+**ACI with User-Assigned MI** (more secure):
+```powershell
+# 1. Create UAMI and grant AcrPull
+az identity create --name $identityName --resource-group $rg
+$identityId = az identity show --name $identityName --resource-group $rg --query id -o tsv
+$principalId = az identity show --name $identityName --resource-group $rg --query principalId -o tsv
+
+$acrId = az acr show --name $acrName --query id -o tsv
+az role assignment create --assignee $principalId --role AcrPull --scope $acrId
+
+# 2. Wait for propagation, then create ACI
+az container create \
+    --name $containerName \
+    --resource-group $rg \
+    --image "$acrServer/dab-api:latest" \
+    --acr-identity $identityId \
+    --assign-identity $identityId \
+    --ports 5000
+```
+
+---
+
+## Deployment Checklist with Defaults
+
+**Present this to the user before deployment**:
+
+```markdown
+## DAB Deployment Configuration
+
+Please confirm or update these settings:
+
+| Setting | Default | Your Choice |
+|---------|---------|-------------|
+| **Container Platform** | ACA | __________ |
+| **Database Auth** | System-Assigned Managed Identity | __________ |
+| **SQL Firewall** | Allow Azure Services (0.0.0.0) | __________ |
+| **API Access** | Public (external ingress) | __________ |
+| **Container Registry** | Create new (Basic SKU) | __________ |
+| **Required Tags** | None | __________ |
+
+### Resources to be created:
+- [ ] Resource Group: `rg-dab-{timestamp}`
+- [ ] Azure SQL Server + Database (or use existing: _______)
+- [ ] Azure Container Registry
+- [ ] Container Apps Environment (if ACA)
+- [ ] Container App/Instance with DAB
+- [ ] Managed Identity + SQL grants
+
+Estimated time: 8-10 minutes
+Estimated monthly cost: $20-50 (varies by usage)
+
+Proceed with deployment? (y/n)
+```
+
+---
+
+## ACI Deployment (Alternative to ACA)
+
+**When to use ACI instead of ACA**:
+- Cost-sensitive deployments
+- Simple, single-container workloads
+- No auto-scaling needed
+- Dev/test environments
+
+**ACI Deployment Commands**:
+
+```powershell
+# Build and push image (same as ACA)
+az acr build --registry $acrName --image dab-api:latest .
+
+# Create ACI with managed identity
+az container create \
+    --name $containerName \
+    --resource-group $rg \
+    --image "$acrServer/dab-api:latest" \
+    --registry-login-server $acrServer \
+    --registry-username $acrUser \
+    --registry-password $acrPass \
+    --cpu 1 \
+    --memory 1.5 \
+    --ports 5000 \
+    --ip-address Public \
+    --environment-variables MSSQL_CONNECTION_STRING="$connString" \
+    --assign-identity
+
+# Get the public IP
+$publicIp = az container show --name $containerName --resource-group $rg --query ipAddress.ip -o tsv
+Write-Host "DAB API: http://$publicIp:5000"
+```
+
+**ACI Limitations vs ACA**:
+- No built-in HTTPS (need Azure Front Door or Application Gateway)
+- No auto-scaling
+- No revision management
+- No built-in health probes at platform level
+
+---
+
+## AKS Deployment (Best Effort)
+
+**Note**: We don't have a sample script for AKS. This is guidance only.
+
+**General approach**:
+1. Build image and push to ACR
+2. Attach ACR to AKS cluster: `az aks update --attach-acr $acrName`
+3. Create Kubernetes deployment and service
+4. Use workload identity for database auth
+
+**Sample Kubernetes manifest**:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dab-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dab-api
+  template:
+    metadata:
+      labels:
+        app: dab-api
+    spec:
+      containers:
+      - name: dab-api
+        image: myacr.azurecr.io/dab-api:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: MSSQL_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: dab-secrets
+              key: connection-string
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dab-api
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 5000
+  selector:
+    app: dab-api
+```
+
+**For workload identity with Azure SQL**, refer to:
+- https://learn.microsoft.com/azure/aks/workload-identity-overview
+
+---
 
 **Recommended for DAB because:**
 -  **Managed infrastructure** - No VM or Kubernetes cluster management
@@ -4038,241 +4454,242 @@ RUN chmod 444 /App/dab-config.json || true
 EXPOSE 5000
 ```
 
-# # #   S t e p   8 :   D e p l o y   C o n t a i n e r   A p p 
- 
- C r e a t e   C o n t a i n e r   A p p   w i t h   m a n a g e d   i d e n t i t y : 
- ` ` ` p o w e r s h e l l 
- $ c o n t a i n e r A p p   =   " d a b - a p i " 
- a z   c o n t a i n e r a p p   c r e a t e   \ 
-     - - n a m e   $ c o n t a i n e r A p p   \ 
-     - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   \ 
-     - - e n v i r o n m e n t   $ a c a E n v   \ 
-     - - i m a g e   " $ a c r L o g i n S e r v e r / $ i m a g e T a g "   \ 
-     - - t a r g e t - p o r t   5 0 0 0   \ 
-     - - i n g r e s s   e x t e r n a l   \ 
-     - - m i n - r e p l i c a s   1   \ 
-     - - m a x - r e p l i c a s   1 0   \ 
-     - - c p u   0 . 5   \ 
-     - - m e m o r y   1 . 0 G i   \ 
-     - - s y s t e m - a s s i g n e d 
- 
- $ p r i n c i p a l I d   =   a z   c o n t a i n e r a p p   s h o w   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   i d e n t i t y . p r i n c i p a l I d   - - o u t p u t   t s v 
- ` ` ` 
- 
- # # #   S t e p   9 :   G r a n t   P e r m i s s i o n s 
- 
- G r a n t   A C R   a c c e s s : 
- ` ` ` p o w e r s h e l l 
- $ a c r I d   =   a z   a c r   s h o w   - - n a m e   $ a c r N a m e   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   i d   - - o u t p u t   t s v 
- a z   r o l e   a s s i g n m e n t   c r e a t e   - - a s s i g n e e   $ p r i n c i p a l I d   - - r o l e   A c r P u l l   - - s c o p e   $ a c r I d 
- a z   c o n t a i n e r a p p   r e g i s t r y   s e t   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - s e r v e r   $ a c r L o g i n S e r v e r   - - i d e n t i t y   s y s t e m 
- ` ` ` 
- 
- G r a n t   d a t a b a s e   a c c e s s : 
- ` ` ` p o w e r s h e l l 
- $ i d e n t i t y N a m e   =   a z   a d   s p   s h o w   - - i d   $ p r i n c i p a l I d   - - q u e r y   d i s p l a y N a m e   - - o u t p u t   t s v 
- s q l c m d   - S   $ s q l F q d n   - d   $ s q l D a t a b a s e   - G   - Q   " 
- C R E A T E   U S E R   [ $ i d e n t i t y N a m e ]   F R O M   E X T E R N A L   P R O V I D E R ; 
- A L T E R   R O L E   d b _ d a t a r e a d e r   A D D   M E M B E R   [ $ i d e n t i t y N a m e ] ; 
- A L T E R   R O L E   d b _ d a t a w r i t e r   A D D   M E M B E R   [ $ i d e n t i t y N a m e ] ; 
- G R A N T   E X E C U T E   T O   [ $ i d e n t i t y N a m e ] ; " 
- ` ` ` 
- 
- # # #   S t e p   1 0 :   C o n f i g u r e   C o n n e c t i o n   S t r i n g 
- 
- ` ` ` p o w e r s h e l l 
- $ c o n n e c t i o n S t r i n g   =   " S e r v e r = $ s q l F q d n ; D a t a b a s e = $ s q l D a t a b a s e ; A u t h e n t i c a t i o n = A c t i v e   D i r e c t o r y   D e f a u l t ; " 
- a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - s e t - e n v - v a r s   " M S S Q L _ C O N N E C T I O N _ S T R I N G = $ c o n n e c t i o n S t r i n g " 
- ` ` ` 
- 
- # # #   S t e p   1 1 :   R e s t a r t   a n d   V e r i f y 
- 
- ` ` ` p o w e r s h e l l 
- $ r e v i s i o n   =   a z   c o n t a i n e r a p p   r e v i s i o n   l i s t   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   " [ 0 ] . n a m e "   - - o u t p u t   t s v 
- a z   c o n t a i n e r a p p   r e v i s i o n   r e s t a r t   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - r e v i s i o n   $ r e v i s i o n 
- S t a r t - S l e e p   - S e c o n d s   1 5 
- 
- $ c o n t a i n e r U r l   =   a z   c o n t a i n e r a p p   s h o w   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   p r o p e r t i e s . c o n f i g u r a t i o n . i n g r e s s . f q d n   - - o u t p u t   t s v 
- $ a p i U r l   =   " h t t p s : / / $ c o n t a i n e r U r l " 
- 
- #   H e a l t h   c h e c k   w i t h   r e t r y 
- $ m a x R e t r i e s   =   1 0 ;   $ r e t r y C o u n t   =   0 ;   $ s u c c e s s   =   $ f a l s e 
- w h i l e   ( $ r e t r y C o u n t   - l t   $ m a x R e t r i e s   - a n d   - n o t   $ s u c c e s s )   { 
-         t r y   { 
-                 I n v o k e - W e b R e q u e s t   - U r i   " $ a p i U r l / a p i "   - U s e B a s i c P a r s i n g   |   O u t - N u l l 
-                 $ s u c c e s s   =   $ t r u e 
-                 W r i t e - H o s t   "   H e a l t h   c h e c k   p a s s e d " 
-         }   c a t c h   { 
-                 $ r e t r y C o u n t + + 
-                 S t a r t - S l e e p   - S e c o n d s   5 
-         } 
- } 
- ` ` ` 
- 
- - - - 
- 
- # #   T r o u b l e s h o o t i n g   C o m m o n   I s s u e s 
- 
- # # #   I s s u e   1 :   C o n t a i n e r   K e e p s   R e s t a r t i n g 
- 
- * * S y m p t o m s : * *   R e s t a r t   c o u n t   >   0 ,   c o n t a i n e r   c y c l i n g 
- 
- * * D i a g n o s i s : * * 
- ` ` ` p o w e r s h e l l 
- a z   c o n t a i n e r a p p   r e p l i c a   l i s t   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - q u e r y   " [ 0 ] . p r o p e r t i e s . c o n t a i n e r s [ 0 ] . r e s t a r t C o u n t " 
- a z   c o n t a i n e r a p p   l o g s   s h o w   - - n a m e   $ c o n t a i n e r A p p   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p 
- ` ` ` 
- 
- * * C o m m o n   c a u s e s : * * 
- 1 .   I n v a l i d   c o n n e c t i o n   s t r i n g   -   C h e c k   e n v   v a r s 
- 2 .   D a t a b a s e   p e r m i s s i o n s   n o t   g r a n t e d   -   R e - r u n   g r a n t   s c r i p t 
- 3 .   I n v a l i d   d a b - c o n f i g . j s o n   -   R u n   ` d a b   v a l i d a t e `   l o c a l l y 
- 
- * * F i x : * * 
- ` ` ` p o w e r s h e l l 
- #   U p d a t e   c o n n e c t i o n   s t r i n g 
- a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - s e t - e n v - v a r s   " M S S Q L _ C O N N E C T I O N _ S T R I N G = < c o r r e c t e d > " 
- #   R e s t a r t 
- a z   c o n t a i n e r a p p   r e v i s i o n   r e s t a r t   - - n a m e   $ c o n t a i n e r A p p   - - r e v i s i o n   $ r e v i s i o n 
- ` ` ` 
- 
- # # #   I s s u e   2 :   4 0 4   o n   A P I   E n d p o i n t s 
- 
- * * C o m m o n   c a u s e s : * * 
- 1 .   R E S T   d i s a b l e d   i n   d a b - c o n f i g . j s o n 
- 2 .   W r o n g   e n t i t y   n a m e   ( c a s e - s e n s i t i v e ) 
- 3 .   W r o n g   R E S T   p a t h   c o n f i g u r a t i o n 
- 
- * * F i x : * * 
- ` ` ` p o w e r s h e l l 
- #   V e r i f y   c o n f i g   l o c a l l y 
- d a b   v a l i d a t e   - - c o n f i g   . / d a b - c o n f i g . j s o n 
- #   R e b u i l d   i m a g e 
- a z   a c r   b u i l d   - - r e g i s t r y   $ a c r N a m e   - - i m a g e   d a b - a p i : l a t e s t   - - f i l e   . / D o c k e r f i l e   . 
- #   U p d a t e   a p p 
- a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - i m a g e   " $ a c r L o g i n S e r v e r / d a b - a p i : l a t e s t " 
- ` ` ` 
- 
- # # #   I s s u e   3 :   D a t a b a s e   C o n n e c t i o n   F a i l e d 
- 
- * * D i a g n o s i s : * * 
- ` ` ` p o w e r s h e l l 
- #   C h e c k   f i r e w a l l 
- a z   s q l   s e r v e r   f i r e w a l l - r u l e   l i s t   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - s e r v e r   $ s q l S e r v e r 
- #   T e s t   c o n n e c t i o n 
- s q l c m d   - S   $ s q l F q d n   - d   $ s q l D a t a b a s e   - G   - Q   " S E L E C T   1 " 
- ` ` ` 
- 
- * * F i x : * * 
- ` ` ` p o w e r s h e l l 
- #   E n s u r e   A z u r e   s e r v i c e s   a l l o w e d 
- a z   s q l   s e r v e r   f i r e w a l l - r u l e   c r e a t e   - - r e s o u r c e - g r o u p   $ r e s o u r c e G r o u p   - - s e r v e r   $ s q l S e r v e r   - - n a m e   A l l o w A z u r e   - - s t a r t - i p - a d d r e s s   0 . 0 . 0 . 0   - - e n d - i p - a d d r e s s   0 . 0 . 0 . 0 
- #   R e - g r a n t   p e r m i s s i o n s 
- s q l c m d   - S   $ s q l F q d n   - d   $ s q l D a t a b a s e   - G   - Q   " A L T E R   R O L E   d b _ d a t a r e a d e r   A D D   M E M B E R   [ $ i d e n t i t y N a m e ] ; " 
- ` ` ` 
- 
- # # #   I s s u e   4 :   S l o w   C o l d   S t a r t s 
- 
- * * C a u s e : * *   S c a l e - t o - z e r o   w i t h   m i n - r e p l i c a s   =   0 
- 
- * * F i x : * * 
- ` ` ` p o w e r s h e l l 
- #   K e e p   a l w a y s   r u n n i n g 
- a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - m i n - r e p l i c a s   1 
- ` ` ` 
- 
- - - - 
- 
- # #   U p d a t i n g   D e p l o y e d   A p p l i c a t i o n 
- 
- U p d a t e   c o n f i g u r a t i o n : 
- ` ` ` p o w e r s h e l l 
- #   V a l i d a t e   c h a n g e s 
- d a b   v a l i d a t e   - - c o n f i g   . / d a b - c o n f i g . j s o n 
- #   R e b u i l d   w i t h   n e w   t a g 
- $ n e w T a g   =   " d a b - a p i : $ ( G e t - D a t e   - F o r m a t   ' y y y y M M d d H H m m s s ' ) " 
- a z   a c r   b u i l d   - - r e g i s t r y   $ a c r N a m e   - - i m a g e   $ n e w T a g   - - f i l e   . / D o c k e r f i l e   . 
- #   U p d a t e   a p p 
- a z   c o n t a i n e r a p p   u p d a t e   - - n a m e   $ c o n t a i n e r A p p   - - i m a g e   " $ a c r L o g i n S e r v e r / $ n e w T a g " 
- ` ` ` 
- 
- - - - 
- 
- # #   C o s t   O p t i m i z a t i o n 
- 
- * * D e v e l o p m e n t : * * 
- -   ` - - m i n - r e p l i c a s   0 `   ( s c a l e   t o   z e r o ) 
- -   S Q L   F r e e   t i e r   ( 3 2 G B   l i m i t ) 
- -   A C R   B a s i c   ( $ 5 / m o n t h ) 
- 
- * * P r o d u c t i o n : * * 
- -   ` - - m i n - r e p l i c a s   1 `   ( a l w a y s   a v a i l a b l e ) 
- -   S Q L   S t a n d a r d   S 1 + 
- -   A C R   S t a n d a r d   ( b e t t e r   p e r f o r m a n c e ) 
- 
- - - - 
- 
- # #   S e c u r i t y   B e s t   P r a c t i c e s 
- 
- 1 .   * * A l w a y s   u s e   M a n a g e d   I d e n t i t y * *   f o r   A z u r e   S Q L 
- 2 .   * * N e v e r   h a r d c o d e   p a s s w o r d s * *   -   u s e   s e c r e t s   o r   K e y   V a u l t     
- 3 .   * * E n a b l e   H T T P S   o n l y * *   ( d e f a u l t   i n   C o n t a i n e r   A p p s ) 
- 4 .   * * U s e   p r i v a t e   e n d p o i n t s * *   f o r   p r o d u c t i o n   d a t a b a s e s 
- 5 .   * * C o n f i g u r e   A z u r e   A D   a u t h e n t i c a t i o n * *   i n   D A B   r u n t i m e   c o n f i g 
- 
- - - - 
- 
- # #   D e p l o y m e n t   C h e c k l i s t 
- 
- ` ` ` m a r k d o w n 
- P r e r e q u i s i t e s : 
- -   [   ]   A z u r e   C L I   i n s t a l l e d   a n d   a u t h e n t i c a t e d 
- -   [   ]   D A B   C L I   i n s t a l l e d   ( v 1 . 2 . 1 0 + ) 
- -   [   ]   d a b - c o n f i g . j s o n   v a l i d a t e d 
- -   [   ]   D o c k e r f i l e   c r e a t e d 
- 
- R e s o u r c e s   ( 8 - 1 0   m i n u t e s ) : 
- -   [   ]   R e s o u r c e   G r o u p   c r e a t e d 
- -   [   ]   S Q L   S e r v e r   +   D a t a b a s e   c o n f i g u r e d 
- -   [   ]   D a t a b a s e   s c h e m a   d e p l o y e d 
- -   [   ]   L o g   A n a l y t i c s   w o r k s p a c e   c r e a t e d 
- -   [   ]   C o n t a i n e r   A p p s   e n v i r o n m e n t   c r e a t e d 
- -   [   ]   C o n t a i n e r   R e g i s t r y   c r e a t e d 
- -   [   ]   D o c k e r   i m a g e   b u i l t   a n d   p u s h e d 
- -   [   ]   C o n t a i n e r   A p p   c r e a t e d   w i t h   m a n a g e d   i d e n t i t y 
- -   [   ]   P e r m i s s i o n s   g r a n t e d   ( A C R   +   d a t a b a s e ) 
- -   [   ]   C o n n e c t i o n   s t r i n g   c o n f i g u r e d 
- -   [   ]   C o n t a i n e r   r e s t a r t e d 
- 
- V e r i f i c a t i o n : 
- -   [   ]   H e a l t h   c h e c k   p a s s e d   ( 2 0 0   o n   / a p i ) 
- -   [   ]   E n t i t y   q u e r y   s u c c e s s f u l 
- -   [   ]   L o g s   s h o w   s u c c e s s f u l   s t a r t u p 
- -   [   ]   R e s t a r t   c o u n t   =   0 
- ` ` ` 
- 
- - - - 
- 
- # #   T i m e   E s t i m a t e s 
- 
- * * T o t a l : * *   8 - 1 0   m i n u t e s   f o r   n e w   d e p l o y m e n t 
- 
- * * B r e a k d o w n : * * 
- -   P r e r e q u i s i t e s :   1   m i n 
- -   A u t h e n t i c a t i o n :   3 0   s e c     
- -   R e s o u r c e   g r o u p :   1 5   s e c 
- -   S Q L   S e r v e r   +   D a t a b a s e :   5   m i n 
- -   C o n t a i n e r   i n f r a s t r u c t u r e :   2   m i n 
- -   B u i l d   &   p u s h   i m a g e :   2   m i n 
- -   D e p l o y   C o n t a i n e r   A p p :   1   m i n 
- -   C o n f i g u r e   &   v e r i f y :   2   m i n 
- 
- * * U p d a t e   e x i s t i n g : * *   2 - 3   m i n u t e s 
- 
- - - - 
- 
- T h i s   i s   t h e   * * g o l d e n   p a t h * *   f o r   D A B   p r o d u c t i o n   d e p l o y m e n t   o n   A z u r e   C o n t a i n e r   A p p s .   A d j u s t   b a s e d   o n   u s e r ' s   s p e c i f i c   s c e n a r i o   ( e x i s t i n g   d a t a b a s e ,   d i f f e r e n t   a u t h e n t i c a t i o n ,   e t c . ) .  
- 
+### Step 8: Deploy Container App
+
+Create Container App with managed identity:
+```powershell
+$containerApp = "dab-api"
+az containerapp create \
+  --name $containerApp \
+  --resource-group $resourceGroup \
+  --environment $acaEnv \
+  --image "$acrLoginServer/$imageTag" \
+  --target-port 5000 \
+  --ingress external \
+  --min-replicas 1 \
+  --max-replicas 10 \
+  --cpu 0.5 \
+  --memory 1.0Gi \
+  --system-assigned
+
+$principalId = az containerapp show --name $containerApp --resource-group $resourceGroup --query identity.principalId --output tsv
+```
+
+### Step 9: Grant Permissions
+
+Grant ACR access:
+```powershell
+$acrId = az acr show --name $acrName --resource-group $resourceGroup --query id --output tsv
+az role assignment create --assignee $principalId --role AcrPull --scope $acrId
+az containerapp registry set --name $containerApp --resource-group $resourceGroup --server $acrLoginServer --identity system
+```
+
+Grant database access:
+```powershell
+$identityName = az ad sp show --id $principalId --query displayName --output tsv
+sqlcmd -S $sqlFqdn -d $sqlDatabase -G -Q "
+CREATE USER [$identityName] FROM EXTERNAL PROVIDER;
+ALTER ROLE db_datareader ADD MEMBER [$identityName];
+ALTER ROLE db_datawriter ADD MEMBER [$identityName];
+GRANT EXECUTE TO [$identityName];"
+```
+
+### Step 10: Configure Connection String
+
+```powershell
+$connectionString = "Server=$sqlFqdn;Database=$sqlDatabase;Authentication=Active Directory Default;"
+az containerapp update --name $containerApp --resource-group $resourceGroup --set-env-vars "MSSQL_CONNECTION_STRING=$connectionString"
+```
+
+### Step 11: Restart and Verify
+
+```powershell
+$revision = az containerapp revision list --name $containerApp --resource-group $resourceGroup --query "[0].name" --output tsv
+az containerapp revision restart --name $containerApp --resource-group $resourceGroup --revision $revision
+Start-Sleep -Seconds 15
+
+$containerUrl = az containerapp show --name $containerApp --resource-group $resourceGroup --query properties.configuration.ingress.fqdn --output tsv
+$apiUrl = "https://$containerUrl"
+
+# Health check with retry
+$maxRetries = 10; $retryCount = 0; $success = $false
+while ($retryCount -lt $maxRetries -and -not $success) {
+    try {
+        Invoke-WebRequest -Uri "$apiUrl/api" -UseBasicParsing | Out-Null
+        $success = $true
+        Write-Host " Health check passed"
+    } catch {
+        $retryCount++
+        Start-Sleep -Seconds 5
+    }
+}
+```
+
+---
+
+## Troubleshooting Common Issues
+
+### Issue 1: Container Keeps Restarting
+
+**Symptoms:** Restart count > 0, container cycling
+
+**Diagnosis:**
+```powershell
+az containerapp replica list --name $containerApp --resource-group $resourceGroup --query "[0].properties.containers[0].restartCount"
+az containerapp logs show --name $containerApp --resource-group $resourceGroup
+```
+
+**Common causes:**
+1. Invalid connection string - Check env vars
+2. Database permissions not granted - Re-run grant script
+3. Invalid dab-config.json - Run `dab validate` locally
+
+**Fix:**
+```powershell
+# Update connection string
+az containerapp update --name $containerApp --set-env-vars "MSSQL_CONNECTION_STRING=<corrected>"
+# Restart
+az containerapp revision restart --name $containerApp --revision $revision
+```
+
+### Issue 2: 404 on API Endpoints
+
+**Common causes:**
+1. REST disabled in dab-config.json
+2. Wrong entity name (case-sensitive)
+3. Wrong REST path configuration
+
+**Fix:**
+```powershell
+# Verify config locally
+dab validate --config ./dab-config.json
+# Rebuild image
+az acr build --registry $acrName --image dab-api:latest --file ./Dockerfile .
+# Update app
+az containerapp update --name $containerApp --image "$acrLoginServer/dab-api:latest"
+```
+
+### Issue 3: Database Connection Failed
+
+**Diagnosis:**
+```powershell
+# Check firewall
+az sql server firewall-rule list --resource-group $resourceGroup --server $sqlServer
+# Test connection
+sqlcmd -S $sqlFqdn -d $sqlDatabase -G -Q "SELECT 1"
+```
+
+**Fix:**
+```powershell
+# Ensure Azure services allowed
+az sql server firewall-rule create --resource-group $resourceGroup --server $sqlServer --name AllowAzure --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+# Re-grant permissions
+sqlcmd -S $sqlFqdn -d $sqlDatabase -G -Q "ALTER ROLE db_datareader ADD MEMBER [$identityName];"
+```
+
+### Issue 4: Slow Cold Starts
+
+**Cause:** Scale-to-zero with min-replicas = 0
+
+**Fix:**
+```powershell
+# Keep always running
+az containerapp update --name $containerApp --min-replicas 1
+```
+
+---
+
+## Updating Deployed Application
+
+Update configuration:
+```powershell
+# Validate changes
+dab validate --config ./dab-config.json
+# Rebuild with new tag
+$newTag = "dab-api:$(Get-Date -Format 'yyyyMMddHHmmss')"
+az acr build --registry $acrName --image $newTag --file ./Dockerfile .
+# Update app
+az containerapp update --name $containerApp --image "$acrLoginServer/$newTag"
+```
+
+---
+
+## Cost Optimization
+
+**Development:**
+- `--min-replicas 0` (scale to zero)
+- SQL Free tier (32GB limit)
+- ACR Basic ($5/month)
+
+**Production:**
+- `--min-replicas 1` (always available)
+- SQL Standard S1+
+- ACR Standard (better performance)
+
+---
+
+## Security Best Practices
+
+1. **Always use Managed Identity** for Azure SQL
+2. **Never hardcode passwords** - use secrets or Key Vault  
+3. **Enable HTTPS only** (default in Container Apps)
+4. **Use private endpoints** for production databases
+5. **Configure Azure AD authentication** in DAB runtime config
+
+---
+
+## Deployment Checklist
+
+```markdown
+Prerequisites:
+- [ ] Azure CLI installed and authenticated
+- [ ] DAB CLI installed (v1.2.10+)
+- [ ] dab-config.json validated
+- [ ] Dockerfile created
+
+Resources (8-10 minutes):
+- [ ] Resource Group created
+- [ ] SQL Server + Database configured
+- [ ] Database schema deployed
+- [ ] Log Analytics workspace created
+- [ ] Container Apps environment created
+- [ ] Container Registry created
+- [ ] Docker image built and pushed
+- [ ] Container App created with managed identity
+- [ ] Permissions granted (ACR + database)
+- [ ] Connection string configured
+- [ ] Container restarted
+
+Verification:
+- [ ] Health check passed (200 on /api)
+- [ ] Entity query successful
+- [ ] Logs show successful startup
+- [ ] Restart count = 0
+```
+
+---
+
+## Time Estimates
+
+**Total:** 8-10 minutes for new deployment
+
+**Breakdown:**
+- Prerequisites: 1 min
+- Authentication: 30 sec  
+- Resource group: 15 sec
+- SQL Server + Database: 5 min
+- Container infrastructure: 2 min
+- Build & push image: 2 min
+- Deploy Container App: 1 min
+- Configure & verify: 2 min
+
+**Update existing:** 2-3 minutes
+
+---
+
+This is the **golden path** for DAB production deployment on Azure Container Apps. Adjust based on user's specific scenario (existing database, different authentication, etc.).
+
+
 
 ---
 
