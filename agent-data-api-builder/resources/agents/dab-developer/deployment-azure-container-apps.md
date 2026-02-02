@@ -29,7 +29,8 @@ The order below matches the tested flow with built-in retries.
    - `az login` → confirm `az account show` is the target; switch if needed.
 
 3) **Create or reuse resource group**
-   - `az group create --name <rg> --location <region> --tags author=dab-demo owner=<you> version=<script>`.
+   - `az group create --name <rg> --location westus2 --tags author=dab-demo owner=<you> version=<script>`.
+   - **Note:** Default region is `westus2`. Use a different region only if the user explicitly requests one.
 
 4) **Database setup**
    - Use existing Azure SQL DB or create one; open firewall if required.
@@ -51,8 +52,8 @@ The order below matches the tested flow with built-in retries.
    - Expect ~40s for the build.
 
 6) **Create ACA environment + Log Analytics**
-   - Log Analytics: `az monitor log-analytics workspace create --name <law> --resource-group <rg> --location <region> --tags author=dab-demo`.
-   - ACA env: `az containerapp env create --name <aca-env> --resource-group <rg> --location <region> --logs-destination log-analytics --logs-workspace-id <id> --logs-workspace-key <key> --tags author=dab-demo`.
+   - Log Analytics: `az monitor log-analytics workspace create --name <law> --resource-group <rg> --location westus2 --tags author=dab-demo`.
+   - ACA env: `az containerapp env create --name <aca-env> --resource-group <rg> --location westus2 --logs-destination log-analytics --logs-workspace-id <id> --logs-workspace-key <key> --tags author=dab-demo`.
 
 7) **Create the Container App (system-assigned identity)**
    - Recommend port 5000, external ingress.
