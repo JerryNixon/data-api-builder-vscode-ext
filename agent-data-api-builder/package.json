@@ -3,7 +3,7 @@
   "displayName": "DAB Agent - Copilot Chat Participant",
   "description": "GitHub Copilot @dab chat participant for Data API Builder - create REST, GraphQL, and MCP APIs from SQL Server, Azure SQL, PostgreSQL, MySQL, and Cosmos DB without writing code.",
   "publisher": "jerry-nixon",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
