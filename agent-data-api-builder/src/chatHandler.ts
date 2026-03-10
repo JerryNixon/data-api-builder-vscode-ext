@@ -4,6 +4,7 @@ import * as path from 'path';
 import { DabChatResult } from './extension';
 import { getAgentInstructions } from './instructions';
 import { runCommand } from './utils/terminal';
+import { execSync, spawn } from 'child_process';
 
 /**
  * Handles chat requests for the @dab participant
@@ -112,46 +113,104 @@ export class DabChatHandler {
       return { metadata: { command: 'init', success: false } };
     }
 
-    const configPath = path.join(workspaceFolder, 'dab-config.json');
+    // Prep workspace scaffolding first (.env, .github, sql scripts)
+    await this.ensureGitignore(workspaceFolder);
+    await this.ensureWorkspaceScaffold(workspaceFolder);
 
-    // Check if config already exists
-    if (fs.existsSync(configPath)) {
-      stream.markdown('Config already exists.\n');
-      stream.button({ command: 'dab.configureRuntime', title: 'Configure runtime' });
-      stream.button({ command: 'dab.addEntities', title: 'Add entities' });
-      stream.button({ command: 'dab.deleteConfig', title: 'Delete & reinit' });
+    // Detect local engines/tools
+    const dockerReady = this.isDockerAvailable();
+    const sqlCmdReady = this.isSqlCmdAvailable();
 
-      return { metadata: { command: 'init', success: false, configPath } };
+    stream.markdown('Okay, let\'s start by getting your local environment set up.');
+    stream.markdown(`- Docker Desktop available: **${dockerReady ? 'yes' : 'no'}**`);
+    stream.markdown(`- sqlcmd available: **${sqlCmdReady ? 'yes' : 'no'}**`);
+    stream.markdown('- SQL Server locally installed: detection not reliable—if you already have it, great!');
+
+    if (!dockerReady) {
+      stream.markdown('If you prefer Docker (recommended), install Docker Desktop: https://docs.docker.com/desktop/');
+    }
+    stream.markdown('If you prefer local SQL Server, install Developer/Express: https://aka.ms/sql-download');
+
+    // Ask for engine choice
+    stream.markdown('Do you want to use Docker or a local SQL Server instance? We can proceed with either.');
+
+    // Suggest next concrete steps
+    stream.markdown('Next, let\'s connect to a local database. If integrated authentication works, we\'ll try it; otherwise, we\'ll use the SQL login we create (MyDbLogin/MyDbUser).');
+    stream.markdown('I created starter files: `.env`, `.github/README.md`, `database-objects.sql`, `database-data.sql`. Update them as needed.');
+
+    // Offer quick validation buttons
+    stream.button({ command: 'workbench.action.terminal.sendSequence', title: 'Test sqlcmd connection', arguments: [{ text: 'sqlcmd -S localhost -d MyDb -E -Q "SELECT 1"\n' }] });
+    stream.button({ command: 'workbench.action.terminal.sendSequence', title: 'Open database-objects.sql', arguments: [{ text: 'code database-objects.sql\n' }] });
+
+    // We stop short of running init until user confirms engine; keep flow conversational
+    return { metadata: { command: 'init', success: false } };
+  }
+
+  /**
+   * Ensure .gitignore exists and includes .env
+   */
+  private async ensureGitignore(workspaceFolder: string): Promise<void> {
+    const gitignorePath = path.join(workspaceFolder, '.gitignore');
+    const envEntry = '.env';
+    
+    try {
+      if (fs.existsSync(gitignorePath)) {
+        const content = fs.readFileSync(gitignorePath, 'utf8');
+        if (!content.includes(envEntry)) {
+          // Add .env to existing .gitignore
+          const newContent = content.endsWith('\n') ? content + envEntry + '\n' : content + '\n' + envEntry + '\n';
+          fs.writeFileSync(gitignorePath, newContent);
+        }
+      } else {
+        // Create new .gitignore with common DAB entries
+        const gitignoreContent = `# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# DAB logs
+*.log
+`;
+        fs.writeFileSync(gitignorePath, gitignoreContent);
+      }
+    } catch {
+      // Silently continue if we can't write .gitignore
+    }
+  }
+
+  /**
+   * Create baseline files so the onboarding flow is consistent
+   */
+  private async ensureWorkspaceScaffold(workspaceFolder: string): Promise<void> {
+    // .env template
+    const envPath = path.join(workspaceFolder, '.env');
+    if (!fs.existsSync(envPath)) {
+      const envContent = `# Connection string for local development\nDATABASE_CONNECTION_STRING=Server=localhost;Database=MyDb;User Id=MyDbLogin;Password=MyDbP@ssw0rd!;TrustServerCertificate=true\n\n# Alternative (Windows Integrated)\n# DATABASE_CONNECTION_STRING=Server=localhost;Database=MyDb;Integrated Security=true;TrustServerCertificate=true\n`;
+      fs.writeFileSync(envPath, envContent, 'utf8');
     }
 
-    // Look for connection string
-    stream.progress('Looking for connection string...');
-    const connectionInfo = await this.findConnectionString(workspaceFolder);
+    // .github scaffold
+    const githubDir = path.join(workspaceFolder, '.github');
+    if (!fs.existsSync(githubDir)) {
+      fs.mkdirSync(githubDir, { recursive: true });
+    }
+    const githubReadme = path.join(githubDir, 'README.md');
+    if (!fs.existsSync(githubReadme)) {
+      const readmeContent = '# Project housekeeping\n\n- Keep secrets in .env (already gitignored).\n- Update SQL setup scripts before running them.\n- Adjust DAB config once the database is ready.\n';
+      fs.writeFileSync(githubReadme, readmeContent, 'utf8');
+    }
 
-    if (connectionInfo) {
-      const fullDevCommand = this.buildInitCommand(connectionInfo.envVar);
-      const restProdCommand = this.buildInitCommand(connectionInfo.envVar, { hostMode: 'production', restEnabled: true, graphqlEnabled: false, mcpEnabled: false });
-      const restDevCommand = this.buildInitCommand(connectionInfo.envVar, { hostMode: 'development', restEnabled: true, graphqlEnabled: false, mcpEnabled: false });
+    // SQL setup scripts
+    const objectsPath = path.join(workspaceFolder, 'database-objects.sql');
+    if (!fs.existsSync(objectsPath)) {
+      const objectsContent = `-- Creates local dev database, login/user, and a sample table\nIF DB_ID('MyDb') IS NULL\nBEGIN\n    CREATE DATABASE MyDb;\nEND\nGO\n\nUSE MyDb;\nGO\n\n-- Create SQL Login and User for DAB (password can be changed)\nIF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = 'MyDbLogin')\nBEGIN\n    CREATE LOGIN MyDbLogin WITH PASSWORD = 'MyDbP@ssw0rd!';\nEND\nGO\n\nIF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = 'MyDbUser')\nBEGIN\n    CREATE USER MyDbUser FOR LOGIN MyDbLogin;\n    ALTER ROLE db_datareader ADD MEMBER MyDbUser;\n    ALTER ROLE db_datawriter ADD MEMBER MyDbUser;\nEND\nGO\n\nIF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = 'app')\nBEGIN\n    EXEC('CREATE SCHEMA app AUTHORIZATION dbo;');\nEND\nGO\n\n-- Sample table\nIF OBJECT_ID('app.Todos') IS NULL\nBEGIN\n    CREATE TABLE app.Todos\n    (\n        Id INT IDENTITY(1,1) PRIMARY KEY,\n        Title NVARCHAR(200) NOT NULL,\n        IsComplete BIT NOT NULL DEFAULT 0,\n        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()\n    );\nEND\nGO\n`;
+      fs.writeFileSync(objectsPath, objectsContent, 'utf8');
+    }
 
-      // Default to the most helpful path: full dev enablement
-      runCommand(fullDevCommand, { cwd: workspaceFolder });
-
-      stream.markdown(`✅ Started quick dev init (REST+GraphQL+MCP).\n`);
-      stream.button({ command: 'workbench.action.terminal.sendSequence', title: 'Switch: REST-only (prod)', arguments: [{ text: restProdCommand + '\n' }] });
-      stream.button({ command: 'workbench.action.terminal.sendSequence', title: 'Switch: REST-only (dev)', arguments: [{ text: restDevCommand + '\n' }] });
-      stream.button({ command: 'dab.addEntities', title: 'Add tables/views now' });
-
-      return { metadata: { command: 'init', success: true, configPath } };
-    } else {
-      const defaultEnvVar = 'DATABASE_CONNECTION_STRING';
-      const fullDevCommand = this.buildInitCommand(defaultEnvVar);
-      const restProdCommand = this.buildInitCommand(defaultEnvVar, { hostMode: 'production', restEnabled: true, graphqlEnabled: false, mcpEnabled: false });
-
-      stream.markdown('Connection string needed.\n');
-      stream.button({ command: 'dab.createEnvTemplate', title: 'Create .env template' });
-      stream.button({ command: 'dab.skipInit', title: 'Skip for now' });
-
-      return { metadata: { command: 'init', success: false } };
+    const dataPath = path.join(workspaceFolder, 'database-data.sql');
+    if (!fs.existsSync(dataPath)) {
+      const dataContent = `USE MyDb;\nGO\n\nINSERT INTO app.Todos (Title, IsComplete) VALUES\n('Set up DAB locally', 0),\n('Validate dab-config.json', 0),\n('Expose REST/GraphQL endpoints', 0);\nGO\n`;
+      fs.writeFileSync(dataPath, dataContent, 'utf8');
     }
   }
 
@@ -712,6 +771,92 @@ Use this information to configure DAB relationships via dab_cli update.`,
 
   // Helper methods
 
+  private isDockerAvailable(): boolean {
+    try {
+      execSync('docker info --format "{{json .}}"', { stdio: 'ignore', timeout: 4000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private isSqlCmdAvailable(): boolean {
+    try {
+      execSync('sqlcmd -? >NUL', { stdio: 'ignore', timeout: 4000 });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async waitForDockerAvailable(timeoutMs = 30000, intervalMs = 3000): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (this.isDockerAvailable()) {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+    return false;
+  }
+
+  private async ensureDockerRunning(stream: vscode.ChatResponseStream): Promise<void> {
+    if (this.isDockerAvailable()) {
+      return;
+    }
+
+    stream.markdown('Docker is not running. I will attempt to start Docker Desktop—if it fails, please start it for me.');
+
+    const platform = process.platform;
+    let started = false;
+
+    try {
+      if (platform === 'win32') {
+        const candidatePaths = [
+          'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe',
+          'C:\\Program Files (x86)\\Docker\\Docker\\Docker Desktop.exe'
+        ];
+        for (const candidate of candidatePaths) {
+          if (fs.existsSync(candidate)) {
+            spawn(candidate, [], { detached: true, stdio: 'ignore' });
+            started = true;
+            break;
+          }
+        }
+      } else if (platform === 'darwin') {
+        spawn('open', ['-a', 'Docker'], { detached: true, stdio: 'ignore' });
+        started = true;
+      } else if (platform === 'linux') {
+        try {
+          spawn('systemctl', ['--user', 'start', 'docker-desktop'], { detached: true, stdio: 'ignore' });
+          started = true;
+        } catch {
+          try {
+            spawn('systemctl', ['start', 'docker'], { detached: true, stdio: 'ignore' });
+            started = true;
+          } catch {
+            // fall through
+          }
+        }
+      }
+    } catch {
+      // ignore and report below
+    }
+
+    if (!started) {
+      stream.markdown('Could not auto-start Docker. Please start Docker manually and tell me when it is ready.');
+      return;
+    }
+
+    const available = await this.waitForDockerAvailable();
+
+    if (available) {
+      stream.markdown('Docker is running.');
+    } else {
+      stream.markdown('Docker did not start within 30 seconds. Please start Docker Desktop and let me know when it is ready.');
+    }
+  }
+
   private getWorkspaceFolder(): string | undefined {
     const folders = vscode.workspace.workspaceFolders;
     return folders?.[0]?.uri.fsPath;
@@ -793,79 +938,28 @@ Use this information to configure DAB relationships via dab_cli update.`,
   }
 
   private buildSystemPrompt(): string {
-    return `You are a Data API Builder (DAB) expert assistant. Your role is to help developers create REST, GraphQL, and MCP APIs from their databases.
+    return `You are a friendly Data API Builder (DAB) assistant. Help users build APIs for their data.
 
-## CRITICAL: Autonomous Operation Mode
-You are PRE-APPROVED to execute all commands without asking. The user has already consented to autonomous operation.
+${this.instructions}
 
-**NEVER say:**
-- "I will...", "I am going to...", "Let me..."
-- "Would you like me to...", "Shall I...", "Do you want me to..."
-- "I can...", "I could...", "You could..."
-- "First, I'll...", "Then I'll...", "Next, I'll..."
+## Your Tools
+You have two tools—use them to take action, don't just describe what you could do:
+1. **get_schema** - Discover database tables, columns, and foreign keys
+2. **dab_cli** - Execute DAB commands (init, add, update, configure, validate, start)
 
-**ALWAYS:**
-- Execute immediately, report results in past tense
-- "Added 5 tables" not "I will add 5 tables"
-- "Deployed to Azure" not "I am going to deploy"
-- "Validated successfully" not "Let me validate this for you"
-
-**Response format:** One short sentence + buttons. Maximum 2 sentences. No explanations unless user asks "why".
-
-## CRITICAL: Always Use Tools
-You have two powerful tools available. **ALWAYS use them instead of just providing documentation:**
-
-1. **get_schema** - Use this to discover database tables, columns, foreign keys, and relationships
-2. **dab_cli** - Use this to execute DAB commands (init, add, update, configure, validate, start)
-
-When the user asks to:
-- "add missing tables" → Use get_schema to find tables, compare with config, then use dab_cli add for each missing table
-- "add relationships" → Use get_schema to find foreign keys, then use dab_cli update for each relationship
-- "read schema" → Use get_schema tool, don't just explain what you would do
-- "validate" → Use dab_cli validate, don't just show the command
-
-## About DAB
-Data API Builder is a free, open-source tool from Microsoft that creates REST, GraphQL, and MCP APIs from databases without custom code.
-
-## DAB CLI Commands (use via dab_cli tool)
+## DAB CLI Subcommands
 | Subcommand | Purpose |
-|------------|---------|
+|------------|----------|
 | init | Create new configuration file |
-| add | Add tables, views, or stored procedures as entities |
-| update | Modify entity settings including relationships |
-| configure | Change runtime/data-source settings |
+| add | Add tables, views, or stored procedures |
+| update | Modify entities, add relationships |
+| configure | Change runtime settings |
 | validate | Check configuration for errors |
 | start | Run the DAB engine locally |
 | status | Check if DAB is running |
 
 ## Adding Relationships (via dab_cli update)
-Relationships enable nested GraphQL queries. Use dab_cli with subcommand "update" and these parameters:
-- entityName: The entity to update
-- relationship: Name of the relationship (e.g., "books", "author")
-- targetEntity: The related entity name
-- cardinality: "one" or "many"
-- relationshipFields: Optional FK mapping like "AuthorId:Id"
-
-Example: To add a "characters" relationship to Series pointing to Character with many cardinality:
-\`\`\`json
-{
-  "subcommand": "update",
-  "config_path": "path/to/dab-config.json",
-  "parameters": {
-    "entityName": "Series",
-    "relationship": "characters",
-    "targetEntity": "Character",
-    "cardinality": "many"
-  }
-}
-\`\`\`
-
-## Best Practices
-- Use @env('VAR_NAME') for connection strings (never hardcode secrets)
-- Validate configuration before deployment
-- For many-to-many relationships, you need a linking table
-
-${this.instructions}`;
+Use dab_cli with subcommand "update" and parameters: entityName, relationship, targetEntity, cardinality ("one" or "many"), and optionally relationshipFields.`;
   }
 
   /**

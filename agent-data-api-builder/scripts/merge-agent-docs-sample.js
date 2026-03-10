@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const sourceDir = path.join(__dirname, '..', '..', '.github', 'agents', 'dab-developer');
-const mainAgentFile = path.join(__dirname, '..', '..', '.github', 'agents', 'dab-developer.agent.md');
+// Source and destination paths - all within the workspace
+const sourceDir = path.join(__dirname, '..', 'resources', 'agents', 'dab-developer');
+const mainAgentFile = path.join(__dirname, '..', 'resources', 'agents', 'dab-developer.base.md');
 const outputDir = path.join(__dirname, '..', 'resources', 'agents');
 const outputFile = path.join(outputDir, 'dab-developer.agent.md');
 

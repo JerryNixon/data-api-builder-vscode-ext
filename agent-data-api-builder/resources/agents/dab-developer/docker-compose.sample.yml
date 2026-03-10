@@ -1,0 +1,81 @@
+# Docker Compose for Local DAB Development
+# Start: docker-compose up -d
+# Stop:  docker-compose down
+# Reset: docker-compose down -v
+#
+# NAMING: Give your project a cute themed name based on use case!
+#   - Deli queue → name: deli-counter
+#   - Baseball cards → name: card-collector
+#   - Flower shop → name: bloom-tracker
+#
+# PORTS: Always use non-default ports (assume 1433 is in use locally)
+#
+# FILES: Name your SQL schema file "database.sql"
+#
+# MCP Inspector URL (copy this - plain localhost:6274 won't auto-connect):
+# http://localhost:6274/?transport=streamable-http&serverUrl=http%3A%2F%2Fapi-server%3A5000%2Fmcp
+
+name: todo-tracker  # ← Change this to match your use case!
+
+services:
+  sql-2025:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    container_name: sql-2025
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong@Passw0rd
+    ports:
+      - "14330:1433"
+    volumes:
+      - sql-2025-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "YourStrong@Passw0rd" -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  sql-cmdr:
+    image: jerrynixon/sql-commander:latest
+    container_name: sql-cmdr
+    restart: unless-stopped
+    environment:
+      - ConnectionStrings__db=Server=sql-2025;Database=TodoDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true
+    ports:
+      - "8080:8080"
+    depends_on:
+      sql-2025:
+        condition: service_healthy
+
+  api-server:
+    image: mcr.microsoft.com/azure-databases/data-api-builder:1.7.83-rc
+    container_name: api-server
+    restart: unless-stopped
+    environment:
+      - DATABASE_CONNECTION_STRING=Server=sql-2025;Database=TodoDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./dab-config.json:/App/dab-config.json:ro
+    depends_on:
+      sql-2025:
+        condition: service_healthy
+
+  mcp-inspector:
+    image: ghcr.io/modelcontextprotocol/inspector:latest
+    container_name: mcp-inspector
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - MCP_AUTO_OPEN_ENABLED=false
+      - DANGEROUSLY_OMIT_AUTH=true
+    ports:
+      - "6274:6274"
+      - "6277:6277"
+    depends_on:
+      - api-server
+
+volumes:
+  sql-2025-data:
+    external: false

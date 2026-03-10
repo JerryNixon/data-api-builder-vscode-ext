@@ -1,58 +1,75 @@
 const fs = require('fs');
 const path = require('path');
 
-// Source and destination paths
-const sourceDir = path.join(__dirname, '..', '..', '.github', 'agents', 'dab-developer');
-const mainAgentFile = path.join(__dirname, '..', '..', '.github', 'agents', 'dab-developer.base.md');
-const outputDir = path.join(__dirname, '..', 'resources', 'agents');
+// Paths
+const sourceAgentFile = path.join(__dirname, '..', 'resources', 'agents', 'dab-developer.agent.md');
+const refDocsDir = path.join(__dirname, '..', 'resources', 'agents', 'dab-developer');
+const outputDir = path.join(__dirname, '..', 'out', 'agents');
 const outputFile = path.join(outputDir, 'dab-developer.agent.md');
 
-// Create output directory if it doesn't exist
-if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+// Ensure output directory exists
+fs.mkdirSync(outputDir, { recursive: true });
+
+// Validate source agent file exists
+if (!fs.existsSync(sourceAgentFile)) {
+    console.error(`Error: Agent file not found: ${sourceAgentFile}`);
+    process.exit(1);
 }
 
-// Dynamically read all .md files from the source directory
-let filesToMerge = [];
-if (fs.existsSync(sourceDir)) {
-    filesToMerge = fs.readdirSync(sourceDir)
-        .filter(file => file.endsWith('.md'))
-        .sort(); // Sort alphabetically
+// Helper to remove a UTF-8 BOM if it sneaks in
+const stripBom = (text) => text.replace(/^\uFEFF/, '');
+
+// Read main agent file
+let mergedContent = stripBom(fs.readFileSync(sourceAgentFile, 'utf8'));
+const mainLines = mergedContent.split('\n').length;
+
+// Get reference docs (skip archive folder and non-md files)
+const refDocs = [];
+if (fs.existsSync(refDocsDir)) {
+    const items = fs.readdirSync(refDocsDir);
+    for (const item of items) {
+        const itemPath = path.join(refDocsDir, item);
+        const stat = fs.statSync(itemPath);
+        
+        // Skip directories (like 'archive' and 'scripts')
+        if (stat.isDirectory()) continue;
+        
+        // Only include .md files
+        if (!item.endsWith('.md')) continue;
+        
+        refDocs.push(item);
+    }
+    refDocs.sort();
 }
 
-console.log(`Found ${filesToMerge.length} markdown files in ${sourceDir}`);
-
-console.log(`Found ${filesToMerge.length} markdown files in ${sourceDir}`);
-console.log('Merging agent documentation files...');
-
-// Read the main agent file as the base
-let mainContent = fs.readFileSync(mainAgentFile, 'utf8');
-
-// Remove the INCLUDE statements we added earlier
-mainContent = mainContent.replace(/---\n\n## Included Documentation[\s\S]*$/m, '');
-
-// Start building the merged content
-let mergedContent = mainContent;
-
-// Add separator and start appending files
-mergedContent += '\n\n---\n\n# APPENDIX: Extended Documentation\n\n';
-mergedContent += '*The following sections provide detailed reference documentation for Data API Builder commands and configuration.*\n\n';
-
-// Append each file
-filesToMerge.forEach((filename, index) => {
-    const filePath = path.join(sourceDir, filename);
+// Append reference docs
+if (refDocs.length > 0) {
+    mergedContent += '\n\n---\n\n# APPENDIX: Reference Documentation\n\n';
+    mergedContent += 'The following sections provide detailed reference information.\n\n';
     
-    console.log(`  Adding ${filename}...`);
-    const content = fs.readFileSync(filePath, 'utf8');
-    
-    // Add a clear separator between sections
-    mergedContent += `\n\n---\n\n`;
-    mergedContent += `# SECTION ${index + 1}: ${filename.replace('.md', '').replace(/-/g, ' ').toUpperCase()}\n\n`;
-    mergedContent += content;
-});
+    for (const filename of refDocs) {
+        const filePath = path.join(refDocsDir, filename);
+        const content = stripBom(fs.readFileSync(filePath, 'utf8'));
+        const sectionName = filename.replace('.md', '').replace(/-/g, ' ').toUpperCase();
+        
+        mergedContent += `\n\n---\n\n## ${sectionName}\n\n${content}`;
+        console.log(`  + ${filename}`);
+    }
+}
 
-// Write the merged file
+// Write merged file
 fs.writeFileSync(outputFile, mergedContent, 'utf8');
 
-console.log(`\n✓ Successfully merged ${filesToMerge.length + 1} files into ${outputFile}`);
-console.log(`  Total size: ${Math.round(mergedContent.length / 1024)}KB`);
+// Stats
+const finalLines = mergedContent.split('\n').length;
+const sizeKB = Math.round(mergedContent.length / 1024);
+
+console.log('');
+console.log('DAB Agent Build Complete');
+console.log('========================');
+console.log(`Source: ${sourceAgentFile}`);
+console.log(`  Main agent: ${mainLines} lines`);
+console.log(`  Reference docs: ${refDocs.length} files`);
+console.log(`Output: ${outputFile}`);
+console.log(`  Total: ${finalLines} lines, ${sizeKB}KB`);
+

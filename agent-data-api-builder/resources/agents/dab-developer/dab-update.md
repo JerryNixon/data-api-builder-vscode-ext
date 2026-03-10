@@ -173,120 +173,23 @@ dab update GetCustomerOrders \
 
 ## Relationship Examples
 
-### One-to-Many Relationship
+For detailed relationship patterns (one-to-many, many-to-many, self-referencing), see [relationships.md](relationships.md).
 
-A Category has many Products:
-
-```bash
-# First, ensure both entities exist
-dab add Category --source dbo.Categories --permissions "anonymous:read"
-dab add Product --source dbo.Products --permissions "anonymous:read"
-
-# Add relationship from Category to Products
-dab update Category \
-  --relationship "products" \
-  --cardinality many \
-  --target.entity Product \
-  --source.fields "CategoryId" \
-  --target.fields "CategoryId"
-```
-
-Result in `Category` entity:
-```json
-{
-  "Category": {
-    "relationships": {
-      "products": {
-        "cardinality": "many",
-        "target.entity": "Product",
-        "source.fields": ["CategoryId"],
-        "target.fields": ["CategoryId"]
-      }
-    }
-  }
-}
-```
-
-### Many-to-One Relationship (Inverse)
-
-A Product belongs to one Category:
+**Quick Reference:**
 
 ```bash
-dab update Product \
-  --relationship "category" \
-  --cardinality one \
-  --target.entity Category \
-  --source.fields "CategoryId" \
-  --target.fields "CategoryId"
-```
+# One-to-many: Category has many Products
+dab update Category --relationship "products" --cardinality many \
+  --target.entity Product --source.fields "CategoryId" --target.fields "CategoryId"
 
-### Many-to-Many Relationship
+# Many-to-many: Student to Courses via Enrollments
+dab update Student --relationship "courses" --cardinality many \
+  --target.entity Course --linking.object "dbo.Enrollments" \
+  --linking.source.fields "StudentId" --linking.target.fields "CourseId"
 
-Students and Courses through an Enrollment table:
-
-```bash
-# Add entities
-dab add Student --source dbo.Students --permissions "anonymous:read"
-dab add Course --source dbo.Courses --permissions "anonymous:read"
-
-# Add many-to-many from Student to Courses
-dab update Student \
-  --relationship "courses" \
-  --cardinality many \
-  --target.entity Course \
-  --linking.object "dbo.Enrollments" \
-  --linking.source.fields "StudentId" \
-  --linking.target.fields "CourseId"
-
-# Add inverse relationship from Course to Students
-dab update Course \
-  --relationship "students" \
-  --cardinality many \
-  --target.entity Student \
-  --linking.object "dbo.Enrollments" \
-  --linking.source.fields "CourseId" \
-  --linking.target.fields "StudentId"
-```
-
-Result in `Student` entity:
-```json
-{
-  "Student": {
-    "relationships": {
-      "courses": {
-        "cardinality": "many",
-        "target.entity": "Course",
-        "linking.object": "dbo.Enrollments",
-        "linking.source.fields": ["StudentId"],
-        "linking.target.fields": ["CourseId"]
-      }
-    }
-  }
-}
-```
-
-### Self-Referencing Relationship
-
-An Employee has a Manager (who is also an Employee):
-
-```bash
-dab add Employee --source dbo.Employees --permissions "anonymous:read"
-
-# Manager relationship (many employees have one manager)
-dab update Employee \
-  --relationship "manager" \
-  --cardinality one \
-  --target.entity Employee \
-  --source.fields "ManagerId" \
-  --target.fields "EmployeeId"
-
-# Direct reports (one manager has many employees)
-dab update Employee \
-  --relationship "directReports" \
-  --cardinality many \
-  --target.entity Employee \
-  --source.fields "EmployeeId" \
-  --target.fields "ManagerId"
+# Self-referencing: Employee has a Manager
+dab update Employee --relationship "manager" --cardinality one \
+  --target.entity Employee --source.fields "ManagerId" --target.fields "EmployeeId"
 ```
 
 ---
@@ -496,4 +399,4 @@ dab update GetProducts --parameters.name "categoryId"
 
 - See [relationships.md](relationships.md) for detailed relationship patterns
 - See [entities.md](entities.md) for entity configuration options
-- See [dab-configure.md](dab-configure.md) for runtime settings
+- See [runtime.md](runtime.md) for runtime settings

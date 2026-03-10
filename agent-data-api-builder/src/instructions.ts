@@ -34,20 +34,25 @@ export async function getAgentInstructions(context: vscode.ExtensionContext): Pr
 
   // Try to load from extension resources
   const extensionPath = context.extensionPath;
-  const agentPath = path.join(extensionPath, 'agents', 'dab-developer.md');
+  const agentPath = path.join(extensionPath, 'resources', 'agents', 'dab-developer.agent.md');
   
   if (fs.existsSync(agentPath)) {
     try {
       const mainInstructions = fs.readFileSync(agentPath, 'utf-8');
       instructions.push(mainInstructions);
 
-      // Load sub-instructions
-      const subDir = path.join(extensionPath, 'agents', 'dab-developer');
+      // Load sub-instructions (skip archive folder)
+      const subDir = path.join(extensionPath, 'resources', 'agents', 'dab-developer');
       if (fs.existsSync(subDir)) {
-        const files = fs.readdirSync(subDir).filter(f => f.endsWith('.md')).sort();
+        const files = fs.readdirSync(subDir)
+          .filter(f => f.endsWith('.md') && !f.includes('archive'))
+          .sort();
         for (const file of files) {
-          const content = fs.readFileSync(path.join(subDir, file), 'utf-8');
-          instructions.push(`\n\n---\n\n# ${file.replace('.md', '')}\n\n${content}`);
+          const filePath = path.join(subDir, file);
+          // Skip if it's a directory
+          if (fs.statSync(filePath).isDirectory()) { continue; }
+          const content = fs.readFileSync(filePath, 'utf-8');
+          instructions.push(`\n\n---\n\n# ${file.replace('.md', '').toUpperCase().replace(/-/g, ' ')}\n\n${content}`);
         }
       }
     } catch (error) {
@@ -55,24 +60,29 @@ export async function getAgentInstructions(context: vscode.ExtensionContext): Pr
     }
   }
 
-  // Try to load from workspace
+  // Try to load from workspace (allows users to override)
   const workspaceFolders = vscode.workspace.workspaceFolders;
   if (workspaceFolders && instructions.length === 0) {
     const workspacePath = workspaceFolders[0].uri.fsPath;
-    const workspaceAgentPath = path.join(workspacePath, '.github', 'agents', 'dab-developer.md');
+    const workspaceAgentPath = path.join(workspacePath, '.github', 'agents', 'dab-developer.agent.md');
     
     if (fs.existsSync(workspaceAgentPath)) {
       try {
         const content = fs.readFileSync(workspaceAgentPath, 'utf-8');
         instructions.push(content);
 
-        // Load sub-instructions from workspace
+        // Load sub-instructions from workspace (skip archive folder)
         const subDir = path.join(workspacePath, '.github', 'agents', 'dab-developer');
         if (fs.existsSync(subDir)) {
-          const files = fs.readdirSync(subDir).filter(f => f.endsWith('.md')).sort();
+          const files = fs.readdirSync(subDir)
+            .filter(f => f.endsWith('.md') && !f.includes('archive'))
+            .sort();
           for (const file of files) {
-            const content = fs.readFileSync(path.join(subDir, file), 'utf-8');
-            instructions.push(`\n\n---\n\n# ${file.replace('.md', '')}\n\n${content}`);
+            const filePath = path.join(subDir, file);
+            // Skip if it's a directory
+            if (fs.statSync(filePath).isDirectory()) { continue; }
+            const content = fs.readFileSync(filePath, 'utf-8');
+            instructions.push(`\n\n---\n\n# ${file.replace('.md', '').toUpperCase().replace(/-/g, ' ')}\n\n${content}`);
           }
         }
       } catch (error) {

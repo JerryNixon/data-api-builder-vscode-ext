@@ -38,7 +38,7 @@
       {
         "id": "dab.participant",
         "name": "dab",
-        "fullName": "Data API Builder",
+        "fullName": "DAB Developer",
         "description": "Create REST, GraphQL, and MCP APIs from your database",
         "isSticky": true,
         "disambiguation": [
@@ -91,7 +91,7 @@
     ],
     "chatAgents": [
       {
-        "path": "resources/agents/dab-developer.agent.md"
+        "path": "out/agents/dab-developer.agent.md"
       }
     ],
     "languageModelTools": [

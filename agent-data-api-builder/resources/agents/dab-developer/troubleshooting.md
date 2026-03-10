@@ -285,6 +285,13 @@ Get-NetTCPConnection -LocalPort 5000 | Select-Object -Property OwningProcess
 Stop-Process -Id <ProcessId>
 ```
 
+**DAB process cleanup**: If DAB crashes or is interrupted, port may stay in use briefly:
+```powershell
+# Wait for TIME_WAIT to clear (a few seconds)
+# Or find and kill lingering DAB processes
+Get-Process | Where-Object {$_.ProcessName -like "*dab*" -or $_.ProcessName -like "*DataApiBuilder*"} | Stop-Process -Force
+```
+
 ---
 
 #### Issue: "DAB starts but endpoints return 404"
@@ -307,6 +314,26 @@ dab configure --runtime.rest.path "/api"
 
 # Test with full URL
 curl http://localhost:5000/api/Product
+```
+
+**Common mistake - explicit path in entity REST config:**
+```json
+// ❌ WRONG - causes double slash like /api//Product
+"rest": { "enabled": true, "path": "/Product" }
+
+// ✅ CORRECT - entity name becomes path automatically
+"rest": { "enabled": true }
+```
+
+---
+
+#### Issue: "DAB stops when running another command"
+
+**Cause**: DAB started with `run_in_terminal` with `isBackground=true` exits when terminal output is read.
+
+**Solution**: Start DAB in a separate PowerShell window:
+```powershell
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "dab start" -WorkingDirectory "C:\path\to\project"
 ```
 
 ---
@@ -649,3 +676,161 @@ dab add MyView --source dbo.vw_Summary --source.type view
 ```bash
 dab add MyView --source dbo.vw_Summary --source.type view --source.key-fields "Id"
 ```
+
+---
+
+## Docker-Specific Issues
+
+### Issue: "Port 1433 conflict with local SQL Server"
+
+**Cause**: Host machine has SQL Server running on port 1433, conflicting with Docker container.
+
+**Solution**: Use a different host port in docker-compose.yml:
+```yaml
+ports:
+  - "1434:1433"  # Map to 1434 on host, 1433 in container
+```
+
+Then update connection string:
+```
+Server=localhost,1434;Database=MyDb;...
+```
+
+**Detection**: Connection fails from host but works from inside container.
+
+---
+
+### Issue: "sqlcmd fails but DAB connects fine"
+
+**Cause**: Go-based `sqlcmd` (v1.x) has different behavior than .NET SqlClient used by DAB.
+
+**Solution**: Don't rely on `sqlcmd` from host to validate connections. Test with .NET:
+```powershell
+$connStr = "Server=localhost,1434;Database=MyDb;User Id=sa;Password=YourPass;TrustServerCertificate=true"
+$conn = New-Object System.Data.SqlClient.SqlConnection $connStr
+$conn.Open()
+$conn.State  # Should show "Open"
+$conn.Close()
+```
+
+Or test from inside the container:
+```bash
+docker exec my-container /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "YourPass" -C -Q "SELECT 1"
+```
+
+**Key insight**: DAB uses .NET SqlClient internally—if .NET connects, DAB will connect.
+
+---
+
+### Issue: "SQL scripts fail after container start"
+
+**Cause**: SQL Server isn't fully ready yet (takes 15-20 seconds to initialize).
+
+**Solution**: Wait before running setup scripts:
+```powershell
+Start-Sleep -Seconds 20
+docker exec my-container /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "YourPass" -C -i /tmp/setup.sql
+```
+
+Or use healthcheck in docker-compose.yml:
+```yaml
+healthcheck:
+  test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" || exit 1
+  interval: 10s
+  timeout: 5s
+  retries: 10
+  start_period: 30s
+```
+
+---
+
+### Issue: "Environment variable changes not taking effect"
+
+**Cause**: DAB reads .env file which may override shell environment variables.
+
+**Solution**: Update BOTH the .env file AND shell variable, or rely solely on .env:
+```powershell
+# Update .env file
+"DATABASE_CONNECTION_STRING=Server=localhost,1434;..." | Set-Content .env
+
+# AND update shell (if running DAB from same shell)
+$env:DATABASE_CONNECTION_STRING = "Server=localhost,1434;..."
+```
+
+---
+
+### Issue: "Container-to-container networking not working"
+
+**Cause**: Using `localhost` instead of service name for container-to-container communication.
+
+**Solution**: Use service names within Docker network:
+
+| DAB Location | SQL Server Reference |
+|--------------|---------------------|
+| Host machine | `localhost,<port>` or `127.0.0.1,<port>` |
+| Docker (same network) | `<service-name>` (e.g., `sqlserver`) |
+| Docker (to host) | `host.docker.internal` |
+
+Example docker-compose:
+```yaml
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    networks:
+      - app-net
+    # ...
+  
+  dab:
+    image: mcr.microsoft.com/azure-databases/data-api-builder
+    environment:
+      - DATABASE_CONNECTION_STRING=Server=sqlserver;Database=MyDb;User Id=sa;Password=YourPass;TrustServerCertificate=true
+    networks:
+      - app-net
+    depends_on:
+      sqlserver:
+        condition: service_healthy  # Critical!
+
+networks:
+  app-net:
+```
+
+---
+
+### Issue: "device or resource busy" when updating config
+
+**Cause**: DAB container has the config file locked via volume mount.
+
+**Solution**: Mount config as read-only:
+```yaml
+volumes:
+  - ./dab-config.json:/App/dab-config.json:ro  # Read-only!
+```
+
+To update config: edit locally, then restart:
+```bash
+docker-compose restart dab
+```
+
+---
+
+### Issue: "DAB starts before database exists"
+
+**Cause**: Simple `depends_on` only waits for container start, not service readiness.
+
+**Solution**: Use healthcheck with condition:
+```yaml
+sqlserver:
+  healthcheck:
+    test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "YourPass" -C -Q "SELECT 1" || exit 1
+    interval: 10s
+    timeout: 5s
+    retries: 10
+    start_period: 30s
+
+dab:
+  depends_on:
+    sqlserver:
+      condition: service_healthy  # NOT just "depends_on: sqlserver"
+```
+
+**Also**: Run database setup scripts AFTER SQL is healthy, BEFORE starting DAB.

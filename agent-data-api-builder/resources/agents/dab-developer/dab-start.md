@@ -264,36 +264,14 @@ Or in `appsettings.json`:
 
 ## Docker Deployment
 
-### Using Official Image
+For Docker and Docker Compose deployment, see [deploy-localhost-docker.md](deploy-localhost-docker.md).
+
+**Quick Start:**
 ```bash
 docker run -p 5000:5000 \
   -v $(pwd)/dab-config.json:/App/dab-config.json \
   -e DATABASE_CONNECTION_STRING="Server=host.docker.internal;Database=MyDb;..." \
   mcr.microsoft.com/azure-databases/data-api-builder
-```
-
-### Docker Compose
-```yaml
-version: '3.8'
-services:
-  dab:
-    image: mcr.microsoft.com/azure-databases/data-api-builder
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./dab-config.json:/App/dab-config.json
-    environment:
-      - DATABASE_CONNECTION_STRING=Server=db;Database=MyDb;User Id=sa;Password=yourPassword
-    depends_on:
-      - db
-  
-  db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    environment:
-      - ACCEPT_EULA=Y
-      - SA_PASSWORD=yourPassword
-    ports:
-      - "1433:1433"
 ```
 
 ---

@@ -112,4 +112,37 @@ Use this when only the image changes (config baked into the image).
 - Logs: `az containerapp logs show --name <app> --resource-group <rg> --tail 100` for runtime issues.
 
 ## Cleanup
-- Delete tagged resources when done: `az group delete --name <rg> --yes --no-wait`.
+
+> ⚠️ **CRITICAL: Avoid Ongoing Charges**
+> 
+> If you're testing or developing, **delete your resources when done**. Even minimal SKUs incur charges over time.
+
+**Delete everything in one command:**
+```bash
+az group delete --name <rg> --yes --no-wait
+```
+
+**Or stop without deleting (for temporary pause):**
+```bash
+# Scale ACA to zero replicas
+az containerapp update --name <app> --resource-group <rg> --min-replicas 0 --max-replicas 0
+```
+
+---
+
+## Cost Optimization Summary
+
+| Resource | Recommended SKU | Approx. Monthly Cost |
+|----------|-----------------|---------------------|
+| Azure Container Registry | Basic (`--sku Basic`) | ~$5 |
+| Azure SQL Database | Basic 5 DTU (`--edition Basic --capacity 5`) | ~$5 |
+| Azure Container Apps | Consumption (default) | Pay-per-use |
+| Log Analytics | Free tier | $0 (limited data) |
+
+**Total estimated cost for dev/test:** ~$10-15/month
+
+**Cost-saving tips:**
+1. Use serverless Azure SQL (auto-pauses when idle)
+2. ACA consumption plan scales to zero (no charges when idle)
+3. Delete resource groups when done testing
+4. Share one Basic ACR across multiple dev projects

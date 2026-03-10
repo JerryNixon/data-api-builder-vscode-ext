@@ -582,8 +582,68 @@ Use for:
 
 ---
 
+## CLI Quick Reference: dab configure
+
+Use `dab configure` to modify runtime settings via command line.
+
+### Common Commands
+
+```bash
+# Enable/disable endpoints
+dab configure --runtime.rest.enabled true
+dab configure --runtime.graphql.enabled false
+dab configure --runtime.mcp.enabled true
+
+# Change paths
+dab configure --runtime.rest.path "/v1/api"
+dab configure --runtime.mcp.path "/mcp"
+
+# Configure CORS
+dab configure --runtime.host.cors.origins "http://localhost:3000,https://myapp.com"
+
+# Set mode
+dab configure --runtime.host.mode production
+
+# Configure caching
+dab configure --runtime.cache.enabled true --runtime.cache.ttl-seconds 60
+
+# Configure authentication
+dab configure --runtime.host.authentication.provider AzureAd \
+  --runtime.host.authentication.jwt.audience "api://my-app" \
+  --runtime.host.authentication.jwt.issuer "https://login.microsoftonline.com/tenant/v2.0"
+
+# Enable health endpoint
+dab configure --runtime.health.enabled true
+
+# Change connection string
+dab configure --data-source.connection-string "@env('DATABASE_CONNECTION_STRING')"
+```
+
+### Complete Examples
+
+**Development:**
+```bash
+dab configure --runtime.host.mode development \
+  --runtime.host.cors.origins "http://localhost:3000" \
+  --runtime.graphql.allow-introspection true \
+  --runtime.mcp.enabled true \
+  --runtime.cache.ttl-seconds 5
+```
+
+**Production:**
+```bash
+dab configure --runtime.host.mode production \
+  --runtime.graphql.allow-introspection false \
+  --runtime.mcp.enabled false \
+  --runtime.cache.ttl-seconds 60 \
+  --runtime.host.authentication.provider AzureAd \
+  --runtime.host.authentication.jwt.audience "api://my-app" \
+  --runtime.host.authentication.jwt.issuer "https://login.microsoftonline.com/tenant/v2.0"
+```
+
+---
+
 ## Next Steps
 
 - See [entities.md](entities.md) for entity configuration
 - See [mcp.md](mcp.md) for MCP Server details
-- See [dab-configure.md](dab-configure.md) for CLI commands

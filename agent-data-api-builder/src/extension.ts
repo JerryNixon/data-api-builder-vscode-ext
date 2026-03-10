@@ -71,7 +71,35 @@ export function activate(context: vscode.ExtensionContext) {
     await vscode.commands.executeCommand('workbench.action.chat.open', { query });
   });
 
-  context.subscriptions.push(participant, openChatCommand, validateCommand, startCommand, addEntityCommand, configureCommand);
+  // Register create .env template command
+  const createEnvTemplateCommand = vscode.commands.registerCommand('dab.createEnvTemplate', async () => {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage('No workspace folder open');
+      return;
+    }
+    const envPath = vscode.Uri.joinPath(workspaceFolder.uri, '.env');
+    const envContent = `# Data API Builder Connection String
+# Update with your SQL Server connection details
+DATABASE_CONNECTION_STRING=Server=localhost;Database=YourDatabase;User Id=sa;Password=YourPassword;TrustServerCertificate=true
+
+# For Azure SQL, use:
+# DATABASE_CONNECTION_STRING=Server=yourserver.database.windows.net;Database=YourDatabase;User Id=youruser;Password=YourPassword;Encrypt=true
+`;
+    await vscode.workspace.fs.writeFile(envPath, Buffer.from(envContent, 'utf8'));
+    const doc = await vscode.workspace.openTextDocument(envPath);
+    await vscode.window.showTextDocument(doc);
+    vscode.window.showInformationMessage('.env template created! Update the connection string and try again.');
+  });
+
+  // Register skip init command (just provides guidance)
+  const skipInitCommand = vscode.commands.registerCommand('dab.skipInit', async () => {
+    await vscode.commands.executeCommand('workbench.action.chat.open', {
+      query: '@dab I want to skip setting up the connection for now. What else can you help me with?'
+    });
+  });
+
+  context.subscriptions.push(participant, openChatCommand, validateCommand, startCommand, addEntityCommand, configureCommand, createEnvTemplateCommand, skipInitCommand);
 }
 
 export function deactivate() {
