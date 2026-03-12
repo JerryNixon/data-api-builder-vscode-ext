@@ -26,13 +26,13 @@ export function buildInitCommand(configPath: string, envKey: string, folder: str
     `-c "${path.basename(configPath)}"`
   ];
 
-  // Change to the target folder before running the dab command
-  return `cd "${folder}"; ${args.join(' ')}`;
+  // Working directory is set via runCommand's cwd option
+  return args.join(' ');
 }
 
 export function buildConfigCommand(configPath: string, setting: string, value: string, folder: string): string {
-  // Change to the target folder before running the dab command
-  return `cd "${folder}"; dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
+  // Working directory is set via runCommand's cwd option
+  return `dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
 }
 
 export function waitForFile(filePath: string, timeoutMs = 3000, intervalMs = 100): Promise<void> {

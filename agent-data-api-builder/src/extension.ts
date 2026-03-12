@@ -1,12 +1,8 @@
 import * as vscode from 'vscode';
 import { DabChatHandler } from './chatHandler';
-import { registerChatTools } from './tools/chatTools';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('DAB Agent extension activated');
-
-  // Register chat tools (dab_cli, get_schema) so the LLM can invoke them
-  registerChatTools(context);
 
   // Create and register the chat participant first (always available)
   const chatHandler = new DabChatHandler(context);

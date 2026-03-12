@@ -50,9 +50,13 @@ interface Relationship {
 }
 
 /**
- * Extracts tables from the configuration file.
+ * Extracts table entities from the DAB configuration file.
+ * 
+ * NOTE: This function reads from CONFIG files, not database metadata.
+ * It is different from shared-database's getTables() which queries actual database tables.
+ * 
  * @param configPath - The path to the configuration file.
- * @returns An array of TableEntity objects.
+ * @returns An array of TableEntity objects from the config.
  */
 export function getTables(configPath: string): TableEntity[] {
   if (!fs.existsSync(configPath)) {

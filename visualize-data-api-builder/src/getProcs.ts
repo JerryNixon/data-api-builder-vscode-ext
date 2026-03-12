@@ -31,9 +31,13 @@ export interface StoredProcedureEntity {
 }
 
 /**
- * Extracts stored procedures from the configuration file.
+ * Extracts stored procedure entities from the DAB configuration file.
+ * 
+ * NOTE: This function reads from CONFIG files, not database metadata.
+ * It is different from shared-database's getProcs() which queries actual database procedures.
+ * 
  * @param configPath - The path to the configuration file.
- * @returns An array of stored procedure objects.
+ * @returns An array of StoredProcedureEntity objects from the config.
  */
 export function getProcs(configPath: string): StoredProcedureEntity[] {
     if (!fs.existsSync(configPath)) {

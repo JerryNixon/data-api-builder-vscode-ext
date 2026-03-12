@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { askForConnection } from 'dab-vscode-shared';
+import { openConnection } from 'dab-vscode-shared-database';
 import { getEntities, EntityDefinition } from './readConfig';
-import { openConnection } from './mssql/querySql';
 import { generateCSharpCode } from './csharp';
 
 interface EntityQuickPickItem extends vscode.QuickPickItem {

@@ -4,26 +4,6 @@ import * as sql from 'mssql';
 /** Public Methods **/
 
 /**
- * Opens a connection to the SQL Server database.
- * @param connectionString - The SQL Server connection string.
- * @returns The connection pool or undefined if the connection fails.
- */
-export async function openConnection(connectionString: string): Promise<sql.ConnectionPool | undefined> {
-  try {
-    const pool = await sql.connect(connectionString);
-
-    if (!pool.connected) {
-      throw new Error('Connection to the database could not be established.');
-    }
-
-    return pool;
-  } catch (connectionError) {
-    vscode.window.showErrorMessage(`Database connection failed: ${connectionError}`);
-    return undefined;
-  }
-}
-
-/**
  * Retrieves metadata of user-defined tables from the database and generates a POCO class.
  * @param pool - The SQL Server connection pool.
  * @param tableName - The table name to retrieve as POCO.

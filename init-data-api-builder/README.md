@@ -9,6 +9,7 @@ A Visual Studio Code extension that guides users through initializing Data API B
 - Adds a right-click context menu for folders.
 - Single multi-select dialog for all configuration options: REST, GraphQL, MCP, Cache, Developer Mode, and Simulated security.
 - Guides users through streamlined prompts for `dab init` configuration.
+- Automatically configures OpenTelemetry with environment variable placeholders for observability.
 - Automatically updates `.env` and `.gitignore`.
 
 ## Requirements

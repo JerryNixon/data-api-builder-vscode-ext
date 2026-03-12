@@ -21,7 +21,7 @@ suite('Init utils', () => {
 	test('buildInitCommand formats with hardcoded defaults', () => {
 		const command = buildInitCommand('/project/dab-config.json', 'MSSQL_CONNECTION_STRING', '/project');
 
-		assert.ok(command.includes('cd "/project"'));
+		assert.ok(command.includes('dab init'));
 		assert.ok(command.includes("--connection-string \"@env('MSSQL_CONNECTION_STRING')\""));
 		assert.ok(command.includes('--host-mode Development'));
 		assert.ok(command.includes('--rest.enabled true'));
@@ -33,8 +33,17 @@ suite('Init utils', () => {
 
 	test('buildConfigCommand targets basename', () => {
 		const cmd = buildConfigCommand('/project/sub/dab-config-2.json', 'runtime.rest.request-body-strict', 'false', '/project/sub');
-		assert.ok(cmd.includes('cd "/project/sub"'));
+		assert.ok(cmd.includes('dab configure'));
 		assert.ok(cmd.includes('-c "dab-config-2.json"'));
+	});
+
+	test('buildConfigCommand handles telemetry settings', () => {
+		const enabledCmd = buildConfigCommand('/project/dab-config.json', 'telemetry.open-telemetry.enabled', 'true', '/project');
+		assert.ok(enabledCmd.includes('dab configure'));
+		assert.ok(enabledCmd.includes('--telemetry.open-telemetry.enabled true'));
+		
+		const endpointCmd = buildConfigCommand('/project/dab-config.json', 'telemetry.open-telemetry.endpoint', '"@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"', '/project');
+		assert.ok(endpointCmd.includes('--telemetry.open-telemetry.endpoint "@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"'));
 	});
 
 	test('waitForFile resolves when file appears', async () => {

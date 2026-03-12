@@ -25,9 +25,13 @@ export interface ViewEntity {
 }
 
 /**
- * Extracts views from the configuration file.
+ * Extracts view entities from the DAB configuration file.
+ * 
+ * NOTE: This function reads from CONFIG files, not database metadata.
+ * It is different from shared-database's getViews() which queries actual database views.
+ * 
  * @param configPath - The path to the configuration file.
- * @returns An array of view objects.
+ * @returns An array of ViewEntity objects from the config.
  */
 export function getViews(configPath: string): ViewEntity[] {
     if (!fs.existsSync(configPath)) {

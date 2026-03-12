@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DabChatResult } from './extension';
 import { getAgentInstructions } from './instructions';
-import { runCommand } from './utils/terminal';
+import { runCommand } from 'dab-vscode-shared';
 import { execSync, spawn } from 'child_process';
 
 /**

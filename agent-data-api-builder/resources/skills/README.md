@@ -1,16 +1,51 @@
 # DAB Skills
 
 This directory contains Agent Skills for Data API Builder (DAB). Skills are self-contained knowledge bundles that enhance GitHub Copilot's capabilities for specialized DAB tasks.
+https://learn.microsoft.com/en-us/azure/data-api-builder/command-line/dab-configure?tabs=bash
+## Installed Skills
+
+The extension includes **14 specialized skills** covering various DAB scenarios:
+
+### Core DAB Skills
+- **data-api-builder-cli** - CLI commands and workflows
+- **data-api-builder-config** - Config manipulation and best practices  
+- **data-api-builder-auth** - Authentication patterns (JWT, EasyAuth)
+- **data-api-builder-mcp** - MCP endpoint setup and client config (includes script)
+- **data-api-builder-demo** - Demo scenarios and quickstarts
+
+### Aspire Integration
+- **aspire-data-api-builder** - .NET Aspire orchestration (includes scripts)
+- **aspire-mcp-inspector** - MCP Inspector with Aspire
+- **aspire-sql-commander** - SQL Commander with Aspire  
+- **aspire-sql-projects** - SQL Projects with Aspire
+
+### Azure Deployment  
+- **azure-data-api-builder** - Azure deployment with Bicep/azd (includes scripts)
+- **azure-mcp-inspector** - Deploy MCP Inspector to Azure
+- **azure-sql-commander** - Deploy SQL Commander to Azure
+
+### Other
+- **docker-data-api-builder** - Containerization with Docker
+- **creating-agent-skills** - Meta-skill for creating new skills
 
 ## Directory Structure
 
 ```
-.github/skills/
-├── README.md                    # This file
-├── dab-sql-server.skill.md      # SQL Server specific guidance (future)
-├── dab-postgresql.skill.md      # PostgreSQL specific guidance (future)
-├── dab-deployment.skill.md      # Deployment workflows (future)
-└── dab-security.skill.md        # Security best practices (future)
+resources/skills/
+├── README.md                           # This file
+├── data-api-builder-cli/
+│   └── SKILL.md
+├── data-api-builder-mcp/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── write-vscode-mcp.ps1
+├── azure-data-api-builder/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── azure-up.ps1
+│       ├── azure-down.ps1
+│       └── post-provision-template.ps1
+└── ... (11 more skills)
 ```
 
 ## What Are Skills?
@@ -24,23 +59,55 @@ Skills are markdown files that provide:
 
 ## How Skills Work
 
-During the build process (`npm run merge-agent-docs`), skills are copied from this directory to the extension:
+Skills are packaged directly with the extension and activated via the `chatSkills` contribution point in `package.json`:
 
-**Source**: `.github/skills/*.md`  
-**Destination**: `agent-data-api-builder/resources/skills/*.md`
+```json
+"contributes": {
+  "chatSkills": [
+    {
+      "path": "./resources/skills/data-api-builder-cli"
+    },
+    // ... 13 more skills
+  ]
+}
+```
 
-This allows skills to be:
-- ✅ Easily modified in the `.github` folder
-- ✅ Version controlled alongside agents
-- ✅ Reviewed and updated independently
-- ✅ Packaged with the extension automatically
+**Packaging Flow:**
+1. Skills stored in `resources/skills/` (git-tracked)
+2. `vsce package` includes via `files: ["resources/**/*"]`
+3. VS Code loads skills from VSIX at runtime
+4. Skills automatically surface when relevant keywords mentioned
+
+**Key features:**
+- ✅ No build/compile step needed (markdown + scripts copied as-is)
+- ✅ Automatically available after extension install
+- ✅ AI assistants surface skills contextually
+- ✅ Scripts executable via relative paths
+
+## Updating Skills
+
+Skills are sourced from `dab-quickstarts` repository:
+
+```bash
+# Copy updated skills from source
+cd agent-data-api-builder
+cp -r ../../dab-quickstarts/.github/skills/* ./resources/skills/
+
+# Rebuild and test
+npm run compile
+code --extensionDevelopmentPath=.
+
+# Package for distribution
+vsce package
+```
 
 ## Creating a New Skill
 
-1. Create a new `.md` or `.skill.md` file in this directory
-2. Follow the Agent Skill specification: https://agentskills.io/specification
-3. Run `npm run merge-agent-docs` to copy to extension
-4. Test with GitHub Copilot
+1. Create skill folder in this directory (e.g., `new-skill-name/`)
+2. Add `SKILL.md` with YAML frontmatter
+3. (Optional) Add `scripts/` subfolder for automation
+4. Update `package.json` `chatSkills` array with new path
+5. Follow specification: https://code.visualstudio.com/api/extension-guides/ai/skills
 
 ## Example Skill Structure
 
