@@ -487,6 +487,7 @@ $RECYCLE.BIN/
 *.swp
 
 out/
+dist/
 
 # Agent extension - copied during build from .github/agents/
 agent-data-api-builder/agents/
