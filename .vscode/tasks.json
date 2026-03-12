@@ -44,6 +44,33 @@
 			"command": "npm run test:shared",
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "Build All Extensions",
+			"type": "shell",
+			"command": "npm run build:all",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Watch All Extensions",
+			"type": "shell",
+			"command": "npm run build:all-shared && echo 'Shared packages built. Now compile extensions with Ctrl+Shift+B in each extension folder.'",
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
 		}
 	]
 }

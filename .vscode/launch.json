@@ -1,0 +1,125 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "🚀 All DAB Extensions",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/add-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/agent-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/health-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/init-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/omnibus-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/poco-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/start-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/validate-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/visualize-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/*/out/**/*.js",
+				"${workspaceFolder}/*/dist/**/*.js"
+			],
+			"preLaunchTask": "Build All Extensions"
+		},
+		{
+			"name": "Add Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/add-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/add-data-api-builder/out/**/*.js"
+			]
+		},
+		{
+			"name": "Agent Extension (@dab)",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/agent-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/agent-data-api-builder/out/**/*.js"
+			]
+		},
+		{
+			"name": "Health Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/health-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/health-data-api-builder/out/**/*.js"
+			]
+		},
+		{
+			"name": "Init Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/init-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/init-data-api-builder/out/**/*.js"
+			]
+		},
+		{
+			"name": "Omnibus Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/omnibus-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/omnibus-data-api-builder/out/**/*.js"
+			]
+		},
+		{
+			"name": "POCO Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/poco-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/poco-data-api-builder/out/**/*.js"
+			]
+		},
+		{
+			"name": "Start Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/start-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/start-data-api-builder/out/**/*.js"
+			]
+		},
+		{
+			"name": "Validate Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/validate-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/validate-data-api-builder/out/**/*.js"
+			]
+		},
+		{
+			"name": "Visualize Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/visualize-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/visualize-data-api-builder/out/**/*.js"
+			]
+		}
+	]
+}
