@@ -1,0 +1,23 @@
+{
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('MSSQL_CONNECTION_STRING')"
+  },
+  "runtime": {
+    "rest": { "enabled": true, "path": "/api", "request-body-strict": true },
+    "graphql": { "enabled": true, "path": "/graphql", "allow-introspection": true },
+    "mcp": { "enabled": true, "path": "/mcp" },
+    "host": {
+      "cors": { "origins": ["http://localhost:5173", "__WEB_URL_AZURE__"], "allow-credentials": false },
+      "mode": "development"
+    }
+  },
+  "entities": {
+    "Todos": {
+      "source": { "object": "dbo.Todos", "type": "table" },
+      "permissions": [
+        { "role": "anonymous", "actions": [ { "action": "create" }, { "action": "read" }, { "action": "update" }, { "action": "delete" } ] }
+      ]
+    }
+  }
+}

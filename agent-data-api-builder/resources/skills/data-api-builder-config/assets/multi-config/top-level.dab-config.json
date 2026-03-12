@@ -1,0 +1,23 @@
+{
+  "data-source-files": [
+    "dab-config-sql.json",
+    "dab-config-cosmos.json"
+  ],
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api"
+    },
+    "graphql": {
+      "enabled": true,
+      "path": "/graphql"
+    },
+    "mcp": {
+      "enabled": true,
+      "path": "/mcp"
+    },
+    "host": {
+      "mode": "development"
+    }
+  }
+}

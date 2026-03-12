@@ -1,0 +1,77 @@
+{
+  "data-source": {
+    "database-type": "mssql",
+    "connection-string": "@env('DATABASE_CONNECTION_STRING')"
+  },
+  "runtime": {
+    "rest": {
+      "enabled": true,
+      "path": "/api"
+    },
+    "graphql": {
+      "enabled": true,
+      "path": "/graphql"
+    },
+    "mcp": {
+      "enabled": true,
+      "path": "/mcp"
+    },
+    "host": {
+      "mode": "development"
+    }
+  },
+  "autoentities": {
+    "catalog": {
+      "patterns": {
+        "include": [
+          "dbo.%"
+        ],
+        "exclude": [],
+        "name": "{schema}{object}"
+      },
+      "template": {
+        "rest": {
+          "enabled": true
+        },
+        "graphql": {
+          "enabled": true
+        },
+        "mcp": {
+          "dml-tools": true
+        },
+        "cache": {
+          "enabled": false
+        },
+        "health": {
+          "enabled": true
+        }
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            {
+              "action": "read"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "entities": {
+    "HealthProbe": {
+      "source": {
+        "object": "dbo.HealthProbe",
+        "type": "table"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            "read"
+          ]
+        }
+      ]
+    }
+  }
+}

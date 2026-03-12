@@ -1,0 +1,24 @@
+{
+  "data-source": {
+    "database-type": "cosmosdb_nosql",
+    "connection-string": "@env('COSMOS_CONNECTION_STRING')",
+    "options": {
+      "database": "library"
+    }
+  },
+  "entities": {
+    "LoanRecord": {
+      "source": {
+        "object": "LoanRecords"
+      },
+      "permissions": [
+        {
+          "role": "anonymous",
+          "actions": [
+            "read"
+          ]
+        }
+      ]
+    }
+  }
+}
