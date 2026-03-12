@@ -150,6 +150,98 @@ if (!dabTerminal || terminalClosed || expired) {
 }
 ```
 
+#### Issue: "Could not identify extension for 'vscode' require call"
+**Symptoms:**
+```
+[warning] Could not identify extension for 'vscode' require call from 
+file:///c%3A/Users/.../shared/out/terminal/terminalManager.js
+```
+
+**Cause:** Extensions using plain TypeScript compilation (`tsc`) load shared package code as separate modules. When the shared package imports `vscode`, the extension host can't determine which extension "owns" that require statement because the code is in the `shared/out/` directory, not the extension's `out/` directory.
+
+**Root Issue:**
+- **Unbundled extensions** (`./out/extension.js`): Load shared code from `node_modules/dab-vscode-shared/out/`
+- **Shared code imports vscode**: `require('vscode')` appears in shared package output
+- **Extension host confusion**: Can't map shared package path to owning extension
+
+**Solution:** Use webpack bundling for all extensions that use shared packages:
+
+1. **Add webpack.config.js to extension:**
+```javascript
+const path = require('path');
+
+module.exports = {
+    mode: 'production',
+    devtool: 'source-map',
+    target: 'node',
+    entry: './src/extension.ts',
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: 'extension.js',
+        libraryTarget: 'commonjs2',
+    },
+    resolve: {
+        extensions: ['.ts', '.js'],
+    },
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use: 'ts-loader',
+                exclude: /node_modules/,
+            },
+        ],
+    },
+    externals: {
+        vscode: 'commonjs vscode',  // Critical: marks vscode as external
+    },
+};
+```
+
+2. **Update package.json:**
+```json
+{
+  "main": "./dist/extension.js",  // Changed from ./out/extension.js
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map"
+  },
+  "devDependencies": {
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
+```
+
+3. **Install webpack dependencies:**
+```bash
+npm install --save-dev ts-loader webpack webpack-cli
+```
+
+4. **Build with webpack:**
+```bash
+npm run compile  # or webpack
+```
+
+**Why This Works:**
+- Webpack bundles extension + shared code into single `dist/extension.js`
+- The `externals` config tells webpack to exclude `vscode` from bundle
+- All `require('vscode')` calls remain in extension code, owned by extension
+- Extension host can properly map vscode API calls to extension
+
+**Bundle Size Impact:**
+- Unbundled: Extension ~50KB, shared packages loaded separately
+- Bundled: Extension ~150KB, everything in one file
+- Trade-off: Slightly larger VSIX, but proper vscode module handling
+
+**Extensions Requiring Webpack:**
+- ✅ All extensions using `dab-vscode-shared` (terminal, prompts, config utilities)
+- ✅ All extensions using `dab-vscode-shared-database` (SQL operations)
+- ⚠️ Pure extensions without shared dependencies can skip webpack
+
 ### Testing Issues
 
 #### Issue: Fixture file not found

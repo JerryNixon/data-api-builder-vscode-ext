@@ -4,13 +4,13 @@ name: DAB Extension Expert
 tools: ['search', 'read', 'edit', 'agent', 'todo', 'web', 'execute', 'read', 'search']
 model: Claude Sonnet 4.5
 handoffs:
-  - label: Test Shared Files
+  - label: Run Test
     agent: agent
     prompt: Run the tests against the shared ts files for all the extensions in the root to ensure they all the pass. Look at any failures and fix them if not change in the children extensions is required.
     send: false
-  - label: Migrate Extension to Shared Files
+  - label: Debug All
     agent: agent
-    prompt: Migrate a child extension to use shared TS files. Be sure and ask which to migrate. The goal is to include/reference the shared (and shared-database if needed) folder and remove any redundant logic in the child extension. 
+    prompt: Start a debug session that builds all the extensions and runs them in the Extension Development Host. Check for any errors in the debug console and fix them if not change in the children extensions is required.
     send: true
 ---
 
@@ -44,6 +44,72 @@ Always verify shared code is used and stale code is removed:
 1. Ensure child extensions reference shared packages correctly.
 2. Remove any redundant code from child extensions.
 3. Confirm that the child extension functions as expected after migration.
+
+## Auditing Shared Package Usage
+
+When asked to audit or review shared package usage across extensions, follow this systematic approach:
+
+### Audit Process
+
+1. **Review Shared Package Exports**
+   - Check `/shared/src/index.ts` for available exports (terminal, config, prompts, types)
+   - Check `/shared-database/src/index.ts` for database utilities (mssql connection, getTables, getViews, getProcs)
+   - Document what functionality is available in shared packages
+
+2. **Check Extension Dependencies**
+   - Review each extension's `package.json` for `dab-vscode-shared` and `dab-vscode-shared-database` dependencies
+   - Note which extensions should have database dependencies (add, poco, mcp) vs. lightweight extensions
+   - Flag missing dependencies
+
+3. **Scan for Duplicated Code**
+   - Search for duplicate function definitions: `runCommand`, `openConnection`, `getTables`, `getViews`, `getProcs`, `readConfig`, `validateConfigPath`
+   - Check for local implementations in extension `src/` folders that duplicate shared functionality
+   - Look for utility folders (e.g., `utils/`, `mssql/`) that may contain duplications
+
+4. **Analyze Import Patterns**
+   - Search for imports from shared packages: `from 'dab-vscode-shared'`
+   - Identify extensions using local imports for functionality that exists in shared packages
+   - Check for inconsistent import patterns
+
+5. **Generate Compliance Report**
+   - **Compliant Extensions:** Properly using shared packages, no duplications
+   - **Partially Compliant:** Using shared packages but have some unique utilities (may be acceptable)
+   - **Non-Compliant:** Missing dependencies or duplicating shared code
+   - Include specific file paths, line counts, and migration recommendations
+
+### Common Duplication Patterns
+
+**Critical (Must Fix):**
+- `src/utils/terminal.ts` or similar → Should use `dab-vscode-shared/terminal`
+- `src/mssql/querySql.ts` with `openConnection()` → Should use `dab-vscode-shared-database/mssql`
+- `src/readConfig.ts` with `readConfig()` or `validateConfigPath()` → Should use `dab-vscode-shared/config`
+
+**Minor (Consider Sharing):**
+- Unique utility functions that could benefit other extensions
+- Extension-specific helpers that don't exist in shared packages
+
+**Special Cases:**
+- `visualize-data-api-builder` has `getTables/getViews/getProcs` but reads from CONFIG files, not database
+- This is functionally different from `shared-database` which queries actual database metadata
+- These should be kept but consider renaming for clarity (e.g., `getTablesFromConfig`)
+
+### Fix Priority
+
+1. **High Priority:** Extensions with duplicated core utilities (terminal, config, database connection)
+2. **Medium Priority:** Extensions missing shared dependencies entirely
+3. **Low Priority:** Renaming for clarity, promoting utilities to shared packages
+
+### Migration Steps Template
+
+For each non-compliant extension:
+1. Add missing dependencies to `package.json`
+2. Update imports to use shared packages
+3. Delete duplicated local files
+4. Run `npm install` in extension folder
+5. Test in Extension Development Host (F5)
+6. Verify all extension functionality works
+7. Run extension tests
+8. Package with `vsce package` to verify bundling
 
 ## Core Documentation
 
@@ -159,65 +225,178 @@ The `agent-data-api-builder` extension provides the `@dab` GitHub Copilot chat p
 2. Agent is immediately available - no setup needed
 3. Agent works with GitHub Copilot and other AI assistants automatically
 
-### MCP Server Integration
+### Skills Integration
 
-The `agent-data-api-builder` extension also includes an MCP server that exposes the `dab_cli` tool to AI assistants. This demonstrates VS Code's MCP integration capabilities.
+The `agent-data-api-builder` extension includes **Chat Skills** that provide specialized knowledge bundles for specific DAB tasks. Skills are automatically available when the extension is installed - no separate activation required.
+
+**What are Chat Skills?**
+
+Chat Skills are self-contained markdown files with YAML frontmatter that provide:
+- **Domain-specific knowledge** - Detailed guidance for specialized tasks (Azure deployments, Aspire, Docker, etc.)
+- **Executable scripts** - PowerShell/Bash scripts for automating common workflows
+- **Best practices** - Curated commands, patterns, and troubleshooting tips
+- **Contextual help** - Automatically surfaced when relevant keywords are mentioned
 
 **Architecture:**
+
 ```
-Extension Process                     MCP Server Process
-┌────────────────┐                   ┌──────────────────┐
-│ extension.ts   │                   │  dabTools.ts     │
-│                │                   │                  │
-│ registerMcp... │─────spawns──────>│  Server()        │
-│ Definition...  │<────stdio─────────│  dab_cli tool    │
-└────────────────┘                   └──────────────────┘
+Source (dab-quickstarts repo)         Extension Package
+┌──────────────────────────────┐     ┌───────────────────────────┐
+│ .github/skills/              │     │ resources/skills/         │
+│ ├── data-api-builder-cli/    │────>│ ├── data-api-builder-cli/ │
+│ │   └── SKILL.md             │     │ │   └── SKILL.md          │
+│ ├── data-api-builder-mcp/    │     │ ├── data-api-builder-mcp/ │
+│ │   ├── SKILL.md             │     │ │   ├── SKILL.md          │
+│ │   └── scripts/*.ps1        │     │ │   └── scripts/*.ps1     │
+│ └── azure-data-api-builder/  │     │ └── azure-data-api-builder│
+│     ├── SKILL.md             │     │     ├── SKILL.md          │
+│     └── scripts/*.ps1        │     │     └── scripts/*.ps1     │
+└──────────────────────────────┘     └───────────────────────────┘
+                                              ↓
+                                      vsce package → VSIX
 ```
 
-**Key Points:**
-- MCP server runs as **separate Node.js process** (no VS Code API access)
-- Registered via `vscode.lm.registerMcpServerDefinitionProvider` (NOT `vscode.lm.registerTool`)
-- Uses `McpStdioServerDefinition` for stdio communication
-- Requires `@modelcontextprotocol/sdk` dependency
-- Server path: `agent-data-api-builder/src/tools/dabTools.ts` → `out/tools/dabTools.js`
-- Contribution point: `mcpServerDefinitionProviders` in `package.json`
+**Available Skills:**
 
-**Implementation Pattern:**
-```typescript
-// In extension.ts
-context.subscriptions.push(
-  vscode.lm.registerMcpServerDefinitionProvider('dabCli', {
-    provideMcpServerDefinitions: async () => {
-      const serverPath = path.join(context.extensionPath, 'out', 'tools', 'dabTools.js');
-      return [new vscode.McpStdioServerDefinition('dab-cli', 'node', [serverPath])];
+| Skill Name | Description | Scripts |
+|------------|-------------|---------|
+| `aspire-data-api-builder` | .NET Aspire integration and orchestration | Yes |
+| `aspire-mcp-inspector` | MCP Inspector with Aspire | No |
+| `aspire-sql-commander` | SQL Commander with Aspire | No |
+| `aspire-sql-projects` | SQL Projects with Aspire | No |
+| `azure-data-api-builder` | Azure deployment with Bicep/azd | Yes |
+| `azure-mcp-inspector` | Deploy MCP Inspector to Azure | No |
+| `azure-sql-commander` | Deploy SQL Commander to Azure | No |
+| `creating-agent-skills` | Meta-skill for creating new skills | No |
+| `data-api-builder-auth` | Authentication patterns (JWT, EasyAuth) | No |
+| `data-api-builder-cli` | DAB CLI commands and workflows | No |
+| `data-api-builder-config` | Config manipulation and best practices | No |
+| `data-api-builder-demo` | Demo scenarios and quickstarts | No |
+| `data-api-builder-mcp` | MCP endpoint setup and client config | Yes |
+| `docker-data-api-builder` | Containerization with Docker | No |
+
+**package.json Contribution:**
+```json
+"contributes": {
+  "chatSkills": [
+    {
+      "path": "./resources/skills/data-api-builder-cli"
     },
-    resolveMcpServerDefinition: async (definition) => definition
-  })
-);
-
-// In dabTools.ts (MCP server)
-const server = new Server(
-  { name: 'dab-cli-mcp', version: '1.0.0' },
-  { capabilities: { tools: {} } }
-);
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  return handleToolCall(request.params.name, request.params.arguments ?? {});
-});
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
+    {
+      "path": "./resources/skills/data-api-builder-mcp"
+    },
+    // ... 12 more skills
+  ]
+}
 ```
 
-**Common Pitfalls:**
-- ❌ Using `vscode.lm.registerTool` - this is for inline tools, NOT MCP servers
-- ❌ Using `McpServer` class - causes TypeScript type inference errors
-- ❌ Importing `vscode` in server code - server runs in separate process
-- ❌ Using Zod schemas directly - use plain JSON Schema instead
-- ❌ Adding `mcpServers` to `contributes` - not a valid contribution point
+**Skill File Structure:**
 
-See [MCP-INTEGRATION.md](../../MCP-INTEGRATION.md) for complete implementation guide.
+Each skill follows the Chat Skills specification (https://code.visualstudio.com/api/extension-guides/ai/skills):
+
+```markdown
+---
+name: skill-identifier
+description: Brief description for AI context
+license: MIT
+---
+
+# Skill Title
+
+Content with guidance, code samples, commands, best practices...
+
+## Included Scripts
+
+- [script-name.ps1](./scripts/script-name.ps1) - Description
+
+## When to use
+
+- Trigger phrase 1
+- Trigger phrase 2
+```
+
+**Scripts Integration:**
+
+Skills can include executable scripts (PowerShell/Bash) in a `scripts/` subfolder. These scripts:
+- Are packaged with the extension (via `resources/**/*` in package.json `files` array)
+- Can be referenced by relative path from the SKILL.md file
+- Provide automation for complex workflows (e.g., Azure provisioning, MCP config generation)
+- Include inline documentation and error handling
+
+**Example - MCP Config Script:**
+
+```powershell
+# write-vscode-mcp.ps1 - Creates/updates .vscode/mcp.json
+param(
+    [string]$DabUrl = "http://localhost:5000/mcp",
+    [string]$OutputPath = ".vscode/mcp.json"
+)
+
+# Script generates proper MCP client config...
+```
+
+Referenced in SKILL.md:
+```markdown
+## Included script template
+
+- [write-vscode-mcp.ps1](./scripts/write-vscode-mcp.ps1) — creates/updates `.vscode/mcp.json` with a DAB MCP server entry.
+```
+
+**How Skills are Packaged:**
+
+1. **Source Location**: Skills are maintained in external repo (`dab-quickstarts/.github/skills/`)
+2. **Copy to Extension**: Manually copy to `agent-data-api-builder/resources/skills/`
+3. **Version Control**: Skills in `resources/skills/` are git-tracked (unlike agent docs)
+4. **Build Process**: No compilation needed - markdown and scripts copied as-is
+5. **VSIX Packaging**: Included via `files: ["resources/**/*"]` in package.json
+6. **Runtime Loading**: VS Code loads skills from VSIX automatically based on `chatSkills` contribution
+
+**Updating Skills:**
+
+```bash
+# Copy from source repo
+cd agent-data-api-builder
+cp -r ../../dab-quickstarts/.github/skills/* ./resources/skills/
+
+# Build and package
+npm run compile
+vsce package
+
+# Test in Extension Development Host
+code --extensionDevelopmentPath=.
+```
+
+**Best Practices:**
+
+1. **Keep skills focused** - One skill per domain/technology (Azure, Aspire, Docker)
+2. **Include trigger keywords** - Help in "When to use" section for AI context
+3. **Test scripts independently** - Scripts must work standalone
+4. **Use relative paths** - Scripts referenced from SKILL.md use `./scripts/` prefix
+5. **Version in source repo** - Maintain skills in `dab-quickstarts` for easy updates
+6. **Document prerequisites** - List required tools (azd, Docker, SQL Server)
+
+**Key Differences from Agents:**
+
+| Feature | Agents | Skills |
+|---------|--------|--------|
+| Purpose | Conversational AI participant | Knowledge bundles |
+| Contribution Point | `chatAgents` | `chatSkills` |
+| File Extension | `.agent.md` | `SKILL.md` |
+| Build Process | Merged via script | Copied as-is |
+| Git Tracking | Source only | Full resources/ |
+| Activation | User invokes `@dab` | Auto-surfaced by AI |
+| Scope | Complete workflows | Focused tasks |
+
+**Troubleshooting:**
+
+- **Skills not appearing:** Check `chatSkills` paths are relative and correct
+- **Scripts not found:** Verify `scripts/` folder copied with SKILL.md
+- **VSIX too large:** Remove unused skills from `chatSkills` contribution
+- **Skills not loading:** Ensure YAML frontmatter is valid in SKILL.md files
+
+**See Also:**
+- [VS Code Chat Skills Guide](https://code.visualstudio.com/api/extension-guides/ai/skills)
+- [Chat Skills GA Announcement](https://code.visualstudio.com/updates/v1_109#_agent-skills-are-generally-available)
 
 ### Testing Strategy
 
@@ -315,6 +494,23 @@ runCommand('dab init --database-type mssql', {
   name: 'DAB Init'
 });
 ```
+
+**⚠️ CRITICAL: Never prepend `cd` commands to DAB CLI calls!**
+The `runCommand` function accepts a `cwd` option that properly sets the working directory using VS Code's terminal API. Prepending `cd "folder"; dab command` breaks on Windows with "The system cannot find the path specified" because the semicolon syntax doesn't work properly in PowerShell.
+
+**❌ WRONG:**
+```typescript
+// This breaks on Windows!
+runCommand(`cd "${folder}"; dab init --database-type mssql -c "${configFile}"`, { cwd: folder });
+```
+
+**✅ CORRECT:**
+```typescript
+// Let runCommand handle the working directory
+runCommand(`dab init --database-type mssql -c "${configFile}"`, { cwd: folder });
+```
+
+When building commands that reference config files, always use `path.basename()` for the filename and let the `cwd` option handle the directory navigation.
 
 ### Config Reading
 ```typescript

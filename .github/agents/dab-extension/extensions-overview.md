@@ -333,15 +333,18 @@ public sealed class RestRepository
 | Extension | Shared | Shared-DB | Webpack | Database | Notes |
 |-----------|--------|-----------|---------|----------|-------|
 | **omnibus** | ❌ | ❌ | ❌ | No | Extension pack only |
-| **init** | ✅ | ❌ | ❌ | No | Terminal + prompts |
-| **start** | ✅ | ❌ | ❌ | No | Terminal only |
-| **validate** | ✅ | ❌ | ❌ | No | Terminal + config |
-| **health** | ✅ | ❌ | ❌ | No | HTTP endpoint |
-| **visualize** | ✅ | ❌ | ❌ | No | Config parsing |
+| **init** | ✅ | ❌ | ✅ | No | Terminal + prompts |
+| **start** | ✅ | ❌ | ✅ | No | Terminal only |
+| **validate** | ✅ | ❌ | ✅ | No | Terminal + config |
+| **health** | ✅ | ❌ | ✅ | No | HTTP endpoint |
+| **visualize** | ✅ | ❌ | ✅ | No | Config parsing |
+| **agent** | ✅ | ❌ | ✅ | No | Chat participant |
 | **add** | ✅ | ✅ | ✅ | Yes | SQL metadata |
 | **poco** | ✅ | ✅ | ✅ | Yes | SQL + codegen |
-| **config** | ✅ | ❌ | ❌ | No | Planned |
-| **mcp** | ✅ | ✅ | ❌ | Yes | Planned |
+| **config** | ✅ | ❌ | ✅ | No | Planned |
+| **mcp** | ✅ | ✅ | ✅ | Yes | Planned |
+
+**🔑 Key Insight**: All extensions using `dab-vscode-shared` **require webpack bundling** to properly externalize the `vscode` module and avoid extension host warnings.
 
 ---
 
@@ -432,16 +435,34 @@ const procs = await getProcs(connectionString);
 
 ### Build Requirements
 
-**Standard Extensions** (most):
-- TypeScript compilation only
-- `tsc` command
-- Output to `out/` or `dist/`
+**Extensions with Shared Packages** (init, start, validate, health, visualize, agent, add, poco):
+- **Webpack bundling required** to properly externalize `vscode` module
+- Run `webpack` command (via `npm run compile`)
+- Output to `dist/extension.js`
+- Bundles extension code + shared packages into single file
+- Prevents "Could not identify extension for 'vscode' require call" warning
 
-**Webpack Extensions** (add, poco):
-- Webpack bundling required
-- `npx webpack` before packaging
-- Bundles node_modules (including mssql)
-- Output to `dist/`
+**Extension Pack Only** (omnibus):
+- No build required
+- Just dependency declarations in package.json
+
+**Why Webpack is Required**:
+- Shared packages import `vscode` module
+- Without webpack, extension host can't map `shared/out/terminal.js` to owning extension
+- Webpack bundles everything and marks `vscode` as external
+- See [vscode-extensions.md](vscode-extensions.md#webpack-bundling) for full details
+
+**Build Commands**:
+```bash
+# Development build
+npm run compile      # Runs webpack
+
+# Watch mode (rebuild on changes)
+npm run watch        # Runs webpack --watch
+
+# Production build for publishing
+npm run package      # Runs webpack with optimizations
+```
 
 ---
 

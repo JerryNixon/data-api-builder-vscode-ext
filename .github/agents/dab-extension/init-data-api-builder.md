@@ -6,8 +6,7 @@ Guide for how the `init-data-api-builder` VS Code extension works so the agent c
 - Provide a guided `dab init` workflow from the Explorer folder context menu.
 - Create a new DAB config file without overwriting existing ones.
 - Capture a connection string into `.env`, keep `.env` git-ignored, and set useful defaults (via shared env utilities).
-- Pre-tune REST request-body strictness and optional cache setting.
-- Hand off to the “add table” command afterward.
+- Pre-tune REST request-body strictness and optional cache setting.- Automatically configure OpenTelemetry with environment variable placeholders for observability.- Hand off to the “add table” command afterward.
 
 ## Activation & Commands
 - Contributes command `dabExtension.initDab` and shows it in folder context menu (`explorerResourceIsFolder`).
@@ -25,6 +24,11 @@ Guide for how the `init-data-api-builder` VS Code extension works so the agent c
   - `dab init --database-type mssql --connection-string "@env('<ENV>')" --host-mode <Development|Production> --rest.enabled ... --graphql.enabled ... --auth.provider ... -c <file>`
   - `dab configure --runtime.rest.request-body-strict false -c <file>`
   - Optionally `dab configure --runtime.cache.enabled true -c <file>` when cache is enabled.
+  - Configures OpenTelemetry with environment variable placeholders:
+    - `dab configure --telemetry.open-telemetry.enabled true -c <file>`
+    - `dab configure --telemetry.open-telemetry.endpoint "@env('OTEL_EXPORTER_OTLP_ENDPOINT')" -c <file>`
+    - `dab configure --telemetry.open-telemetry.headers "@env('OTEL_EXPORTER_OTLP_HEADERS')" -c <file>`
+    - `dab configure --telemetry.open-telemetry.service-name "@env('OTEL_SERVICE_NAME')" -c <file>`
 4. Wait ~2 seconds, open the generated config (waits for file), then invoke `dabExtension.addTable` with the config URI.
 
 ## Prompts & Defaults (shared prompts)

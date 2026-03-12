@@ -87,6 +87,153 @@ Extensions activate when specific events occur:
 }
 ```
 
+## Webpack Bundling
+
+### When to Use Webpack
+
+**Always use webpack for extensions that:**
+- Import from `dab-vscode-shared` package (terminal, config, prompts)
+- Import from `dab-vscode-shared-database` package (SQL operations)
+- Have dependencies beyond the vscode API
+
+**Why Webpack is Required:**
+
+Without webpack, TypeScript compiles each file separately and preserves `require()` statements pointing to node_modules. When shared packages import `vscode`, the extension host sees:
+
+```javascript
+// In shared/out/terminal/terminalManager.js
+const vscode = require('vscode');
+```
+
+Problem: The extension host can't map `shared/out/terminal/terminalManager.js` to your extension, causing the warning:
+```
+Could not identify extension for 'vscode' require call from 
+file:///.../shared/out/terminal/terminalManager.js
+```
+
+With webpack, all code (extension + shared packages) bundles into a single file owned by your extension, and vscode is marked as external.
+
+### Webpack Configuration
+
+Create `webpack.config.js` in your extension root:
+
+```javascript
+const path = require('path');
+
+module.exports = {
+    mode: 'production',
+    devtool: 'source-map',
+    target: 'node',
+    entry: './src/extension.ts',
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: 'extension.js',
+        libraryTarget: 'commonjs2',
+    },
+    resolve: {
+        extensions: ['.ts', '.js'],
+    },
+    module: {
+        rules: [
+            {
+                test: /\.ts$/,
+                use: 'ts-loader',
+                exclude: /node_modules/,
+            },
+        ],
+    },
+    externals: {
+        vscode: 'commonjs vscode',  // Critical: Don't bundle vscode API
+    },
+};
+```
+
+**Key Configuration Points:**
+- `target: 'node'` - Extension runs in Node.js environment
+- `libraryTarget: 'commonjs2'` - VS Code uses CommonJS modules
+- `externals: { vscode: 'commonjs vscode' }` - Don't bundle vscode, leave as external require
+- `devtool: 'source-map'` - Enable debugging with source maps
+
+### Package.json Updates
+
+Update your extension's package.json:
+
+```json
+{
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.95.0",
+    "@types/node": "20.x",
+    "ts-loader": "^9.5.1",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4",
+    "typescript": "^5.6.3"
+  }
+}
+```
+
+**Key Changes:**
+- `main` points to `./dist/extension.js` (webpack output) instead of `./out/extension.js` (tsc output)
+- `compile` uses `webpack` instead of `tsc`
+- `watch` uses `webpack --watch` for rebuilding on file changes
+- Added `package` script for production builds
+- Added webpack dependencies: `ts-loader`, `webpack`, `webpack-cli`
+
+### Building Extensions
+
+```bash
+# Development build (with source maps)
+npm run compile
+
+# Watch mode (rebuild on changes)
+npm run watch
+
+# Production build (optimized, hidden source maps)
+npm run package
+```
+
+### Debugging Bundled Extensions
+
+1. **Set breakpoints in source files** - Source maps enable debugging original TypeScript
+2. **F5 to launch Extension Development Host** - Works same as unbundled
+3. **Breakpoints hit in src/ files** - Not in dist/extension.js
+
+### Bundle Size Comparison
+
+| Approach | Extension Size | Shared Package | Total | Notes |
+|----------|---------------|----------------|-------|-------|
+| Unbundled (tsc) | ~50KB | Loaded from node_modules | ~50KB + shared | Causes vscode module warning |
+| Bundled (webpack) | ~150KB | Included in bundle | ~150KB | No warnings, proper externalization |
+
+**Trade-offs:**
+- ✅ Webpack: Proper vscode handling, single file, no module path issues
+- ❌ Webpack: Slightly larger VSIX, build step complexity
+- ⚠️ Unbundled: Smaller individual files, but causes extension host warnings
+
+### Migration Checklist
+
+Migrating extension from TypeScript-only to webpack:
+
+- [ ] Create `webpack.config.js` with proper externals
+- [ ] Update `package.json` main to `./dist/extension.js`
+- [ ] Update `package.json` scripts (compile, watch, package)
+- [ ] Add webpack dependencies (ts-loader, webpack, webpack-cli)
+- [ ] Run `npm install`
+- [ ] Delete `out/` directory (old tsc output)
+- [ ] Build with `npm run compile`
+- [ ] Test in Extension Development Host (F5)
+- [ ] Verify no "Could not identify extension" warnings
+- [ ] Package with `vsce package` and test VSIX
+
 ## Extension Entry Point (extension.ts)
 
 ### Basic Structure
