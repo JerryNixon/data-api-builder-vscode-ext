@@ -38,12 +38,12 @@ suite('Init utils', () => {
 	});
 
 	test('buildConfigCommand handles telemetry settings', () => {
-		const enabledCmd = buildConfigCommand('/project/dab-config.json', 'telemetry.open-telemetry.enabled', 'true', '/project');
+		const enabledCmd = buildConfigCommand('/project/dab-config.json', 'runtime.telemetry.open-telemetry.enabled', 'true', '/project');
 		assert.ok(enabledCmd.includes('dab configure'));
-		assert.ok(enabledCmd.includes('--telemetry.open-telemetry.enabled true'));
+		assert.ok(enabledCmd.includes('--runtime.telemetry.open-telemetry.enabled true'));
 		
-		const endpointCmd = buildConfigCommand('/project/dab-config.json', 'telemetry.open-telemetry.endpoint', '"@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"', '/project');
-		assert.ok(endpointCmd.includes('--telemetry.open-telemetry.endpoint "@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"'));
+		const endpointCmd = buildConfigCommand('/project/dab-config.json', 'runtime.telemetry.open-telemetry.endpoint', '"@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"', '/project');
+		assert.ok(endpointCmd.includes('--runtime.telemetry.open-telemetry.endpoint "@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"'));
 	});
 
 	test('waitForFile resolves when file appears', async () => {

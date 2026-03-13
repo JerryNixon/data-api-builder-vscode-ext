@@ -25,10 +25,10 @@ Guide for how the `init-data-api-builder` VS Code extension works so the agent c
   - `dab configure --runtime.rest.request-body-strict false -c <file>`
   - Optionally `dab configure --runtime.cache.enabled true -c <file>` when cache is enabled.
   - Configures OpenTelemetry with environment variable placeholders:
-    - `dab configure --telemetry.open-telemetry.enabled true -c <file>`
-    - `dab configure --telemetry.open-telemetry.endpoint "@env('OTEL_EXPORTER_OTLP_ENDPOINT')" -c <file>`
-    - `dab configure --telemetry.open-telemetry.headers "@env('OTEL_EXPORTER_OTLP_HEADERS')" -c <file>`
-    - `dab configure --telemetry.open-telemetry.service-name "@env('OTEL_SERVICE_NAME')" -c <file>`
+    - `dab configure --runtime.telemetry.open-telemetry.enabled true -c <file>`
+    - `dab configure --runtime.telemetry.open-telemetry.endpoint "@env('OTEL_EXPORTER_OTLP_ENDPOINT')" -c <file>`
+    - `dab configure --runtime.telemetry.open-telemetry.headers "@env('OTEL_EXPORTER_OTLP_HEADERS')" -c <file>`
+    - `dab configure --runtime.telemetry.open-telemetry.service-name "@env('OTEL_SERVICE_NAME')" -c <file>`
 4. Wait ~2 seconds, open the generated config (waits for file), then invoke `dabExtension.addTable` with the config URI.
 
 ## Prompts & Defaults (shared prompts)
