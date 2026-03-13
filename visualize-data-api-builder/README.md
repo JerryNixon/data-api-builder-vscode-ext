@@ -24,6 +24,8 @@ A Visual Studio Code extension that visualizes Data API Builder (DAB) configurat
 
 ### 0.0.1
 
+Initial release of Data API Builder Visualizer
+
 - Initial release: Visualizes DAB configurations with Mermaid diagrams.
 - Supports tables, views, procedures, and unnamed linking entities.
 - Handles standalone nodes and composite states for organized grouping.

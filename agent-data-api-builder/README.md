@@ -185,6 +185,16 @@ This extension is part of the **Data API Builder Extension Suite**:
 - [DAB Visualize](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.visualize-data-api-builder) - Visualize entities
 - [DAB POCO](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.poco-data-api-builder) - Generate C# classes
 
+## Recent Improvements
+
+**Agent Skills**
+- Added 13 specialized agent skills for DAB workflows:
+  - **Azure deployment**: azure-data-api-builder, azure-mcp-inspector, azure-sql-commander
+  - **.NET Aspire**: aspire-data-api-builder, aspire-mcp-inspector, aspire-sql-commander, aspire-sql-projects
+  - **DAB features**: data-api-builder-auth, data-api-builder-cli, data-api-builder-config, data-api-builder-demo, data-api-builder-mcp
+  - **Docker**: docker-data-api-builder
+  - **Skill creation**: creating-agent-skills
+
 ## License
 
 MIT - See [LICENSE.txt](LICENSE.txt)
