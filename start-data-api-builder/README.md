@@ -13,6 +13,30 @@ A Visual Studio Code extension that adds a quick way to start Data API Builder d
 
 - Ensure that `dab` is installed: `dotnet tool install microsoft.dataapibuilder -g`
 
+## Release Notes
+
+### 1.2.0 - 2026-01-13
+
+**Added**
+- Configuration file validation before starting DAB
+- Error message when attempting to start with invalid config file
+- Migrated to dab-vscode-shared package for terminal management
+
+**Changed**
+- Terminal management now uses shared package for consistency
+- Added config path validation using shared utilities
+
+**Removed**
+- Local runTerminal.ts in favor of shared package
+
+### 1.1.0
+
+- Previous version
+
+### 1.0.0
+
+- Initial release
+
 ## Known Issues
 
 - Only files named exactly `dab-config.json` will show the context menu option.

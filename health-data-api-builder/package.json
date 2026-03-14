@@ -3,7 +3,7 @@
   "displayName": "DAB Health (Data API Builder)",
   "description": "Visualizes the /health status of a running DAB instance.",
   "publisher": "jerry-nixon",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"

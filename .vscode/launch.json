@@ -10,6 +10,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/agent-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/health-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/init-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/mcp-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/omnibus-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/poco-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/start-data-api-builder",

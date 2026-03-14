@@ -1,17 +1,16 @@
 {
-  "name": "start-data-api-builder",
-  "displayName": "DAB Start (Data API builder)",
-  "description": "Start Data API Builder from a configuration file.",
+  "name": "mcp-data-api-builder",
+  "displayName": "DAB MCP (Data API builder)",
+  "description": "Install Data API Builder configurations as MCP servers.",
   "publisher": "jerry-nixon",
-  "version": "1.2.4",
+  "version": "1.0.1",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
   },
   "galleryBanner": {
     "color": "#0078d7",
-    "theme": "dark",
-    "background": "images/dab-logo.png"
+    "theme": "dark"
   },
   "repository": {
     "type": "git",
@@ -19,8 +18,7 @@
   },
   "categories": [
     "Other",
-    "Programming Languages",
-    "Debuggers"
+    "Programming Languages"
   ],
   "activationEvents": [
     "workspaceContains:**/dab-*.json",
@@ -30,15 +28,15 @@
   "contributes": {
     "commands": [
       {
-        "command": "dabExtension.startDab",
-        "title": "DAB Start",
+        "command": "dabExtension.installMcpServer",
+        "title": "Install MCP Server",
         "category": "DAB"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "dabExtension.startDab",
+          "command": "dabExtension.installMcpServer",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
           "group": "1_dab"
         }
@@ -50,35 +48,20 @@
     "compile": "webpack",
     "watch": "webpack --watch",
     "package": "webpack --mode production --devtool hidden-source-map",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "lint": "eslint src"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "@types/vscode": "^1.95.0",
-    "@types/mocha": "^10.0.9",
-    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "eslint": "^9.17.0",
     "ts-loader": "^9.5.1",
-    "webpack": "^5.94.0",
-    "webpack-cli": "^5.1.4",
-    "@typescript-eslint/eslint-plugin": "^8.10.0",
-    "@typescript-eslint/parser": "^8.7.0",
-    "eslint": "^9.13.0",
-    "typescript": "^5.6.3",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
+    "typescript": "^5.7.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "dab-vscode-shared": "*"
-  },
-  "keywords": [
-    "Data API Builder",
-    "dab",
-    "configuration",
-    "json",
-    "tools",
-    "automation"
-  ],
-  "author": "Jerry Nixon",
-  "license": "MIT"
+    "dab-vscode-shared": "file:../shared"
+  }
 }

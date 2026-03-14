@@ -1,115 +1,35 @@
 ---
 name: data-api-builder-demo
-description: Build and maintain DAB quickstart demos with consistent structure, naming, deployment scripts, and validation checks.
+description: Keep DAB quickstart assets consistent, runnable, and structurally compliant across local and Azure paths.
+license: MIT
 ---
 
 # Data API Builder Demo Operations
 
-Use this skill to keep quickstarts **consistent, runnable, and demo-ready**.
+## Use when
 
-## When to use
+- Creating or updating quickstart samples.
+- Enforcing folder/script naming and readiness checks.
 
-- Create a new quickstart
-- Rename folders/files across quickstarts
-- Validate demo readiness before PR/presentation
-- Enforce repo conventions for Azure + MCP registry + reset workflow
+## Workflow
 
-## Canonical quickstart shape
+1. Verify required quickstart structure.
+2. Normalize script naming and references.
+3. Validate build/deploy entry points.
+4. Confirm cleanup/reset behavior is scoped.
 
-Each `quickstart<N>/` should include:
-- `aspire-apphost/`
-- `data-api/`
-- `database/`
-- `mcp-inspector/`
-- `web-app/`
-- `azure-infra/`
-- `README.md`, `azure.yaml`, `<quickstart>.sln`
+## Guardrails
 
-## Naming standards
-
-- Folders are lowercase with hyphens
-- Use `azure-up.ps1` / `azure-down.ps1` in `azure-infra/`
-- Avoid legacy `aspire-up.ps1`/`aspire-down.ps1`
-
-## Critical repo standards
-
-1. `.gitignore` must include:
-   - `.env`
-   - `**/bin`
-   - `**/obj`
-2. Azure tags must include `owner`.
-3. Azure token format: UTC `yyyyMMddHHmm`.
-4. MCP registry for Azure quickstarts is repo-root `.github/mcp.json`.
-5. `reset.ps1` should remove temporary deployment artifacts and quickstart MCP entries only.
-
-## Rename workflow
-
-1. Rename folder/file.
-2. Update references in:
-   - `*.sln`
-   - `azure.yaml`
-   - `aspire-apphost/*.csproj`
-   - `aspire-apphost/Program.cs`
-   - `azure-infra/*.ps1`
-3. Delete `bin/` + `obj/` caches.
-4. Rebuild and revalidate.
-
-## Troubleshooting (syntax gotchas)
-
-### `.gitignore` glob correctness
-
-```gitignore
-# WRONG (root-only)
-bin/
-obj/
-
-# CORRECT (all nested projects)
-**/bin
-**/obj
-```
-
-### Azure script names
-
-Use only:
-- `azure-up.ps1`
-- `azure-down.ps1`
-
-Avoid legacy `aspire-up.ps1` / `aspire-down.ps1` references in docs/scripts.
-
-### MCP registry key format
-
-Use deterministic quickstart keys (example):
-
-```json
-"azure-sql-mcp-qs3": { "type": "http", "url": "https://<dab-fqdn>/mcp" }
-```
-
-## Demo validation checklist
-
-- Build succeeds for target quickstart.
-- Expected folders/files exist.
-- No stale folder references remain.
-- README auth matrix/diagrams match implementation.
-- Azure scripts use standard names and env variables.
-- `.github/mcp.json` updates are additive and scoped.
-
-## Decision points
-
-- **Local orchestration?** Use Aspire or Docker skill; keep quickstart structure unchanged.
-- **Azure deployment?** Keep infra in `azure-infra/` and enforce owner/token rules.
-- **Schema changes?** Source of truth is `database/` SQL project.
-
-## Completion checks
-
-- Quickstart is self-contained and deployable.
-- Naming and script conventions are intact.
-- Cross-quickstart structure remains consistent.
+- Keep conventions deterministic.
+- Avoid environment-specific drift across quickstarts.
+- Keep sample operations aligned to production-safe defaults where practical.
 
 ## Related skills
 
 - `aspire-data-api-builder`
 - `docker-data-api-builder`
 - `azure-data-api-builder`
-- `data-api-builder-config`
-- `data-api-builder-cli`
-- `data-api-builder-mcp`
+
+## Microsoft Learn
+
+- https://learn.microsoft.com/azure/data-api-builder/get-started/

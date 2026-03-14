@@ -195,6 +195,18 @@ This extension is part of the **Data API Builder Extension Suite**:
   - **Docker**: docker-data-api-builder
   - **Skill creation**: creating-agent-skills
 
+## Release Notes
+
+### 0.1.0 - Initial Release
+
+**Added**
+- `@dab` chat participant for GitHub Copilot Chat
+- Slash commands: `/init`, `/add`, `/start`, `/validate`, `/configure`, `/help`
+- Intelligent intent detection for natural language queries
+- Context menu to add DAB Developer Agent to workspace
+- Follow-up suggestions after commands
+- Disambiguation categories for improved routing
+
 ## License
 
 MIT - See [LICENSE.txt](LICENSE.txt)

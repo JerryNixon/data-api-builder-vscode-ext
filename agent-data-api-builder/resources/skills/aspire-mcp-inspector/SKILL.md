@@ -1,75 +1,32 @@
 ---
 name: aspire-mcp-inspector
-description: Add MCP Inspector to a .NET Aspire AppHost for debugging MCP servers such as Data API Builder.
+description: Add MCP Inspector to .NET Aspire AppHost for local MCP endpoint validation and tool discovery.
+license: MIT
 ---
 
-# MCP Inspector in .NET Aspire
+# Aspire MCP Inspector
 
-Use this skill to run MCP Inspector as an Aspire-managed resource next to your MCP server.
+## Use when
 
-## When to use
+- Debugging MCP endpoint connectivity in Aspire.
+- Validating MCP tool availability from DAB.
 
-- Add Inspector to Aspire AppHost
-- Debug MCP connectivity/tool discovery
-- Test DAB MCP endpoints locally
+## Workflow
 
-## Canonical pattern
+1. Add inspector resource.
+2. Wire inspector to DAB MCP resource.
+3. Validate transport and tool listing.
 
-```csharp
-var mcpInspector = builder
-    .AddMcpInspector("mcp-inspector", options =>
-    {
-        options.InspectorVersion = "0.20.0";
-    })
-    .WithMcpServer(dabServer, transportType: McpTransportType.StreamableHttp)
-    .WithParentRelationship(dabServer)
-    .WithEnvironment("DANGEROUSLY_OMIT_AUTH", "true")
-    .WaitFor(dabServer);
-```
+## Guardrails
 
-## Critical defaults
+- Match transport to server behavior.
+- Ensure target MCP resource is healthy before inspector startup.
 
-- Pin Inspector version (avoid buggy defaults).
-- Use `StreamableHttp` for DAB.
-- For local dev, set `DANGEROUSLY_OMIT_AUTH=true` to avoid auth-token friction.
-- Do not override generated dashboard URLs in a way that removes Inspector links.
+## Related skills
 
-## Troubleshooting
+- `data-api-builder-mcp`
+- `aspire-data-api-builder`
 
-- **Connection Error**: transport mismatch (`Sse` vs `StreamableHttp`) or MCP server not healthy.
-- **Auth prompt**: missing `DANGEROUSLY_OMIT_AUTH=true`.
-- **No server URL prefill**: verify `WithMcpServer(...)` targets the right resource.
+## Microsoft Learn
 
-### Transport syntax
-
-```csharp
-// WRONG for DAB
-.WithMcpServer(dabServer, transportType: McpTransportType.Sse)
-
-// CORRECT for DAB
-.WithMcpServer(dabServer, transportType: McpTransportType.StreamableHttp)
-```
-
-### Dependency wait syntax
-
-```csharp
-// CORRECT: Inspector waits for running MCP server resource
-.WaitFor(dabServer)
-```
-
-## Prerequisites
-
-- Node.js + `npx` available on host
-- MCP server resource (for example DAB) already configured
-- Docker running if MCP server is containerized
-
-## Completion checks
-
-- Inspector appears in Aspire dashboard
-- Inspector UI opens successfully
-- Connection succeeds and MCP tools are listed
-
-## Related
-
-- Azure deployment: `azure-mcp-inspector`
-- Local DAB stack: `aspire-data-api-builder`
+- https://learn.microsoft.com/azure/data-api-builder/mcp/quickstart-visual-studio-code

@@ -1,27 +1,38 @@
-# SQL Dev Environment - Quick Reference
+# DAB Developer Quickstart
 
-## 🔗 Service URLs
+## Goal
 
-| Service | URL |
-|---------|-----|
-| SQL Commander | http://localhost:8080 |
-| REST API | http://localhost:5000/api/{EntityName} |
-| GraphQL | http://localhost:5000/graphql |
-| **MCP Inspector** | [**Click to Connect →**](http://localhost:6274/?transport=streamable-http&serverUrl=http%3A%2F%2Fapi-server%3A5000%2Fmcp) |
+Deliver a validated DAB API quickly with minimal moving parts.
 
-> Replace `{EntityName}` with your DAB entity (e.g., `Todo`).
-> MCP Inspector needs the special link above; plain `localhost:6274` will not auto-connect to DAB.
+## Workflow
 
-## Commands
+1. Initialize config.
+2. Add one or more entities.
+3. Validate.
+4. Start runtime.
+5. Verify endpoints.
 
-```bash
-docker compose up -d    # Start
-docker compose down     # Stop
-docker compose down -v  # Stop + delete data
-```
+## Minimal command path
 
-## SQL Server Connection
+- `dab init --database-type mssql --connection-string "@env('DATABASE_CONNECTION_STRING')"`
+- `dab add Todo --source dbo.Todo --permissions "anonymous:read"`
+- `dab validate`
+- `dab start`
 
-**From host**: Server=localhost,14330;Database=TodoDb;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true
+## Verify
 
-Regenerate this file whenever ports, service names, or entity names change.
+- REST: `http://localhost:5000/api/Todo`
+- GraphQL: `http://localhost:5000/graphql`
+- Health: `http://localhost:5000/health`
+- MCP (if enabled): `http://localhost:5000/mcp`
+
+## Related docs
+
+- [dab-init.md](dab-init.md)
+- [dab-add.md](dab-add.md)
+- [dab-validate.md](dab-validate.md)
+- [dab-start.md](dab-start.md)
+
+## Microsoft Learn
+
+- https://learn.microsoft.com/azure/data-api-builder/get-started/get-started-with-data-api-builder
