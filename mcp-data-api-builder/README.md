@@ -2,7 +2,7 @@
 
 A Visual Studio Code extension that installs Data API Builder configurations as MCP (Model Context Protocol) servers.
 
-![DAB MCP extension screenshot](images/screenshot.png)
+![DAB MCP extension screenshot](https://github.com/JerryNixon/data-api-builder-vscode-ext/blob/master/mcp-data-api-builder/images/screenshot.png)
 
 ## Features
 
