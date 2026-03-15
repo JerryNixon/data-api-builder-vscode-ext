@@ -2,7 +2,7 @@
   "name": "visualize-api-builder",
   "displayName": "DAB Visualize (Data API Builder)",
   "description": "Visualize DAB configurations as Mermaid diagram.",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "icon": "images/icon.png",
   "publisher": "jerry-nixon",
   "engines": {

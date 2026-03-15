@@ -1,9 +1,9 @@
 {
-  "name": "mcp-data-api-builder",
-  "displayName": "DAB MCP (Data API builder)",
-  "description": "Install Data API Builder configurations as MCP servers.",
+  "name": "docker-data-api-builder",
+  "displayName": "DAB Docker (Data API builder)",
+  "description": "Build and run Data API Builder in Docker containers.",
   "publisher": "jerry-nixon",
-  "version": "1.0.3",
+  "version": "1.0.1",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -28,17 +28,36 @@
   "contributes": {
     "commands": [
       {
-        "command": "dabExtension.installMcpServer",
-        "title": "Install MCP Server",
-        "category": "DAB"
+        "command": "dabExtension.dockerUp",
+        "title": "Docker Up",
+        "category": "DAB Docker"
+      },
+      {
+        "command": "dabExtension.dockerDown",
+        "title": "Docker Down",
+        "category": "DAB Docker"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "dabDocker.submenu",
+        "label": "DAB Docker"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "dabExtension.installMcpServer",
+          "submenu": "dabDocker.submenu",
           "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
-          "group": "1_dab"
+          "group": "1_dab@10"
+        }
+      ],
+      "dabDocker.submenu": [
+        {
+          "command": "dabExtension.dockerUp"
+        },
+        {
+          "command": "dabExtension.dockerDown"
         }
       ]
     }
@@ -63,5 +82,15 @@
   },
   "dependencies": {
     "dab-vscode-shared": "file:../shared"
-  }
+  },
+  "keywords": [
+    "Data API Builder",
+    "dab",
+    "docker",
+    "container",
+    "tools",
+    "automation"
+  ],
+  "author": "Jerry Nixon",
+  "license": "MIT"
 }

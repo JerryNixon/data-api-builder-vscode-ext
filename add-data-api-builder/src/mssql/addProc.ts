@@ -159,9 +159,19 @@ function buildAddCommand(
   paramInfo: string,
   restMethod: string
 ): string {
-  // DAB CLI automatically introspects stored procedure parameters, so we don't pass --source.params
-  // Only pass REST methods based on whether procedure has parameters (POST for params, GET/POST for parameterless)
-  return `dab add ${entityName} -c "${configFile}" --source ${source} --source.type "stored-procedure" --permissions "anonymous:*" --rest "${entityName}" --rest.methods "${restMethod}"`;
+  let cmd = `dab add ${entityName} -c "${configFile}" --source ${source} --source.type "stored-procedure" --permissions "anonymous:*" --rest "${entityName}" --rest.methods "${restMethod}"`;
+
+  if (paramInfo) {
+    // paramInfo is comma-separated param names (no @), e.g. "id,name"
+    // --source.params expects "param1:val1,param2:val2" — use empty defaults
+    const sourceParams = paramInfo
+      .split(',')
+      .map((p) => `${p.trim()}:`)
+      .join(',');
+    cmd += ` --source.params "${sourceParams}"`;
+  }
+
+  return cmd;
 }
 
 function buildUpdateCommand(entityName: string, configFile: string, colInfo: string): string {

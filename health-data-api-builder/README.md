@@ -2,6 +2,8 @@
 
 A Visual Studio Code extension that displays Data API Builder health endpoint information in an interactive webview.
 
+![](https://github.com/JerryNixon/data-api-builder-vscode-ext/blob/master/health-data-api-builder/images/screenshot.png?raw=true)
+
 ## Features
 
 - Interactive webview for DAB health endpoint visualization
@@ -18,6 +20,11 @@ A Visual Studio Code extension that displays Data API Builder health endpoint in
 - DAB instance must be running with health endpoint enabled
 
 ## Release Notes
+
+### 1.2.4 - 2026-03-14
+
+**Changed**
+- Version bump for coordinated release
 
 ### 0.1.0 - 2026-01-13
 

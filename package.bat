@@ -21,6 +21,7 @@ echo [g]  PACKAGE visualize-data-api-builder
 echo [h]  PACKAGE health-data-api-builder
 echo [i]  PACKAGE agent-data-api-builder
 echo [j]  PACKAGE mcp-data-api-builder
+echo [k]  PACKAGE docker-data-api-builder
 echo [0]  PACKAGE RUN ALL
 echo ==========================================
 echo [w]  PUBLISH all packages in out folder
@@ -43,6 +44,7 @@ if "%choice%"=="g" call :RUN visualize-data-api-builder
 if "%choice%"=="h" call :RUN health-data-api-builder
 if "%choice%"=="i" call :RUN agent-data-api-builder
 if "%choice%"=="j" call :RUN mcp-data-api-builder "npx webpack"
+if "%choice%"=="k" call :RUN docker-data-api-builder "npx webpack"
 if /I "%choice%"=="w" call :PUBLISH_ALL
 if /I "%choice%"=="y" start "" explorer "%cd%\out"
 if /I "%choice%"=="z" start "" "https://marketplace.visualstudio.com/manage/publishers/jerry-nixon"
@@ -74,6 +76,7 @@ call :RUN visualize-data-api-builder
 call :RUN health-data-api-builder
 call :RUN agent-data-api-builder
 call :RUN mcp-data-api-builder "npx webpack"
+call :RUN docker-data-api-builder "npx webpack"
 goto MENU
 
 :: Publish all VSIX files in out folder

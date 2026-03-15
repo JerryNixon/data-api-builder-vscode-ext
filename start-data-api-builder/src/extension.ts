@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
     const folderPath = path.dirname(configFilePath);
     const fileName = path.basename(configFilePath);
 
-    const command = `dab start -c "${fileName}"`;
+    const command = `dab start -c "${fileName}" --LogLevel Information`;
     runCommand(command, { cwd: folderPath });
   });
 

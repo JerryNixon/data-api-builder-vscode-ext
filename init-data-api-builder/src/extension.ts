@@ -67,12 +67,6 @@ export function activate(context: vscode.ExtensionContext) {
       runCommand(buildConfigCommand(configPath, 'runtime.mcp.enabled', 'true', folder), { cwd: folder });
       runCommand(buildConfigCommand(configPath, 'runtime.host.mode', 'development', folder), { cwd: folder });
       runCommand(buildConfigCommand(configPath, 'runtime.host.cors.origins', '"*"', folder), { cwd: folder });
-      
-      // Configure OpenTelemetry with environment variable placeholders
-      runCommand(buildConfigCommand(configPath, 'runtime.telemetry.open-telemetry.enabled', 'true', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.telemetry.open-telemetry.endpoint', '"@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.telemetry.open-telemetry.headers', '"@env(\'OTEL_EXPORTER_OTLP_HEADERS\')"', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.telemetry.open-telemetry.service-name', '"@env(\'OTEL_SERVICE_NAME\')"', folder), { cwd: folder });
 
       await new Promise(resolve => setTimeout(resolve, 2000));
       await openFile(configPath);

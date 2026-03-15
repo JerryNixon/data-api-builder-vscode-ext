@@ -5,6 +5,7 @@ import { addView } from './mssql/addView';
 import { addProc } from './mssql/addProc';
 import { addRelationship } from './mssql/addRelationship';
 import { addLinkingTable } from './mssql/addLinkingTable';
+import { autoEntities } from './mssql/autoEntities';
 import { showErrorMessageWithTimeout } from './utils/messageTimeout';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -28,12 +29,20 @@ export function activate(context: vscode.ExtensionContext) {
     await handleAddEntity(uri, addLinkingTable, 'Add Linking Table');
   });
 
+  const autoEntitiesCommand = vscode.commands.registerCommand('dabExtension.autoEntities', async (uri: vscode.Uri) => {
+    if (!uri?.fsPath) {
+      return;
+    }
+    await autoEntities(uri.fsPath);
+  });
+
   context.subscriptions.push(
     addTableCommand,
     addViewCommand,
     addProcCommand,
     addRelationshipCommand,
-    addLinkingTableCommand
+    addLinkingTableCommand,
+    autoEntitiesCommand
   );
 }
 

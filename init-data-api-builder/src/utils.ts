@@ -22,7 +22,7 @@ export function buildInitCommand(configPath: string, envKey: string, folder: str
     '--rest.enabled true',
     '--graphql.enabled true',
     '--mcp.enabled true',
-    '--auth.provider StaticWebApps',
+    '--auth.provider Unauthenticated',
     `-c "${path.basename(configPath)}"`
   ];
 

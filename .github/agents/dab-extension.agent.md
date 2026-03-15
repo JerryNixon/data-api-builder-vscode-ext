@@ -116,7 +116,7 @@ For each non-compliant extension:
 **IMPORTANT:** Always reference these documentation files when working with DAB extensions. They contain critical context, patterns, and solutions.
 
 ### Extensions & Overview
-- **[Extensions Overview](dab-extension/extensions-overview.md)** - Complete catalog of all 10 DAB extensions, their purposes, features, dependencies, and relationships. Comprehensive reference for understanding the full extension suite.
+- **[Extensions Overview](dab-extension/extensions-overview.md)** - Complete catalog of all DAB extensions, their purposes, features, dependencies, and relationships. Comprehensive reference for understanding the full extension suite.
 - **[Packaging & Deployment](dab-extension/packaging.md)** - Detailed guide to `package.bat`, VSIX creation, publishing workflow, and extension distribution. Essential for packaging and releasing extensions.
 
 ### Architecture & Migration
@@ -181,6 +181,8 @@ This separation keeps lightweight extensions small while allowing database-depen
 | poco | Generate C# POCOs | shared, shared-database | Yes |
 | visualize | Visualize config | shared | No |
 | agent | @dab Copilot chat participant | shared | No |
+| docker | Docker image & compose for DAB | shared | No |
+| mcp | MCP server configuration | shared | No |
 
 ### Agent Extension Architecture
 
@@ -463,6 +465,147 @@ When migrating an extension to shared packages:
 4. **Test in Extension Development Host** (F5) to verify functionality
 
 5. **Build and package** with `vsce package` to ensure dependencies included
+
+## Creating a New Extension
+
+When creating a new extension in this monorepo, follow this complete checklist to ensure it works correctly in the Extension Development Host and in production.
+
+### Required File Structure
+
+Every extension needs these files:
+
+```
+<name>-data-api-builder/
+├── .vscode/
+│   └── launch.json          # Per-extension debug config
+├── images/
+│   └── icon.png              # Extension icon (copy from existing extension)
+├── src/
+│   ├── extension.ts          # Entry point: activate/deactivate, command registration
+│   └── <feature>.ts          # Core logic (keep VS Code API out of this file for testability)
+├── eslint.config.mjs         # Standard ESLint config (copy from existing extension)
+├── LICENSE.txt               # MIT license
+├── package.json              # Extension manifest (commands, menus, activation events)
+├── README.md                 # Extension documentation
+├── tsconfig.json             # TypeScript config (copy from existing extension)
+└── webpack.config.js         # Webpack config (copy from existing extension, update entry point)
+```
+
+### Extension Registration Checklist
+
+**⚠️ CRITICAL:** A new extension MUST be registered in ALL of the following locations or it will not build, package, or appear in the Extension Development Host correctly.
+
+1. **Root `package.json` — workspaces array**
+   ```json
+   "workspaces": [ ..., "<name>-data-api-builder" ]
+   ```
+
+2. **Root `package.json` — build scripts**
+   - Add individual build script: `"build:<name>": "cd <name>-data-api-builder && npm run compile"`
+   - Add to `build:all-extensions` script: `npm run build:<name>`
+
+3. **`omnibus-data-api-builder/package.json` — extensionPack**
+   ```json
+   "extensionPack": [ ..., "JerryNixon.<name>-data-api-builder" ]
+   ```
+
+4. **`package.bat` — packaging menu**
+   Add a new option letter for individual VSIX packaging.
+
+5. **Root `.vscode/launch.json` — "🚀 All DAB Extensions" configuration**
+   ```json
+   "--extensionDevelopmentPath=${workspaceFolder}/<name>-data-api-builder"
+   ```
+   **This is the most commonly missed step!** Without this, the extension won't load in the Extension Development Host and context menu items won't appear.
+
+6. **Root `.vscode/launch.json` — standalone debug entry**
+   Add a dedicated debug configuration for the extension:
+   ```json
+   {
+     "name": "<Name> Extension",
+     "type": "extensionHost",
+     "request": "launch",
+     "args": [
+       "--extensionDevelopmentPath=${workspaceFolder}/<name>-data-api-builder"
+     ],
+     "outFiles": ["${workspaceFolder}/<name>-data-api-builder/dist/**/*.js"]
+   }
+   ```
+
+### Context Menu Registration
+
+To add commands to the explorer context menu (right-click on dab-config.json):
+
+**package.json contributes.menus:**
+```json
+"menus": {
+  "explorer/context": [
+    {
+      "command": "dabExtension.<commandName>",
+      "when": "(resourceFilename =~ /^dab-.*\\.json$/) || resourceFilename == 'staticwebapp.database.config.json'",
+      "group": "1_dab@<order>"
+    }
+  ]
+}
+```
+
+- The `when` clause matches DAB config files (`dab-*.json` and `staticwebapp.database.config.json`)
+- The `group` value `1_dab@<order>` controls menu item ordering (lower = higher)
+
+### External Tool Validation Pattern
+
+When an extension depends on an external CLI tool (e.g., Docker, .NET, DAB CLI), validate both **installation** and **readiness** before running commands:
+
+```typescript
+import { execSync } from 'child_process';
+
+// Step 1: Check if the tool is installed (fast, always works)
+function isToolInstalled(): boolean {
+  try {
+    execSync('tool --version', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Step 2: Check if the tool's service/daemon is running (may timeout)
+function isToolReady(): boolean {
+  try {
+    execSync('tool version', { stdio: 'pipe', timeout: 10000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+```
+
+**Docker-specific example:**
+- `docker --version` — Checks if Docker CLI is installed (succeeds even if daemon is stopped)
+- `docker version` — Checks if Docker daemon is running and responsive (use 10s timeout)
+
+Always check both before attempting operations. Show distinct error messages for "not installed" vs "not running".
+
+### Per-Extension launch.json
+
+Each extension should have its own `.vscode/launch.json` for standalone debugging:
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    }
+  ]
+}
+```
 
 ## Important Patterns
 

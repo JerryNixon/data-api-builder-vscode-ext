@@ -27,7 +27,7 @@ suite('Init utils', () => {
 		assert.ok(command.includes('--rest.enabled true'));
 		assert.ok(command.includes('--graphql.enabled true'));
 		assert.ok(command.includes('--mcp.enabled true'));
-		assert.ok(command.includes('--auth.provider StaticWebApps'));
+		assert.ok(command.includes('--auth.provider Unauthenticated'));
 		assert.ok(command.includes('-c "dab-config.json"'));
 	});
 
@@ -35,15 +35,6 @@ suite('Init utils', () => {
 		const cmd = buildConfigCommand('/project/sub/dab-config-2.json', 'runtime.rest.request-body-strict', 'false', '/project/sub');
 		assert.ok(cmd.includes('dab configure'));
 		assert.ok(cmd.includes('-c "dab-config-2.json"'));
-	});
-
-	test('buildConfigCommand handles telemetry settings', () => {
-		const enabledCmd = buildConfigCommand('/project/dab-config.json', 'runtime.telemetry.open-telemetry.enabled', 'true', '/project');
-		assert.ok(enabledCmd.includes('dab configure'));
-		assert.ok(enabledCmd.includes('--runtime.telemetry.open-telemetry.enabled true'));
-		
-		const endpointCmd = buildConfigCommand('/project/dab-config.json', 'runtime.telemetry.open-telemetry.endpoint', '"@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"', '/project');
-		assert.ok(endpointCmd.includes('--runtime.telemetry.open-telemetry.endpoint "@env(\'OTEL_EXPORTER_OTLP_ENDPOINT\')"'));
 	});
 
 	test('waitForFile resolves when file appears', async () => {

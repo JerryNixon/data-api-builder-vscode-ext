@@ -69,6 +69,11 @@ The generated code is self-contained and can be freely modified. The `Repositori
 
 ## Release Notes
 
+### 1.2.4 - 2026-03-14
+
+**Changed**
+- Version bump for coordinated release
+
 ### 0.1.0 - 2026-01-16
 
 **Added**

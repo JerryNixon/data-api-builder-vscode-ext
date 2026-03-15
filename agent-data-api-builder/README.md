@@ -5,6 +5,8 @@ GitHub Copilot chat participant **`@dab`** for [Data API Builder](https://learn.
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/jerry-nixon.agent-data-api-builder?label=VS%20Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.agent-data-api-builder)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+![](https://github.com/JerryNixon/data-api-builder-vscode-ext/blob/master/agent-data-api-builder/images/screenshot.png?raw=true)
+
 ## What is Data API Builder?
 
 **Data API Builder (DAB)** is a free, open-source tool from Microsoft that instantly creates:
@@ -196,6 +198,11 @@ This extension is part of the **Data API Builder Extension Suite**:
   - **Skill creation**: creating-agent-skills
 
 ## Release Notes
+
+### 1.2.9 - 2026-03-14
+
+**Changed**
+- Version bump for coordinated release
 
 ### 0.1.0 - Initial Release
 

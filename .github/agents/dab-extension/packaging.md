@@ -40,6 +40,8 @@ When executed, `package.bat` displays an interactive menu:
 [g]  PACKAGE visualize-data-api-builder
 [h]  PACKAGE health-data-api-builder
 [i]  PACKAGE agent-data-api-builder
+[j]  PACKAGE mcp-data-api-builder
+[k]  PACKAGE docker-data-api-builder
 [0]  PACKAGE RUN ALL
 ==========================================
 [w]  PUBLISH all packages in out folder
@@ -63,6 +65,8 @@ The menu lists extensions in order:
 7. **visualize-data-api-builder** - Visualize as diagram
 8. **health-data-api-builder** - Health check
 9. **agent-data-api-builder** - @dab Copilot chat participant
+10. **mcp-data-api-builder** - Install MCP server from config
+11. **docker-data-api-builder** - Docker image & compose for DAB
 
 ---
 

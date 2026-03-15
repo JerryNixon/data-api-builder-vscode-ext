@@ -1,6 +1,6 @@
 {
   "name": "dab-vscode-shared-database",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "SQL utilities for Data API Builder VS Code extensions",
   "main": "./out/index.js",
   "types": "./out/index.d.ts",

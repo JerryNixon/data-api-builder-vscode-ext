@@ -11,6 +11,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/health-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/init-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/mcp-data-api-builder",
+				"--extensionDevelopmentPath=${workspaceFolder}/docker-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/omnibus-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/poco-data-api-builder",
 				"--extensionDevelopmentPath=${workspaceFolder}/start-data-api-builder",
@@ -31,8 +32,9 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/add-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/add-data-api-builder/out/**/*.js"
-			]
+				"${workspaceFolder}/add-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build Add Extension"
 		},
 		{
 			"name": "Agent Extension (@dab)",
@@ -42,8 +44,9 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/agent-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/agent-data-api-builder/out/**/*.js"
-			]
+				"${workspaceFolder}/agent-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build Agent Extension"
 		},
 		{
 			"name": "Health Extension",
@@ -53,8 +56,9 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/health-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/health-data-api-builder/out/**/*.js"
-			]
+				"${workspaceFolder}/health-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build Health Extension"
 		},
 		{
 			"name": "Init Extension",
@@ -64,8 +68,9 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/init-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/init-data-api-builder/out/**/*.js"
-			]
+				"${workspaceFolder}/init-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build Init Extension"
 		},
 		{
 			"name": "Omnibus Extension",
@@ -75,7 +80,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/omnibus-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/omnibus-data-api-builder/out/**/*.js"
+				"${workspaceFolder}/omnibus-data-api-builder/dist/**/*.js"
 			]
 		},
 		{
@@ -86,8 +91,9 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/poco-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/poco-data-api-builder/out/**/*.js"
-			]
+				"${workspaceFolder}/poco-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build POCO Extension"
 		},
 		{
 			"name": "Start Extension",
@@ -97,8 +103,9 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/start-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/start-data-api-builder/out/**/*.js"
-			]
+				"${workspaceFolder}/start-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build Start Extension"
 		},
 		{
 			"name": "Validate Extension",
@@ -108,8 +115,9 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/validate-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/validate-data-api-builder/out/**/*.js"
-			]
+				"${workspaceFolder}/validate-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build Validate Extension"
 		},
 		{
 			"name": "Visualize Extension",
@@ -119,8 +127,21 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/visualize-data-api-builder"
 			],
 			"outFiles": [
-				"${workspaceFolder}/visualize-data-api-builder/out/**/*.js"
-			]
+				"${workspaceFolder}/visualize-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build Visualize Extension"
+		},
+		{
+			"name": "Docker Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/docker-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/docker-data-api-builder/dist/**/*.js"
+			],
+			"preLaunchTask": "Build Docker Extension"
 		}
 	]
 }

@@ -15,6 +15,11 @@ A Visual Studio Code extension that adds a quick way to start Data API Builder d
 
 ## Release Notes
 
+### 1.2.5 - 2026-03-14
+
+**Changed**
+- Version bump for coordinated release
+
 ### 1.2.0 - 2026-01-13
 
 **Added**

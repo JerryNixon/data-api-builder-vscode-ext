@@ -7,7 +7,7 @@ This document provides a comprehensive overview of all Data API Builder (DAB) VS
 The workspace contains 10+ VS Code extensions organized in a monorepo structure:
 
 - **2 Shared Packages**: `shared` and `shared-database` for code reuse
-- **9 Individual Extensions**: Each providing specific DAB functionality
+- **11 Individual Extensions**: Each providing specific DAB functionality
 - **1 Omnibus Extension**: Extension pack bundling all individual extensions
 - **1 C# Library**: .NET library for REST operations (separate from VS Code extensions)
 
@@ -279,6 +279,52 @@ public sealed class RestRepository
 - `src/extension.ts` - Code generation orchestration
 - `resources/` - C# code templates
 - Separate C# library in `classlib-dab-rest/` for runtime support
+
+---
+
+### 9. mcp-data-api-builder
+
+**Display Name**: DAB MCP (Data API builder)  
+**Purpose**: Install Data API Builder configurations as MCP servers  
+**Command**: `dabExtension.installMcpServer`
+
+**Features**:
+- Right-click context menu on dab-config files
+- Installs DAB config as an MCP server in VS Code
+- Generates `vscode:mcp/install` URI for one-click setup
+
+**Shared Dependencies**:
+- `dab-vscode-shared` - Config reading and validation
+
+**Key Files**:
+- `src/extension.ts` - Command registration and MCP install flow
+- `src/mcp.ts` - MCP server configuration logic
+
+---
+
+### 10. docker-data-api-builder
+
+**Display Name**: DAB Docker (Data API builder)  
+**Purpose**: Build and run Data API Builder in Docker containers  
+**Commands**: `dabExtension.dockerCreateImage`, `dabExtension.dockerUp`
+
+**Features**:
+- Right-click context menu on dab-config files
+- **Create Image**: Generates Dockerfile and builds a DAB Docker image from config
+- **Docker Up**: Writes docker-compose.yml and runs `docker compose up -d`
+- Two-step Docker validation: checks CLI installation AND daemon availability
+- Extracts connection string from .env file for container networking
+
+**Shared Dependencies**:
+- `dab-vscode-shared` - Config reading and validation
+
+**External Dependencies**:
+- Docker CLI must be installed
+- Docker daemon must be running
+
+**Key Files**:
+- `src/extension.ts` - Command registration and Docker pre-flight checks
+- `src/docker.ts` - Image creation, compose generation, Docker validation
 
 ---
 
@@ -554,15 +600,17 @@ All extensions are published under the `jerry-nixon` publisher account on the VS
 6. **visualize-data-api-builder** - Visualize as diagram
 7. **health-data-api-builder** - Check DAB health
 8. **poco-data-api-builder** - Generate C# code
-9. **agent-data-api-builder** - @dab Copilot chat participant
+9. **mcp-data-api-builder** - Install MCP server from config
+10. **docker-data-api-builder** - Docker image & compose for DAB
+11. **agent-data-api-builder** - @dab Copilot chat participant
 
 ### Extension Count by Status
 
-- ✅ **Implemented**: 9 extensions
+- ✅ **Implemented**: 11 extensions
 - 📦 **Extension Pack**: 1 (omnibus)
 
 ### Shared Package Usage
 
-- **Using dab-vscode-shared only**: 7 extensions
+- **Using dab-vscode-shared only**: 9 extensions
 - **Using both shared packages**: 2 extensions (add, poco)
 - **Using no shared packages**: 1 extension (omnibus - extension pack)

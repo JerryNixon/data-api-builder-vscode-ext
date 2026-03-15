@@ -3,7 +3,7 @@
   "displayName": "Data API builder (Omnibus)",
   "description": "⭐ All Data API builder extensions in one package.",
   "publisher": "jerry-nixon",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
@@ -25,6 +25,7 @@
   "extensionPack": [
     "jerry-nixon.add-data-api-builder",
     "jerry-nixon.mcp-data-api-builder",
+    "jerry-nixon.docker-data-api-builder",
     "jerry-nixon.init-data-api-builder",
     "jerry-nixon.start-data-api-builder",
     "jerry-nixon.validate-data-api-builder",

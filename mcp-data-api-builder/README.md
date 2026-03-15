@@ -72,6 +72,11 @@ Learn more about DAB's STDIO transport: https://learn.microsoft.com/en-us/azure/
 
 ## Release Notes
 
+### 1.0.3 - 2026-03-14
+
+**Changed**
+- Version bump for coordinated release
+
 ### 1.0.0 - 2026-03-13
 
 **Added**

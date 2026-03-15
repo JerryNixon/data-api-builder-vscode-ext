@@ -15,6 +15,11 @@ A Visual Studio Code extension that provides a quick way to validate Data API Bu
 
 ## Release Notes
 
+### 1.2.4 - 2026-03-14
+
+**Changed**
+- Version bump for coordinated release
+
 ### 0.3.0 - 2026-01-13
 
 **Added**

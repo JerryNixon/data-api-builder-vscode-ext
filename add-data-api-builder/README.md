@@ -20,6 +20,12 @@ A Visual Studio Code extension that adds a quick way to start Data API Builder d
 
 ## Release Notes
 
+### 1.2.2 - 2026-03-14
+
+**Changed**
+- Version bump for coordinated release
+- SQL Server TCP/IP connectivity improvements
+
 ### 0.2.0 - 2026-01-13
 
 **Added**
