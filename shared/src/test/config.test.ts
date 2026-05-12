@@ -1,13 +1,75 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { extractEnvVarName } from '../config/utils';
+import { addConnection, getConnections, normalizeConnectionString } from '../config/envManager';
 
-// NOTE: Functions from readConfig.ts and envManager.ts use VS Code APIs 
-// and cannot be tested in Node.js/Mocha. They must be tested in the 
-// Extension Development Host. Only pure utility functions can be tested here.
+// NOTE: Functions from readConfig.ts use VS Code APIs and cannot be tested in
+// Node.js/Mocha. They must be tested in the Extension Development Host.
 
 describe('Config Utils', () => {
+    describe('envManager', () => {
+        let tempDir: string;
+
+        beforeEach(() => {
+            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dab-env-manager-'));
+        });
+
+        afterEach(() => {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        });
+
+        it('should normalize common SQL Server connection string aliases', () => {
+            const normalized = normalizeConnectionString(
+                'Data Source=localhost;Initial Catalog=TodoDb;UID=dabUser;Pwd=P@ssw0rd!;Trusted_Connection=True;Trust Server Certificate=True;Multiple Active Result Sets=False'
+            );
+
+            assert.strictEqual(
+                normalized,
+                'Server=localhost;Database=TodoDb;User Id=dabUser;Password=P@ssw0rd!;Integrated Security=True;TrustServerCertificate=True;MultipleActiveResultSets=False'
+            );
+        });
+
+        it('should normalize existing .env connection values without dropping unrelated lines', () => {
+            const envPath = path.join(tempDir, '.env');
+            fs.writeFileSync(
+                envPath,
+                [
+                    '# keep this comment',
+                    'MSSQL_CONNECTION_STRING=Data Source=localhost;Initial Catalog=TodoDb;UID=dabUser;Pwd=P@ssw0rd!',
+                    'OTHER_VALUE=unchanged',
+                    ''
+                ].join('\n')
+            );
+
+            const connections = getConnections(tempDir);
+
+            assert.strictEqual(connections.length, 1);
+            assert.strictEqual(
+                connections[0].value,
+                'Server=localhost;Database=TodoDb;User Id=dabUser;Password=P@ssw0rd!'
+            );
+
+            const content = fs.readFileSync(envPath, 'utf8');
+            assert.ok(content.includes('# keep this comment'), 'Should preserve comments');
+            assert.ok(content.includes('OTHER_VALUE=unchanged'), 'Should preserve unrelated variables');
+            assert.ok(content.includes('MSSQL_CONNECTION_STRING="Server=localhost;Database=TodoDb;User Id=dabUser;Password=P@ssw0rd!"'), 'Should rewrite normalized connection string');
+            assert.ok(!content.includes('Data Source='), 'Should remove ADO.NET Data Source alias');
+            assert.ok(!content.includes('Initial Catalog='), 'Should remove ADO.NET Initial Catalog alias');
+        });
+
+        it('should write new connections in normalized form', () => {
+            const entry = addConnection(tempDir, 'Addr=localhost;Initial Catalog=TodoDb;UID=dabUser;Pwd=P@ssw0rd!');
+
+            assert.strictEqual(entry.name, 'MSSQL_CONNECTION_STRING');
+            assert.strictEqual(entry.value, 'Server=localhost;Database=TodoDb;User Id=dabUser;Password=P@ssw0rd!');
+
+            const content = fs.readFileSync(path.join(tempDir, '.env'), 'utf8');
+            assert.ok(content.includes('MSSQL_CONNECTION_STRING="Server=localhost;Database=TodoDb;User Id=dabUser;Password=P@ssw0rd!"'), 'Should persist normalized connection string');
+        });
+    });
+
     describe('extractEnvVarName', () => {
         it('should extract env var name from @env() syntax', () => {
             const result = extractEnvVarName("@env('DB_CONNECTION')");

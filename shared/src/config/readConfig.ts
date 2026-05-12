@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import type { DabConfig } from '../types';
 import { extractEnvVarName } from './utils';
+import { normalizeConnectionString } from './envManager';
 
 /**
  * Validates that a configuration file exists at the given path
@@ -73,6 +74,10 @@ export async function getConnectionString(configPath: string): Promise<string> {
         if (!connectionString) {
             vscode.window.showErrorMessage('The connection string could not be found.');
             return '';
+        }
+
+        if (config['data-source']?.['database-type'] === 'mssql') {
+            connectionString = normalizeConnectionString(connectionString);
         }
 
         if (isLocalDbConnection(connectionString)) {

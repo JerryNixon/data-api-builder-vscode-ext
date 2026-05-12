@@ -3,7 +3,7 @@
   "displayName": "DAB MCP (Data API builder)",
   "description": "Install Data API Builder configurations as MCP servers.",
   "publisher": "jerry-nixon",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"

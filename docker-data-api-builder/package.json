@@ -3,7 +3,7 @@
   "displayName": "DAB Docker (Data API builder)",
   "description": "Build and run Data API Builder in Docker containers.",
   "publisher": "jerry-nixon",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"
