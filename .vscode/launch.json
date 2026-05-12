@@ -2,6 +2,17 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Omnibus Extension",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/omnibus-data-api-builder"
+			],
+			"outFiles": [
+				"${workspaceFolder}/omnibus-data-api-builder/dist/**/*.js"
+			]
+		},
+		{
 			"name": "🚀 All DAB Extensions",
 			"type": "extensionHost",
 			"request": "launch",
@@ -71,17 +82,6 @@
 				"${workspaceFolder}/init-data-api-builder/dist/**/*.js"
 			],
 			"preLaunchTask": "Build Init Extension"
-		},
-		{
-			"name": "Omnibus Extension",
-			"type": "extensionHost",
-			"request": "launch",
-			"args": [
-				"--extensionDevelopmentPath=${workspaceFolder}/omnibus-data-api-builder"
-			],
-			"outFiles": [
-				"${workspaceFolder}/omnibus-data-api-builder/dist/**/*.js"
-			]
 		},
 		{
 			"name": "POCO Extension",
