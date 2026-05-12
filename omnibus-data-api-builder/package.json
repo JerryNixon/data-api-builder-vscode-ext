@@ -24,7 +24,6 @@
   ],
   "extensionPack": [
     "jerry-nixon.add-data-api-builder",
-    "jerry-nixon.mcp-data-api-builder",
     "jerry-nixon.docker-data-api-builder",
     "jerry-nixon.init-data-api-builder",
     "jerry-nixon.start-data-api-builder",

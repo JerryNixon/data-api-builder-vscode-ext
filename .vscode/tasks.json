@@ -124,19 +124,6 @@
 			}
 		},
 		{
-			"label": "Build MCP Extension",
-			"type": "shell",
-			"command": "cd mcp-data-api-builder && npm run compile",
-			"problemMatcher": [
-				"$tsc"
-			],
-			"group": "build",
-			"presentation": {
-				"reveal": "silent",
-				"panel": "shared"
-			}
-		},
-		{
 			"label": "Build POCO Extension",
 			"type": "shell",
 			"command": "cd poco-data-api-builder && npm run build",

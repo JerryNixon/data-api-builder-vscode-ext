@@ -1,11 +1,9 @@
-# DAB Agent (Data API Builder)
+# DAB Agent Skills (Data API Builder)
 
-GitHub Copilot chat participant **`@dab`** for [Data API Builder](https://learn.microsoft.com/azure/data-api-builder/) - create REST, GraphQL, and MCP APIs from your database without writing code.
+Copilot Chat **skills pack** for [Data API Builder](https://learn.microsoft.com/azure/data-api-builder/) - guides Copilot to create REST, GraphQL, and MCP APIs from your database without writing code.
 
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/jerry-nixon.agent-data-api-builder?label=VS%20Marketplace&color=blue)](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.agent-data-api-builder)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-![](https://github.com/JerryNixon/data-api-builder-vscode-ext/blob/master/agent-data-api-builder/images/screenshot.png?raw=true)
 
 ## What is Data API Builder?
 
@@ -14,206 +12,62 @@ GitHub Copilot chat participant **`@dab`** for [Data API Builder](https://learn.
 | Endpoint | Description |
 |----------|-------------|
 | **REST API** | Full CRUD operations with OData-style filtering, pagination |
-| **GraphQL API** | Queries, mutations, subscriptions with nested relationships |
+| **GraphQL API** | Queries, mutations, and nested relationships |
 | **MCP API** | Model Context Protocol for AI tool integration (Claude, Copilot, etc.) |
 
-All from a single JSON configuration file - no code required! DAB is a foundational component of Microsoft Fabric, making it enterprise-ready and high-performance.
+All from a single JSON configuration file - no code required! DAB is a foundational component of Microsoft Fabric.
 
 **Supported Databases:** SQL Server, Azure SQL, PostgreSQL, MySQL, Cosmos DB
 
-## Features
+## How this extension works
 
-### `@dab` Chat Participant
+This extension contributes a comprehensive set of **Copilot Chat skills** that activate automatically based on what you ask. There is no `@dab` chat participant - you just talk to Copilot normally and the relevant skill is invoked.
 
-Use `@dab` in GitHub Copilot Chat for expert DAB assistance:
+For example, asking *"add a one-to-many relationship between Products and Categories"* will load the `data-api-builder-relationships` skill; asking *"deploy DAB to App Service"* will load the `azure-app-service-data-api-builder` skill.
 
-- **Natural language**: Just describe what you need - "Add the Products table"
-- **Intent detection**: Automatically routes to the right handler
-- **Context-aware**: Uses your workspace files and DAB configuration
-- **LLM-powered**: Falls back to AI for complex questions with full DAB context
+## Skills
 
-### Bundled DAB Developer Agent
+### Core
+- `data-api-builder-cli` - all `dab` commands and flags
+- `data-api-builder-config` - `dab-config.json` structure and entities
+- `data-api-builder-auto-config` - generate config from your database schema
+- `data-api-builder-relationships` - 1-1, 1-N, N-N, self-referencing
+- `data-api-builder-rest` - REST surface mastery (`$filter`, `$select`, paging)
+- `data-api-builder-graphql` - GraphQL surface mastery (queries, mutations, filters)
 
-This extension **automatically includes** the DAB Developer coding agent - no setup required! The agent is bundled directly in the extension and available immediately after installation.
+### Security
+- `data-api-builder-auth` - quick auth pattern picker
+- `data-api-builder-auth-mastery` - end-to-end provider/flow guide
+- `data-api-builder-rls-policies` - DAB DB policies, SQL RLS, SESSION_CONTEXT
 
-The bundled agent provides:
+### Runtime
+- `data-api-builder-caching` - HTTP cache headers, L1, L2 (Redis)
+- `data-api-builder-health` - `/health` endpoint and custom checks
+- `data-api-builder-observability` - App Insights, Log Analytics, OpenTelemetry
 
-| Skill | Purpose |
-|-------|---------|
-| **dab-init** | Initialize new DAB configurations |
-| **dab-add** | Add database objects as API entities |
-| **dab-update** | Modify entities, relationships, mappings |
-| **dab-configure** | Change runtime settings |
-| **dab-validate** | Validate configuration files |
-| **dab-start** | Start the DAB engine |
+### MCP
+- `data-api-builder-mcp` - enable and control `/mcp`
+- `data-api-builder-mcp-mastery` - descriptions for tool quality and safety
+- `aspire-mcp-inspector`, `azure-mcp-inspector` - debug the MCP surface
 
-Plus comprehensive documentation on:
-- Entity configuration and permissions
-- Relationship setup (one-to-many, many-to-many)
-- MCP server integration
-- Best practices and troubleshooting
+### Local runtime
+- `docker-data-api-builder` - Docker Compose for DAB + SQL
+- `aspire-data-api-builder`, `aspire-sql-commander`, `aspire-sql-projects` - .NET Aspire orchestration
 
-## Usage Examples
+### Cloud / deployment
+- `azure-deployment-data-api-builder` - choose between ACA, App Service, ACI, AKS
+- `azure-data-api-builder` - Azure Container Apps with `azd`
+- `azure-app-service-data-api-builder` - App Service Linux containers
+- `azure-sql-commander` - SQL browser in Azure
 
-### Initialize DAB
+### Meta
+- `data-api-builder-demo` - quickstart asset conventions
+- `creating-agent-skills` - author and audit Copilot skills
 
-```
-@dab Initialize a new DAB configuration
-```
-Creates a new configuration with auto-detected connection string from `.env`.
+## Companion extensions
 
-### Add Database Objects
-
-```
-@dab Add the Products table with read permissions
-```
-Add tables, views, or stored procedures as API entities.
-
-### Configure Relationships
-
-```
-@dab Set up a relationship where Author has many Books
-```
-Set up one-to-many, many-to-many, or self-referencing relationships.
-
-### Enable MCP for AI
-
-```
-@dab Enable MCP and expose my stored procedures as AI tools
-```
-Configure MCP endpoints so AI assistants can query your database.
-
-### Troubleshoot Issues
-
-```
-@dab I'm getting a connection error, help me fix it
-```
-Get targeted help for common DAB problems.
-
-### Ask Questions
-
-```
-@dab How do I implement row-level security?
-```
-Get expert guidance powered by AI with full DAB documentation context.
-
-## Quick Start
-
-1. **Install the DAB CLI**:
-   ```bash
-   dotnet tool install -g Microsoft.DataApiBuilder
-   ```
-
-2. **Create a `.env` file** with your connection string:
-   ```env
-   DATABASE_CONNECTION_STRING=Server=localhost;Database=MyDb;Integrated Security=true;TrustServerCertificate=true
-   ```
-
-3. **Initialize**: Type `@dab Initialize DAB` in Copilot Chat
-
-4. **Add entities**: Type `@dab Add the Products table with read permissions`
-
-5. **Start the API**: Type `@dab Start the server`
-
-6. **Access your API**:
-   - REST: `http://localhost:5000/api/Products`
-   - GraphQL: `http://localhost:5000/graphql`
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `DAB: Open DAB Chat` | Opens GitHub Copilot Chat with `@dab` prefilled |
-
-## Requirements
-
-- Visual Studio Code 1.95.0 or higher
-- [GitHub Copilot Chat](https://marketplace.visualstudio.com/items?itemName=GitHub.copilot-chat) extension
-- [DAB CLI](https://learn.microsoft.com/azure/data-api-builder/command-line/install) (recommended)
-
-## MCP Integration
-
-Enable MCP to let AI assistants (Claude, Copilot, Cursor, etc.) interact with your database:
-
-```
-@dab Enable MCP for my database
-```
-
-After enabling, configure your AI client with:
-
-```json
-{
-  "mcpServers": {
-    "my-database": {
-      "url": "http://localhost:5000/mcp"
-    }
-  }
-}
-```
-
-### Expose Stored Procedures as AI Tools
-
-```bash
-# Add the stored procedure
-dab add GetBookById --source dbo.usp_GetBookById --source.type stored-procedure --permissions "anonymous:execute"
-
-# Enable as MCP tool
-dab update GetBookById --mcp.custom-tool true
-```
-
-Now AI assistants can call your stored procedure as a tool!
-
-## Learn More
-
-| Resource | Link |
-|----------|------|
-| Official Documentation | [learn.microsoft.com/azure/data-api-builder](https://learn.microsoft.com/azure/data-api-builder/) |
-| CLI Reference | [dab command-line](https://learn.microsoft.com/azure/data-api-builder/reference-command-line-interface) |
-| Configuration Schema | [Configuration reference](https://learn.microsoft.com/azure/data-api-builder/reference-configuration) |
-| REST API | [REST endpoints](https://learn.microsoft.com/azure/data-api-builder/rest) |
-| GraphQL API | [GraphQL endpoints](https://learn.microsoft.com/azure/data-api-builder/graphql) |
-| GitHub Repository | [Azure/data-api-builder](https://github.com/Azure/data-api-builder) |
-
-## Related Extensions
-
-This extension is part of the **Data API Builder Extension Suite**:
-
-- [DAB Omnibus](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.omnibus-data-api-builder) - All commands in one package
-- [DAB Init](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.init-data-api-builder) - Initialize configurations
-- [DAB Add](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.add-data-api-builder) - Add entities
-- [DAB Start](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.start-data-api-builder) - Start/stop engine
-- [DAB Validate](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.validate-data-api-builder) - Validate configs
-- [DAB Health](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.health-data-api-builder) - Health checks
-- [DAB Visualize](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.visualize-data-api-builder) - Visualize entities
-- [DAB POCO](https://marketplace.visualstudio.com/items?itemName=jerry-nixon.poco-data-api-builder) - Generate C# classes
-
-## Recent Improvements
-
-**Agent Skills**
-- Added 13 specialized agent skills for DAB workflows:
-  - **Azure deployment**: azure-data-api-builder, azure-mcp-inspector, azure-sql-commander
-  - **.NET Aspire**: aspire-data-api-builder, aspire-mcp-inspector, aspire-sql-commander, aspire-sql-projects
-  - **DAB features**: data-api-builder-auth, data-api-builder-cli, data-api-builder-config, data-api-builder-demo, data-api-builder-mcp
-  - **Docker**: docker-data-api-builder
-  - **Skill creation**: creating-agent-skills
-
-## Release Notes
-
-### 1.2.9 - 2026-03-14
-
-**Changed**
-- Version bump for coordinated release
-
-### 0.1.0 - Initial Release
-
-**Added**
-- `@dab` chat participant for GitHub Copilot Chat
-- Slash commands: `/init`, `/add`, `/start`, `/validate`, `/configure`, `/help`
-- Intelligent intent detection for natural language queries
-- Context menu to add DAB Developer Agent to workspace
-- Follow-up suggestions after commands
-- Disambiguation categories for improved routing
+For interactive UI commands (validate, start, add entity), install the companion task extensions: `init-data-api-builder`, `add-data-api-builder`, `start-data-api-builder`, `validate-data-api-builder`, `health-data-api-builder`, `visualize-data-api-builder`, `docker-data-api-builder`, `poco-data-api-builder` - or install the `omnibus-data-api-builder` extension pack to get them all.
 
 ## License
 
-MIT - See [LICENSE.txt](LICENSE.txt)
+MIT - see [LICENSE.txt](LICENSE.txt).
