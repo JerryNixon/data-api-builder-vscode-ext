@@ -15,14 +15,15 @@ license: MIT
 
 1. Start from minimal valid config.
 2. Add runtime blocks intentionally.
-3. Add entities with explicit permissions.
-4. Validate and iterate.
+3. Add entities or `autoentities` with explicit permissions.
+4. Consult `references/` for focused rules, then validate and iterate.
 
 ## Guardrails
 
 - Keep one clear config source of truth.
 - Prefer least-privilege permissions.
 - Avoid hardcoded secrets in config.
+- Keep relationships inside one config file; cross-file relationships are not supported.
 
 ## Related skills
 

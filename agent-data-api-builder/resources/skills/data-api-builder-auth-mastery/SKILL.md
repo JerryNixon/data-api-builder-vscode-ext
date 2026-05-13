@@ -8,40 +8,40 @@ license: MIT
 
 ## Use when
 
-- Picking the right auth provider for an environment (dev, hosted, edge).
+- Picking a DAB auth provider for local, hosted, Entra, or third-party JWT scenarios.
 - Wiring `runtime.host.authentication` with `jwt.audience` / `jwt.issuer`.
-- Designing the role flow (anonymous → authenticated → custom) and entity `permissions`.
+- Designing effective roles, `X-MS-API-ROLE`, entity permissions, and claim-backed policies.
 
 ## Providers
 
-- `StaticWebApps` — Azure Static Web Apps; reads `X-MS-CLIENT-PRINCIPAL`.
-- `AppService` — App Service / EasyAuth; reads injected auth headers.
-- `AzureAD` (Entra ID) — JWT bearer; requires `jwt.audience` and `jwt.issuer`.
-- Generic `Jwt` — any OIDC issuer; same `audience` / `issuer` requirement.
-- `Simulator` — dev-only; trusts `X-MS-API-ROLE` without validation.
-- No provider configured → all requests are `anonymous`.
+- `Unauthenticated` — default; DAB validates no identity and every request is `Anonymous`.
+- `StaticWebApps` — Azure Static Web Apps platform identity headers.
+- `AppService` — EasyAuth; trusts `X-MS-CLIENT-PRINCIPAL` and claims injected by App Service.
+- `EntraID` / `AzureAD` — Microsoft Entra JWT bearer; requires `jwt.audience` and `jwt.issuer`.
+- `Custom` — generic OIDC/JWT providers (Okta, Auth0, Keycloak); also requires `jwt.audience` and `jwt.issuer`.
+- `Simulator` — development mode only; defaults to `Authenticated` and lets `X-MS-API-ROLE` choose test roles.
 
 ## Workflow
 
-1. Choose provider by host: SWA/App Service → matching provider; custom host or Entra → JWT/AzureAD; local dev → `Simulator`.
-2. Set `runtime.host.authentication` with `provider` and (for JWT) `jwt.audience` + `jwt.issuer`.
-3. Define entity `permissions` as `[{ role, actions }]`. Always include `anonymous` or `authenticated` baselines explicitly.
-4. Add custom roles; clients select them via `X-MS-API-ROLE` (must also be present in the user's claims).
-5. Verify with representative tokens / simulated headers per role.
+1. Choose provider by trust boundary: no DAB identity → `Unauthenticated`; Azure host → `StaticWebApps`/`AppService`; Entra → `EntraID`; third-party JWT → `Custom`; local role testing → `Simulator`.
+2. Configure `runtime.host.authentication.provider`; add `jwt.audience` + `jwt.issuer` only for JWT providers.
+3. Define entity `permissions` as `[{ role, actions }]`; use valid actions: `create`, `read`, `update`, `delete`, `execute`, `*`.
+4. For user roles, ensure the identity includes a `roles` claim (or platform role claims) and send `X-MS-API-ROLE: <role>`.
+5. Verify no-header, bad-token, default `Authenticated`, and each custom-role path.
 
 ## Role flow
 
-- Every request resolves to exactly one active role.
-- Unauthenticated → `anonymous`. Authenticated with no `X-MS-API-ROLE` → `authenticated`.
-- Authenticated + `X-MS-API-ROLE: <role>` → that role, only if it appears in the user's `roles` claim.
-- Permissions are not additive across roles; only the active role's entry applies.
+- No valid identity → `Anonymous`; valid identity with no `X-MS-API-ROLE` → `Authenticated`.
+- User roles require both membership in the identity's roles and the `X-MS-API-ROLE` header; missing membership is 403.
+- DAB evaluates exactly one effective role per request; permissions aren't additive across roles.
+- Role and claim names must match exactly; treat them as case-sensitive in config and policies.
 
 ## Guardrails
 
-- Never ship `Simulator` outside local dev.
-- `audience` and `issuer` must be real values — not placeholders — or tokens silently fail.
-- Don't grant `anonymous` write actions unless intentional.
-- Custom roles in config must match claim values exactly (case-sensitive).
+- Don't ship `Simulator`; DAB rejects it outside development mode.
+- `Custom` is the provider name for generic JWT, not `Jwt`.
+- `Unauthenticated` can't drive claim policies, custom roles, or `Authenticated` permissions.
+- App Service/SWA providers trust platform headers; prevent direct client bypass.
 
 ## Related skills
 
@@ -52,4 +52,5 @@ license: MIT
 ## Microsoft Learn
 
 - https://learn.microsoft.com/azure/data-api-builder/concept/security/authorization-overview
-- https://learn.microsoft.com/azure/data-api-builder/concept/security/authentication
+- https://learn.microsoft.com/azure/data-api-builder/concept/security/overview
+- https://learn.microsoft.com/azure/data-api-builder/concept/security/authenticate-simulator

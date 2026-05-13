@@ -13,14 +13,17 @@ license: MIT
 
 ## Workflow
 
-1. Add container resource.
-2. Bind `ConnectionStrings__db` to Aspire SQL database resource.
-3. Add health check and dependency ordering.
+1. Add SQL Commander as a third-party container resource.
+2. Use the verified image/tag for the project, for example `jerrynixon/sql-commander:1.1.0`.
+3. Bind the Aspire SQL database connection string using the env var required by that image.
+4. Add endpoint/health metadata if the image exposes it, and `WaitFor(db)`.
 
 ## Guardrails
 
-- Keep connection string key name exact (`ConnectionStrings__db`).
-- Ensure DB resource readiness before startup.
+- SQL Commander is not a Microsoft Learn-supported Aspire integration; verify image docs before hard-coding env names.
+- Aspire SQL resources expose connection strings as `ConnectionStrings__{databaseName}` to referenced resources.
+- Do not expose SQL Commander beyond local/dev networks without authentication controls.
+- Ensure DB resource readiness before startup; schema jobs should complete before browsing data.
 
 ## Related skills
 
@@ -30,3 +33,4 @@ license: MIT
 ## Microsoft Learn
 
 - https://learn.microsoft.com/dotnet/aspire/get-started/aspire-overview
+- https://aspire.dev/integrations/databases/sql-server/sql-server-host/

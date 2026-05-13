@@ -25,11 +25,12 @@ license: MIT
 - REST does not traverse relationships; use GraphQL for nested reads.
 - Keep `$first` bounded by `runtime.pagination` defaults to avoid runaway responses.
 - Disable REST on entities that should be GraphQL-only instead of relying on auth alone.
+- Use REST filter operators `eq`, `ne`, `gt`, `ge`, `lt`, `le`; query option and field names are case-sensitive.
 
 ## Example
 
 ```
-GET /api/Book?$select=id,title&$filter=year gt 2020&$orderby=title&$first=20
+GET /api/books?$select=id,title&$filter=year gt 2020&$orderby=title asc&$first=20
 ```
 
 ## Related skills

@@ -25,6 +25,7 @@ license: MIT
 - Relationships are GraphQL-only; REST does not traverse them.
 - Only one-hop navigation is supported — do not design schemas that assume deep auto-joins.
 - Both entities must live in the same config file.
+- Self-referencing uses the same shape: point `target.entity` back to the source entity and provide explicit fields.
 - Prefer explicit `source.fields`/`target.fields` over FK inference when schemas evolve.
 
 ## Example

@@ -1,6 +1,6 @@
 ---
 name: data-api-builder-mcp-mastery
-description: Polish Data API Builder MCP surfaces with high-quality descriptions, pruned tools, and safe role-gated DML for reliable agent use.
+description: Polish Data API Builder SQL MCP Server surfaces with descriptions, curated tools, and role-gated DML for reliable agent use.
 license: MIT
 ---
 
@@ -9,24 +9,25 @@ license: MIT
 ## Use when
 
 - An existing MCP endpoint works but agents pick wrong tools or hallucinate parameters.
-- Tightening the tool surface: hiding entities, exposing curated stored procedures, adding custom tools.
+- Tightening the tool surface: hiding entities and exposing curated stored procedures as custom tools.
 - Hardening DML so writes only run under authenticated roles.
 
 ## Workflow
 
-1. Set `runtime.mcp.description` (server purpose) — clients surface this as MCP `instructions`.
-2. Add a clear `description` to every exposed entity, mapped column/field, and stored-procedure parameter.
-3. Prune: disable MCP on entities the agent shouldn't see; promote curated sprocs as tools with intent-revealing names.
-4. Enable `mcp.custom-tool: true` on stored procedures you want surfaced as first-class tools.
-5. Gate Create/Update/Delete behind authenticated roles; keep `anonymous` read-only or off.
-6. Validate with MCP Inspector (`npx @modelcontextprotocol/inspector http://localhost:5000/mcp`) — confirm tool list, descriptions, and parameter schemas.
+1. Set `runtime.mcp.description`; DAB sends it as MCP `instructions` during initialization.
+2. Add `entity.description` and `fields[]` entries with `name`, `description`, and `primary-key` where needed.
+3. For stored procedures, describe the entity and `source.parameters[]` (`name`, `description`, `required`, `default`).
+4. Prune with `runtime.mcp.dml-tools` globally and entity `mcp.dml-tools: false` locally.
+5. For curated stored procedures, set entity `mcp.custom-tool: true` so the procedure appears as a named tool.
+6. Validate with MCP Inspector: tool list, `describe_entities`, CRUD operations, and stored-procedure calls.
 
 ## Guardrails
 
-- Descriptions are the primary signal an agent uses to choose a tool — treat them like API docs, not afterthoughts.
+- Descriptions flow through `describe_entities`; missing `fields[]` metadata can leave agents with empty field arrays.
 - DAB intentionally does not support NL2SQL; don't try to bolt it on — expose deterministic tools instead.
-- Never expose DML to `anonymous`; use the simulator provider only for local stdio dev.
-- Entity-level RBAC still applies through MCP — a hidden field stays hidden in tool schemas.
+- Per-tool toggles exist only under `runtime.mcp.dml-tools`; entity `mcp` is a gate, not per-tool CRUD control.
+- Entity RBAC, field include/exclude rules, and policies apply through MCP; hidden fields stay hidden.
+- Avoid `anonymous` writes; if unauthenticated access is required, grant the narrowest read/execute actions.
 
 ## Related skills
 
@@ -39,3 +40,5 @@ license: MIT
 ## Microsoft Learn
 
 - https://learn.microsoft.com/azure/data-api-builder/mcp/
+- https://learn.microsoft.com/azure/data-api-builder/mcp/how-to-add-descriptions
+- https://learn.microsoft.com/azure/data-api-builder/mcp/data-manipulation-language-tools

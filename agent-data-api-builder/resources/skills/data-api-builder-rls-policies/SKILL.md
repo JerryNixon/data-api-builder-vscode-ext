@@ -9,35 +9,36 @@ license: MIT
 ## Use when
 
 - Filtering rows per user/role beyond CRUD action grants.
-- Deciding between entity `policy.database` (DAB-side) and database-native RLS.
-- Passing claims into the database via `SESSION_CONTEXT`.
+- Deciding between entity `policy.database` (DAB-generated predicates) and database-native SQL Server RLS.
+- Passing authenticated claims into SQL Server via `SESSION_CONTEXT`.
 
 ## Options
 
-- **DAB database policy** — predicate appended to generated SQL via `permissions[].policy.database`. Uses `@claims.<name>` and `@item.<column>` tokens. Works on all supported providers.
-- **SQL Server RLS** — `CREATE SECURITY POLICY` + inline table-valued predicate function. Enforced by the engine for every query, including stored procs.
-- **SESSION_CONTEXT (SQL Server)** — DAB calls `sp_set_session_context` per request, exposing each token claim as `@claims.<claim>`. Predicate functions read it via `SESSION_CONTEXT(N'<claim>')`.
+- **DAB database policy** — per-role/action predicate in `permissions[].actions[].policy.database`; uses `@item.<field>` and `@claims.<claim>`.
+- **SQL Server RLS** — `CREATE SECURITY POLICY` plus inline table-valued predicate function; enforced by SQL for tables/views and SQL objects that query them.
+- **SESSION_CONTEXT** — for SQL Server/Azure SQL only, DAB calls `sp_set_session_context` for authenticated claims when `set-session-context` is enabled.
 
 ## Workflow
 
-1. Pick scope: column-shaping or simple per-row filter → DAB policy. Defense-in-depth or shared DB → SQL RLS.
-2. For DAB policy: add `policy.database` to the entity's permission entry, e.g. `"@item.OwnerId eq @claims.oid"`.
-3. For SQL RLS (SQL Server): write a predicate function reading `SESSION_CONTEXT`, then bind via `CREATE SECURITY POLICY ... ADD FILTER PREDICATE ...`.
-4. Confirm DAB sets session context (default for SQL Server with auth providers); test with a token whose claims drive the predicate.
-5. Validate with representative requests per role.
+1. Use DAB policy for simple row filters on generated `read`, `update`, or `delete` queries.
+2. Use SQL Server RLS when filtering must be enforced inside the database or cover stored procedures/views/shared access paths.
+3. Write policies with OData operators: `eq`, `ne`, `gt`, `ge`, `lt`, `le`, `and`, `or`; use mapped API field names after `@item.`.
+4. For SQL RLS, set data-source `options.set-session-context: true`, read claims with `SESSION_CONTEXT(N'<claim>')`, and test `sp_set_session_context` manually.
+5. Validate with tokens/headers for each effective role; missing `@claims.*` values should produce 403.
 
 ## Provider notes
 
-- **SQL Server / Azure SQL / Fabric SQL** — full SESSION_CONTEXT + native RLS support.
-- **PostgreSQL** — DAB policies supported; native RLS exists but DAB does not push session claims; enforce via DAB policy or app role.
-- **MySQL / Cosmos DB (NoSQL)** — DAB policies supported on relational entities; no native RLS equivalent.
+- **SQL Server / Azure SQL / Synapse dedicated** — DAB can set session context; SQL Server 2016+ supports `SESSION_CONTEXT`.
+- **PostgreSQL / MySQL** — DAB database policies are supported; DAB doesn't provide the SQL Server session-context claim flow.
+- **Cosmos DB for NoSQL** — no REST, no database policies, no stored procedure entities, no session context; use GraphQL `@authorize` plus entity permissions.
+- **Stored procedures** — DAB database policies don't apply to `execute`; use SQL logic/RLS where supported.
 
 ## Guardrails
 
-- Don't duplicate the same predicate in both DAB policy and SQL RLS unless intentional — debugging diverges fast.
-- Claim names are case-sensitive in `@claims.<name>` and `SESSION_CONTEXT`.
-- Stored procedures bypass DAB policies; use SQL RLS to cover them.
-- Keep predicates SARGable; complex policies become hot-path overhead.
+- Policies require an authenticated identity when using `@claims`; `Unauthenticated` has no claims.
+- Enabling SQL Server `set-session-context` disables response caching for that data source.
+- Don't duplicate equivalent predicates in both DAB policy and SQL RLS unless defense-in-depth is intentional.
+- Keep database predicates SARGable and indexed; they're on the hot path.
 
 ## Related skills
 
@@ -47,6 +48,6 @@ license: MIT
 
 ## Microsoft Learn
 
-- https://learn.microsoft.com/azure/data-api-builder/concept/security/row-level-security
 - https://learn.microsoft.com/azure/data-api-builder/concept/security/database-policies?tabs=bash
+- https://learn.microsoft.com/azure/data-api-builder/concept/security/row-level-security
 - https://learn.microsoft.com/azure/data-api-builder/reference-database-specific-features

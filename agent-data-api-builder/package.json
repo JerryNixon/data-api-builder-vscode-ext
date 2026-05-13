@@ -3,7 +3,7 @@
   "displayName": "DAB Agent Skills - Copilot Skills for Data API Builder",
   "description": "Copilot Chat skills for Data API Builder: REST, GraphQL, MCP, auth, RLS, caching, health, observability, and Azure deployment patterns for SQL Server, Azure SQL, PostgreSQL, MySQL, and Cosmos DB.",
   "publisher": "jerry-nixon",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.95.0"

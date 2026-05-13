@@ -16,8 +16,8 @@ license: MIT
 
 1. Confirm `runtime.graphql.enabled` is true and note `runtime.graphql.path` (default `/graphql`).
 2. For each entity set `graphql.enabled` and optional `graphql.type.singular` / `graphql.type.plural`.
-3. Use the auto-generated singular query (`book_by_pk`) and plural query (`books`) with `filter`, `orderBy`, `first`, `after`.
-4. Use `create<Entity>`, `update<Entity>`, `delete<Entity>` mutations; multi-create where supported.
+3. Use the auto-generated primary-key query (`book_by_pk`) and list query (`books`) with `filter`, `orderBy`, `first`, `after`.
+4. Use `create<Entity>`, `update<Entity>`, `delete<Entity>` mutations; multi-create where enabled.
 5. Inspect schema via introspection or the built-in Banana Cake Pop UI in dev.
 
 ## Guardrails
@@ -25,6 +25,7 @@ license: MIT
 - Disable GraphQL on entities you do not want exposed; permissions alone is not discoverability control.
 - Set explicit `singular`/`plural` names to avoid ambiguous pluralization.
 - Bound `first` and rely on `endCursor` / `hasNextPage` instead of offset hacks.
+- GraphQL filters use `neq`, `gte`, `lte`, `isNull` (not REST `ne`, `ge`, `le`, or `eq null`).
 
 ## Example
 

@@ -19,13 +19,14 @@ license: MIT
 3. Optionally set `patterns.name` to template entity names (e.g. `"{schema}_{object}"`).
 4. Provide a shared `template` (rest/graphql/mcp/health/cache) and `permissions` for matched objects.
 5. Restart DAB; matched objects are re-evaluated and exposed each startup.
+6. Use `dab auto-config-simulate --config <file>` to preview matches; add `--output <csv>` for review.
 
 ## Guardrails
 
 - MSSQL only — autoentities are not supported on other providers today.
 - Shared permissions apply to every matched object; never use `anonymous:*` in production.
 - Always exclude staging, migration, and internal tables (e.g. `%_staging`, `dbo.__migration%`).
-- Prefer explicit `entities` for sensitive objects that need bespoke rules; `autoentities` and `entities` can coexist.
+- Prefer explicit `entities` for sensitive objects that need bespoke rules; they take precedence over same-name autoentities matches.
 
 ## Example
 
@@ -34,7 +35,7 @@ license: MIT
   "public-tables": {
     "patterns": { "include": [ "dbo.%" ], "exclude": [ "dbo.__migration%" ] },
     "template": { "rest": { "enabled": true }, "graphql": { "enabled": true } },
-    "permissions": [ { "role": "authenticated", "actions": [ "read" ] } ]
+    "permissions": [ { "role": "authenticated", "actions": [ { "action": "read" } ] } ]
   }
 }
 ```

@@ -1,6 +1,6 @@
 ---
 name: azure-app-service-data-api-builder
-description: Deploy Data API Builder (and SQL MCP Server) to Azure App Service for Linux with managed identity to Azure SQL.
+description: Deploy Data API Builder and SQL MCP Server to Azure App Service for Linux, with or without containers.
 license: MIT
 ---
 
@@ -9,18 +9,18 @@ license: MIT
 ## Use when
 
 - Hosting DAB on managed PaaS without container orchestration.
-- Running SQL MCP Server on App Service (no-container pattern).
-- You want built-in TLS, custom domains, scale-out, and Entra auth.
+- Running SQL MCP Server on App Service using the no-container pattern.
+- You want built-in TLS, custom domains, scale-out, monitoring, and Microsoft Entra auth.
 
 ## Workflow
 
-1. Create a Linux App Service (code-based with .NET, or container).
-2. Ship `dab-config.json` with the app artifact (or bake into image); avoid file-share mounts.
-3. Configure connection to Azure SQL using **managed identity** (no passwords).
-4. Set DAB env vars (e.g. `DAB_ENVIRONMENT`) via App Service **app settings**; use Key Vault references for any secrets.
-5. Start DAB via `dab start --config dab-config.json` (startup command for code deploys).
-6. Protect the endpoint with **App Service Authentication (Entra ID)** for MCP/REST/GraphQL.
-7. Scale up (SKU) or out (instances); verify `/health` before routing traffic.
+1. Prefer code-based Linux App Service for SQL MCP: include `dab-config.json`, `.config/dotnet-tools.json`, and `startup.sh`.
+2. Install DAB as a local .NET tool; startup restores tools and runs `dotnet tool run dab start`.
+3. Set `DATABASE_CONNECTION_STRING` as an app setting or Key Vault reference; use `@env()` in config.
+4. Configure `runtime.host.authentication.provider` to `AppService` when Easy Auth protects the endpoint.
+5. For custom containers, set the listening port with App Service config (for DAB, commonly `WEBSITES_PORT=5000`).
+6. For Linux custom containers, leave `WEBSITES_ENABLE_APP_SERVICE_STORAGE` disabled unless `/home` persistence is required.
+7. Verify `/health`, REST, GraphQL, and `/mcp`; raw `/mcp` can look like an error in a browser.
 
 ## App settings vs config file
 
@@ -29,10 +29,10 @@ license: MIT
 
 ## Guardrails
 
-- Prefer managed identity to Azure SQL over connection strings.
-- Do not mount `dab-config.json` from Azure Files; bake or deploy with the app.
+- Prefer managed identity and Microsoft Entra authentication to Azure SQL over password-bearing connection strings.
+- Do not live-edit `dab-config.json`; deploy it with ZIP/code artifacts or bake it into a container image.
 - Enable Always On for production plans so DAB stays warm.
-- Use ACA instead when you need scale-to-zero or fine-grained revisions.
+- Use ACA instead when you need serverless containers, scale-to-zero, revisions, or traffic splitting.
 
 ## Related skills
 
@@ -43,5 +43,6 @@ license: MIT
 
 ## Microsoft Learn
 
-- https://learn.microsoft.com/azure/data-api-builder/deployment/
+- https://learn.microsoft.com/azure/data-api-builder/deployment/azure-app-service
+- https://learn.microsoft.com/azure/app-service/configure-custom-container
 - https://devblogs.microsoft.com/azure-sql/sql-mcp-server-app-service/

@@ -1,6 +1,6 @@
 ---
 name: azure-deployment-data-api-builder
-description: Compare Azure hosting options for Data API Builder (ACA, App Service, ACI, AKS) and choose the right deployment pattern.
+description: Compare Azure hosting options for Data API Builder and choose ACA, App Service, ACI, AKS, local, or source hosting.
 license: MIT
 ---
 
@@ -10,27 +10,34 @@ license: MIT
 
 - Picking an Azure host for DAB (MCP, REST, GraphQL).
 - Standing up a new deployment and weighing trade-offs.
-- Planning image, config, and secret strategy before IaC.
+- Planning image, config, identity, and secret strategy before IaC.
 
 ## Workflow
 
 1. Pick a host:
-   - **Azure Container Apps** — default for containerized, scale-to-zero workloads.
-   - **Azure App Service (Linux)** — managed PaaS, code or container, easy Entra auth, no orchestration.
+   - **Azure Container Apps** — default for serverless containers, revisions, traffic splitting, and scale-to-zero.
+   - **Azure App Service (Linux)** — code-based or custom container PaaS with TLS, domains, Easy Auth, and scale-out.
    - **Azure Container Instances** — quick single-container demos and short-lived jobs.
    - **AKS** — only when you already run Kubernetes and need full control.
+   - **Local Docker / CLI / source** — dev, tests, and contribution workflows.
 2. Pick an image strategy:
-   - Custom container with `dab-config.json` baked in (preferred — immutable, versioned).
-   - Sidecar/mounted config (avoid unless required; harder to reason about).
+   - ACA/AKS/ACI: custom image with `dab-config.json` baked in (immutable, versioned).
+   - App Service: code ZIP with local DAB tool manifest, or a custom container.
 3. Pick a secret strategy:
-   - Managed identity to Azure SQL (preferred, no secrets).
-   - Key Vault references for any remaining connection strings or keys.
+   - Microsoft Entra authentication and managed identity to Azure SQL where feasible.
+   - Host secret refs or Key Vault references for any remaining secrets.
 4. Gate rollouts on `/health` and confirm REST/GraphQL/MCP endpoints respond.
+
+## Static Web Apps
+
+- Static Web Apps database connections are based on DAB and use `/data-api`.
+- Treat SWA database connections as legacy: Microsoft Learn marks retirement for November 30, 2025.
+- For new cloud DAB deployments, prefer ACA or App Service.
 
 ## Guardrails
 
 - Never commit connection strings or keys; use Key Vault references or managed identity.
-- Avoid cloud file-share mounts for `dab-config.json`; bake it into the image.
+- Avoid cloud file-share mounts for `dab-config.json`; bake or deploy it as an artifact.
 - Keep one DAB config exposing MCP + REST + GraphQL — do not fork per host.
 - Match host SKU to expected concurrency; DAB is stateless but DB-bound.
 
@@ -44,3 +51,4 @@ license: MIT
 ## Microsoft Learn
 
 - https://learn.microsoft.com/azure/data-api-builder/deployment/
+- https://learn.microsoft.com/azure/static-web-apps/database-overview

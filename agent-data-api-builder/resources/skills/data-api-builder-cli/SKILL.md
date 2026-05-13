@@ -11,7 +11,7 @@ license: MIT
 - You want command-based config changes.
 - You need repeatable terminal/automation workflows.
 
-## Canonical flow
+## Workflow
 
 1. `dab init`
 2. `dab add` / `dab update` / `dab configure`
@@ -20,16 +20,16 @@ license: MIT
 
 ## Commands
 
-- `dab init` — scaffold `dab-config.json`; flags include `--database-type`, `--connection-string`, `--host-mode`, `--cors-origin`, `--auth.provider`, `--auth.audience`, `--auth.issuer`, `--rest.path`, `--graphql.path`.
-- `dab add <entity>` — register a table, view, or stored procedure; flags include `--source`, `--source.type`, `--source.key-fields`, `--source.params`, `--permissions`, `--rest`, `--graphql`, `--fields.include`, `--fields.exclude`, `--policy-database`, `--cache.enabled`, `--cache.ttl`.
+- `dab init` — scaffold `dab-config.json`; flags include `--database-type`, `--connection-string`, `--host-mode`, `--cors-origin`, `--auth.provider`, `--auth.audience`, `--auth.issuer`, `--rest.enabled`, `--rest.path`, `--graphql.enabled`, `--graphql.path`, `--mcp.enabled`.
+- `dab add <entity>` — register a table, view, or stored procedure; flags include `--source`, `--source.type`, `--source.key-fields`, `--source.params`, `--permissions`, `--rest`, `--graphql`, `--fields.include`, `--fields.exclude`, `--policy-database`, `--cache.enabled`, `--cache.ttl-seconds`, `--cache.level`.
 - `dab update <entity>` — modify an existing entity; same surface as `add` plus `--relationship`, `--cardinality`, `--target.entity`, `--linking.object`, `--linking.source.fields`, `--linking.target.fields`.
-- `dab configure` — change runtime-level settings; flags include `--data-source.database-type`, `--data-source.connection-string`, `--azure-key-vault.endpoint`, `--runtime.rest.enabled`, `--runtime.graphql.enabled`, `--runtime.mcp.enabled`, `--runtime.telemetry.file.enabled`, `--runtime.telemetry.azure-log-analytics.enabled`.
+- `dab configure` — change non-entity settings; flags include `--data-source.database-type`, `--data-source.connection-string`, `--data-source-files`, `--azure-key-vault.endpoint`, `--runtime.rest.enabled`, `--runtime.graphql.enabled`, `--runtime.mcp.enabled`, `--runtime.pagination.default-page-size`, `--show-effective-permissions`.
 - `dab add-telemetry` — wire OpenTelemetry / Application Insights; flags `--otel-enabled`, `--otel-endpoint`, `--app-insights-enabled`, `--app-insights-connection-string`.
-- `dab auto-config` — generate entities from the live schema; flags `--patterns-include`, `--patterns-exclude`, `--template.rest.enabled`, `--template.graphql.enabled`, `--permissions`.
+- `dab auto-config <definition>` — create/update an `autoentities` definition; flags `--patterns.include`, `--patterns.exclude`, `--patterns.name`, `--template.rest.enabled`, `--template.graphql.enabled`, `--template.mcp.dml-tools`, `--template.cache.ttl-seconds`, `--permissions`.
 - `dab auto-config-simulate` — preview what `auto-config` would produce; supports `-o/--output` for CSV.
-- `dab export` — emit GraphQL schema or sampled REST/GraphQL traffic; supports sampling modes.
-- `dab validate` — multi-stage check of `dab-config.json` (schema, connection, entities, permissions).
-- `dab start` — launch the runtime; flags include `--config`, `--LogLevel`, `--no-https-redirect`.
+- `dab export --graphql` — emit or generate a GraphQL schema; flags include `-o/--output`, `--graphql-schema-file`, `--generate`, `--sampling-mode`, `--sampling-count`.
+- `dab validate` — multi-stage check of `dab-config.json`; only accepts `-c/--config`.
+- `dab start` — launch the runtime; flags include `--config`, `--LogLevel`, `--verbose`, `--no-https-redirect`, `--mcp-stdio`.
 
 ## Guardrails
 
