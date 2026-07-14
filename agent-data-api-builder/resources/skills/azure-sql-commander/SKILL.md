@@ -1,6 +1,6 @@
 ---
 name: azure-sql-commander
-description: "Deploy jerrynixon/sql-commander as a secure Azure SQL browser and query UI on Azure Container Apps using Bicep or azd, system-assigned managed identity, ACA or Key Vault secrets, health probes, and restricted ingress."
+description: Run SQL Commander as a companion container for browser-based SQL access, with optional Azure Container Apps configuration.
 license: MIT
 ---
 
@@ -8,79 +8,55 @@ license: MIT
 
 ## Use when
 
-- Deploying SQL Commander as a browser-based Azure SQL exploration and query tool.
-- Adding controlled database inspection beside a DAB deployment in Azure Container Apps (ACA).
-- Generating Bicep or `azd` infrastructure for `jerrynixon/sql-commander`.
+- Adding a lightweight SQL browser beside DAB or another containerized application.
+- Deploying SQL Commander to Azure Container Apps (ACA).
+- For local .NET Aspire orchestration, use `aspire-sql-commander`.
 
-## Runtime contract
+## Container contract
 
-- Image: `jerrynixon/sql-commander:<version>`. Resolve and pin a tested release tag; do not deploy `latest` in repeatable infrastructure.
-- HTTP port: `8080`. Set ACA ingress `targetPort: 8080`; the image defaults `ASPNETCORE_URLS` to `http://+:8080`.
-- Initial connection: map an ACA secret to `ConnectionStrings__db`. SQL Commander also recognizes `SQLCMDR_CONNECTION_STRING`, but `ConnectionStrings__db` is canonical.
-- Health endpoint: `GET /health` returns HTTP 200 and `{ "status": "ok" }`. It proves process health, not database connectivity.
-- Logging: keep `SQLCMDR_FILE_LOG=0` and collect console logs through ACA. File logging requires writable persistent storage and is not the default cloud pattern.
-- State: connection changes and the embedded Data API process are replica-local and transient. Always set `maxReplicas: 1`.
+- Image: `jerrynixon/sql-commander:<version>`; pin a tested version for repeatable deployments.
+- Port: `8080` (`ASPNETCORE_URLS=http://+:8080`).
+- Connection: provide `ConnectionStrings__db`; `SQLCMDR_CONNECTION_STRING` is also recognized.
+- Health: `GET /health` returns HTTP 200 when the web process is running.
+- Logging: console logging is the container default; set `SQLCMDR_FILE_LOG=0` unless persistent file logging is intentional.
 
 ## Workflow
 
-1. Deploy SQL Commander as its own Container App, not as a sidecar in a public production DAB app.
-2. Select authentication:
-   - Prefer the validated **system-assigned managed identity** path for Azure SQL.
-   - Use SQL authentication only when Microsoft Entra authentication is unavailable, with a narrowly scoped login stored as a secret.
-   - Do not claim first-class user-assigned managed identity support; SQL Commander does not currently preserve the required client ID.
-3. For system-assigned identity:
-   - Set the Container App identity to `SystemAssigned`.
-   - Configure a Microsoft Entra administrator on the Azure SQL logical server.
-   - In the target database, run `CREATE USER [<container-app-name>] FROM EXTERNAL PROVIDER` as the Entra administrator.
-   - Grant only required database roles or permissions; read-only is the default for inspection scenarios.
-   - Use a connection string shaped like `Server=tcp:<server>.database.windows.net,1433;Database=<database>;Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False`.
-4. Put the connection string in an ACA secret or Key Vault-backed ACA secret and map it to `ConnectionStrings__db` with `secretRef`; never inline credentials in an environment variable or deployment output.
-5. Configure Azure SQL firewall, private endpoint, VNet integration, and DNS so the ACA environment can reach the database. Prefer a private network path for production-style deployments.
-6. Configure ingress:
-   - Prefer internal ingress when operators have a private access path.
-   - Otherwise require ACA built-in Microsoft Entra authentication or an authenticated gateway, optionally combined with IP restrictions.
-   - Set `allowInsecure: false`. Never expose anonymous public SQL Commander access.
-7. Configure HTTP startup, liveness, and readiness probes against `/health` on port `8080`.
-8. Choose scaling deliberately:
-   - Occasional browsing with acceptable cold starts: `minReplicas: 0`, `maxReplicas: 1`.
-   - Active sessions or the embedded Data API runtime: `minReplicas: 1`, `maxReplicas: 1`.
-9. Deploy a new revision and complete all validation checks below.
+1. Add SQL Commander as a separate companion container and pass the database connection through `ConnectionStrings__db`.
+2. Expose port `8080` and optionally configure `/health` as the container health probe.
+3. Keep credentials out of source and deployment output. In ACA, map an ACA or Key Vault-backed secret to `ConnectionStrings__db` with `secretRef`.
+4. For Azure SQL, prefer system-assigned managed identity:
+   - Enable the identity on the Container App.
+   - Create the identity as a contained user in the target database and grant the required permissions.
+   - Use `Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False` in the connection string.
+5. Choose ingress appropriate to the environment. Internal ingress or Microsoft Entra-protected external ingress is preferable for shared environments.
+6. Verify the health endpoint and test database connectivity from the SQL Commander UI.
 
-## Bicep contract
+## ACA notes
 
-- `identity.type`: `SystemAssigned` when using Azure SQL managed identity or a system identity for Key Vault.
-- `configuration.ingress`: set `targetPort: 8080`, `allowInsecure: false`, and the selected internal/external policy.
-- `configuration.secrets[]`: define `sql-connection-string` directly for controlled nonproduction use, or with `keyVaultUrl` plus `identity` for Key Vault.
-- `template.containers[].env[]`: map `ConnectionStrings__db` with `secretRef: 'sql-connection-string'`; set `SQLCMDR_FILE_LOG` to `0`.
-- `template.containers[].probes[]`: define HTTP startup, liveness, and readiness probes using `/health` and port `8080`.
-- `template.scale`: set `maxReplicas: 1` and the selected `minReplicas` value.
-- For Key Vault, grant the secret-reference identity **Key Vault Secrets User**. Prefer an unversioned secret URI for automatic rotation or a versioned URI for deterministic releases.
+- Set ingress `targetPort` to `8080` and `allowInsecure` to `false`.
+- Configure HTTP probes against `/health` on port `8080` when explicit probes are needed.
+- Prefer one replica because interactive settings and the optional embedded Data API runtime are process-local. Scale-to-zero is acceptable when session reset and cold start are acceptable.
+- Ensure the ACA environment can reach Azure SQL through the selected firewall or private networking configuration.
+- User-assigned managed identity is not currently a first-class SQL Commander setting; use system-assigned identity unless support is verified.
 
-## Embedded Data API boundary
+## Data API note
 
-- The SQL Commander image includes the DAB CLI and can launch a child runtime through `/data-api/...` proxy paths.
-- That runtime and its generated files are transient and disappear on restart or scale-down.
-- Generated DAB permissions are broad and anonymous for exploration. Do not treat this runtime as the production DAB deployment.
-- Keep the hardened production DAB Container App separate, with its own immutable config, identity, ingress, and lifecycle.
+The image includes the DAB CLI for an interactive, transient Data API workflow exposed through `/data-api/...`. Keep a production DAB deployment separate when it needs its own lifecycle, security, or durable configuration.
 
 ## Completion checks
 
-1. Confirm the deployed revision uses the intended pinned image tag and reports healthy probes.
-2. Request `/health` through the intended authenticated/private route and verify HTTP 200.
-3. Verify unauthenticated public requests are blocked or no public route exists.
-4. Open SQL Commander, test the database connection, and confirm tables, views, and stored procedures load.
-5. Confirm the effective SQL principal is the Container App identity for managed-identity deployments.
-6. Verify the container environment uses only `secretRef`; any deployment parameter carrying a secret is marked `@secure()`, and the value is absent from plain parameters, outputs, logs, and command output.
-7. Confirm `maxReplicas` is `1`; if `minReplicas` is `0`, document that sessions and the embedded Data API reset after scale-down.
+1. The container starts and `/health` returns HTTP 200.
+2. SQL Commander connects and loads database objects.
+3. Connection secrets do not appear in source, logs, or deployment output.
+4. ACA ingress and identity match the intended environment, when ACA is used.
 
 ## Guardrails
 
 - Keep SQL Commander separate from production DAB traffic paths.
 - Use read-only or narrowly scoped database permissions by default.
 - Do not print or log full connection strings in deployment output.
-- Do not use anonymous external ingress; SQL Commander can execute arbitrary SQL within its database permissions.
-- Do not add application-level Azure RBAC roles as a substitute for creating the managed identity as a contained Azure SQL database user.
-- Do not configure more than one replica until SQL Commander uses shared durable state and an externalized Data API runtime.
+- Avoid anonymous public ingress because SQL Commander can execute SQL within its granted permissions.
 
 ## Related skills
 
@@ -93,6 +69,3 @@ license: MIT
 - https://learn.microsoft.com/azure/container-apps/overview
 - https://learn.microsoft.com/azure/container-apps/manage-secrets
 - https://learn.microsoft.com/azure/container-apps/managed-identity
-- https://learn.microsoft.com/azure/container-apps/health-probes
-- https://learn.microsoft.com/azure/container-apps/authentication
-- https://learn.microsoft.com/azure/data-api-builder/deployment/azure-container-apps
