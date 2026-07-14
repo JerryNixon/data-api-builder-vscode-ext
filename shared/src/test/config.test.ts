@@ -210,9 +210,9 @@ describe('Config Utils', () => {
                     }
                     
                     // Try quoted match first
-                    const quotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*"(.+)"\\s*$`));
+                    const quotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*(["'])(.+)\\1\\s*$`));
                     if (quotedMatch) {
-                        return quotedMatch[1];
+                        return quotedMatch[2];
                     }
                     
                     // Try unquoted match
@@ -236,6 +236,38 @@ describe('Config Utils', () => {
             const sqlServer = findEnvVar('SQL_SERVER_CONNECTION_STRING');
             assert.ok(sqlServer.includes('Server=localhost'), 'Should find SQL_SERVER_CONNECTION_STRING');
             assert.ok(sqlServer.includes('Database=Test'), 'Should parse Database=Test');
+        });
+
+        it('should parse single-quoted connection strings from .env file', () => {
+            const lines = [
+                "MSSQL_CONNECTION_STRING='Server=localhost;Database=TodoDb;User Id=sa;Password=P@ssw0rd!;TrustServerCertificate=True;'"
+            ];
+
+            // Simulate the parsing logic from readConnectionStringFromEnvFile
+            const findEnvVar = (varName: string): string => {
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine || trimmedLine.startsWith('#')) {
+                        continue;
+                    }
+
+                    const quotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*(["'])(.+)\\1\\s*$`));
+                    if (quotedMatch) {
+                        return quotedMatch[2];
+                    }
+
+                    const unquotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*(.+?)\\s*$`));
+                    if (unquotedMatch) {
+                        return unquotedMatch[1];
+                    }
+                }
+                return '';
+            };
+
+            const connectionString = findEnvVar('MSSQL_CONNECTION_STRING');
+            assert.strictEqual(connectionString, 'Server=localhost;Database=TodoDb;User Id=sa;Password=P@ssw0rd!;TrustServerCertificate=True;');
+            assert.ok(!connectionString.startsWith("'"), 'Should remove the leading single quote');
+            assert.ok(!connectionString.endsWith("'"), 'Should remove the trailing single quote');
         });
     });
 });

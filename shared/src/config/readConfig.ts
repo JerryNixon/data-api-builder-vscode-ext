@@ -166,10 +166,10 @@ function readConnectionStringFromEnvFile(configPath: string, envVarName: string)
                 continue;
             }
             
-            // Match: VAR_NAME="value" or VAR_NAME=value
-            const quotedMatch = trimmedLine.match(new RegExp(`^${envVarName}\\s*=\\s*"(.+)"\\s*$`));
+            // Match: VAR_NAME="value", VAR_NAME='value', or VAR_NAME=value
+            const quotedMatch = trimmedLine.match(new RegExp(`^${envVarName}\\s*=\\s*(["'])(.+)\\1\\s*$`));
             if (quotedMatch) {
-                return quotedMatch[1];
+                return quotedMatch[2];
             }
             
             // Match unquoted value
