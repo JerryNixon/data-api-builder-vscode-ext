@@ -157,6 +157,7 @@ function readConnectionStringFromEnvFile(configPath: string, envVarName: string)
     try {
         const envContent = fs.readFileSync(envFilePath, 'utf8');
         const envLines = envContent.split('\n');
+        const escapedEnvVarName = escapeRegExp(envVarName);
 
         for (const line of envLines) {
             const trimmedLine = line.trim();
@@ -167,13 +168,13 @@ function readConnectionStringFromEnvFile(configPath: string, envVarName: string)
             }
             
             // Match: VAR_NAME="value", VAR_NAME='value', or VAR_NAME=value
-            const quotedMatch = trimmedLine.match(new RegExp(`^${envVarName}\\s*=\\s*(["'])(.+)\\1\\s*$`));
+            const quotedMatch = trimmedLine.match(new RegExp(`^${escapedEnvVarName}\\s*=\\s*(["'])(.*)\\1\\s*$`));
             if (quotedMatch) {
                 return quotedMatch[2];
             }
             
             // Match unquoted value
-            const unquotedMatch = trimmedLine.match(new RegExp(`^${envVarName}\\s*=\\s*(.+?)\\s*$`));
+            const unquotedMatch = trimmedLine.match(new RegExp(`^${escapedEnvVarName}\\s*=\\s*(.+?)\\s*$`));
             if (unquotedMatch) {
                 return unquotedMatch[1];
             }
@@ -183,6 +184,10 @@ function readConnectionStringFromEnvFile(configPath: string, envVarName: string)
     } catch {
         return '';
     }
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function readConnectionStringFromEnvironment(envVarName: string): string {

@@ -209,14 +209,16 @@ describe('Config Utils', () => {
                         continue;
                     }
                     
+                    const escapedVarName = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
                     // Try quoted match first
-                    const quotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*(["'])(.+)\\1\\s*$`));
+                    const quotedMatch = trimmedLine.match(new RegExp(`^${escapedVarName}\\s*=\\s*(["'])(.*)\\1\\s*$`));
                     if (quotedMatch) {
                         return quotedMatch[2];
                     }
                     
                     // Try unquoted match
-                    const unquotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*(.+?)\\s*$`));
+                    const unquotedMatch = trimmedLine.match(new RegExp(`^${escapedVarName}\\s*=\\s*(.+?)\\s*$`));
                     if (unquotedMatch) {
                         return unquotedMatch[1];
                     }
@@ -251,12 +253,14 @@ describe('Config Utils', () => {
                         continue;
                     }
 
-                    const quotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*(["'])(.+)\\1\\s*$`));
+                    const escapedVarName = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                    const quotedMatch = trimmedLine.match(new RegExp(`^${escapedVarName}\\s*=\\s*(["'])(.*)\\1\\s*$`));
                     if (quotedMatch) {
                         return quotedMatch[2];
                     }
 
-                    const unquotedMatch = trimmedLine.match(new RegExp(`^${varName}\\s*=\\s*(.+?)\\s*$`));
+                    const unquotedMatch = trimmedLine.match(new RegExp(`^${escapedVarName}\\s*=\\s*(.+?)\\s*$`));
                     if (unquotedMatch) {
                         return unquotedMatch[1];
                     }
@@ -268,6 +272,39 @@ describe('Config Utils', () => {
             assert.strictEqual(connectionString, 'Server=localhost;Database=TodoDb;User Id=sa;Password=P@ssw0rd!;TrustServerCertificate=True;');
             assert.ok(!connectionString.startsWith("'"), 'Should remove the leading single quote');
             assert.ok(!connectionString.endsWith("'"), 'Should remove the trailing single quote');
+        });
+
+        it('should parse environment variable names with regex metacharacters literally', () => {
+            const lines = [
+                'DBXCONNECTION=Server=wrong;Database=Wrong;',
+                "DB.CONNECTION='Server=localhost;Database=TodoDb;'"
+            ];
+
+            // Simulate the parsing logic from readConnectionStringFromEnvFile
+            const findEnvVar = (varName: string): string => {
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine || trimmedLine.startsWith('#')) {
+                        continue;
+                    }
+
+                    const escapedVarName = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+                    const quotedMatch = trimmedLine.match(new RegExp(`^${escapedVarName}\\s*=\\s*(["'])(.*)\\1\\s*$`));
+                    if (quotedMatch) {
+                        return quotedMatch[2];
+                    }
+
+                    const unquotedMatch = trimmedLine.match(new RegExp(`^${escapedVarName}\\s*=\\s*(.+?)\\s*$`));
+                    if (unquotedMatch) {
+                        return unquotedMatch[1];
+                    }
+                }
+                return '';
+            };
+
+            const connectionString = findEnvVar('DB.CONNECTION');
+            assert.strictEqual(connectionString, 'Server=localhost;Database=TodoDb;');
         });
     });
 });
