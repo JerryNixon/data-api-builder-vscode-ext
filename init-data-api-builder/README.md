@@ -7,10 +7,11 @@ A Visual Studio Code extension that guides users through initializing Data API B
 ## Features
 
 - Adds a right-click context menu for folders.
-- Single multi-select dialog for all configuration options: REST, GraphQL, MCP, Cache, Developer Mode, and Simulated security.
-- Guides users through streamlined prompts for `dab init` configuration.
-- Automatically configures OpenTelemetry with environment variable placeholders for observability.
-- Automatically updates `.env` and `.gitignore`.
+- Selects an existing MSSQL connection from `.env` or securely adds a new one.
+- Runs one `dab init` process with development mode and local-development CORS enabled.
+- Relies on DAB defaults for REST, GraphQL, MCP, request-body strictness, and unauthenticated access.
+- Waits for the DAB CLI exit code before opening the generated configuration or reporting success.
+- Creates or updates `.env` and `.gitignore` when a new connection is added.
 
 ## Requirements
 
@@ -23,6 +24,16 @@ A Visual Studio Code extension that guides users through initializing Data API B
 
 ## Release Notes
 
+### 1.2.7 - 2026-07-28
+
+**Changed**
+- Reduced initialization from eight DAB CLI commands to one `dab init` process.
+- Removed redundant REST, GraphQL, MCP, authentication, strictness, mode, and cache configuration operations.
+- Moved wildcard CORS configuration into `dab init`.
+- Deferred caching until an entity explicitly opts in.
+- Wait for the CLI exit code and report failures instead of using a fixed delay.
+- Updated documentation and the sample configuration to match actual behavior.
+
 ### 1.2.5 - 2026-03-14
 
 **Changed**
@@ -30,34 +41,9 @@ A Visual Studio Code extension that guides users through initializing Data API B
 
 ### 0.2.0 - 2026-01-13
 
-**Added**
-- Single consolidated multi-select dialog for all configuration options
-- REST, GraphQL, MCP, Cache, Developer Mode, and Simulated security all in one dialog
-- MCP (Model Context Protocol) endpoint configuration support
-- Developer Mode checkbox to control development vs production host mode
-- Simulated security option integrated into main dialog (defaults to unchecked)
-- Migrated to dab-vscode-shared package for terminal management
-- Automatic .env file creation with connection string placeholder
-- Automatic .gitignore creation/update to protect sensitive files
-
-**Changed**
-- Consolidated ALL configuration dialogs into single multi-checkbox selection
-- Simulated security option moved from separate dialog to main features dialog
-- Improved user experience - from 3 separate dialogs down to 1
-- Standard security (StaticWebApps) is now the default
-- Terminal management moved to shared package for consistency
-- Enhanced prompts with better defaults and descriptions
-
-**Removed**
-- Individual boolean prompts for REST, GraphQL, and Cache options
-- Separate host mode selection dialog
-- Separate security provider selection dialog
-- Local runTerminal.ts in favor of shared package
-
-**Fixed**
-- .gitignore properly excludes .env files
-- Connection string properly references @env() syntax
-- Default selections align with best practices
+- Added connection selection backed by `.env`.
+- Added `.gitignore` protection when creating a new connection.
+- Migrated common connection management to `dab-vscode-shared`.
 
 ### 0.1.0
 

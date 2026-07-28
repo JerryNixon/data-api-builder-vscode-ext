@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { runCommand, askForConnection } from 'dab-vscode-shared';
-import { buildConfigCommand, buildInitCommand, resolveConfigPath, waitForFile } from './utils';
+import { askForConnection } from 'dab-vscode-shared';
+import { runDabCommand } from './dabRunner';
+import { buildInitArgs, resolveConfigPath, waitForFile } from './utils';
 
 export function activate(context: vscode.ExtensionContext) {
+  const output = vscode.window.createOutputChannel('DAB Init');
   const cmd = vscode.commands.registerCommand('dabExtension.initDab', async (uri?: vscode.Uri) => {
     // Determine the target folder
     let folder: string;
@@ -58,17 +60,11 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     try {
-      // Create DAB config with all features enabled, development mode, standard security
-      runCommand(buildInitCommand(configPath, connection.name, folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.rest.request-body-strict', 'false', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.cache.enabled', 'true', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.rest.enabled', 'true', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.graphql.enabled', 'true', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.mcp.enabled', 'true', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.host.mode', 'development', folder), { cwd: folder });
-      runCommand(buildConfigCommand(configPath, 'runtime.host.cors.origins', '"*"', folder), { cwd: folder });
-
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const args = buildInitArgs(configPath, connection.name);
+      output.clear();
+      output.show(true);
+      output.appendLine(`Running dab ${args.join(' ')}`);
+      await runDabCommand(args, folder, text => output.append(text));
       await openFile(configPath);
 
       // Show success message
@@ -80,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   });
 
-  context.subscriptions.push(cmd);
+  context.subscriptions.push(cmd, output);
 }
 
 async function openFile(filePath: string): Promise<void> {

@@ -9,7 +9,6 @@ The `init-data-api-builder` extension provides a VS Code command to initialize D
 ### Dependencies
 
 - **dab-vscode-shared**: Provides shared utilities for:
-  - Terminal command execution (`runCommand`)
   - Connection string management (`askForConnection`)
   - Environment file operations
   
@@ -107,15 +106,18 @@ export function activate(context: vscode.ExtensionContext) {
 
 The extension generates a DAB configuration with:
 
-1. **Initial setup**: `dab init` with connection string from environment
-2. **Feature flags**:
-   - REST API: enabled
-   - GraphQL: enabled  
-   - MCP (Model Context Protocol): enabled
-   - Cache: enabled
-   - Request body strict mode: disabled (for flexibility)
-3. **Security**: StaticWebApps authentication provider
-4. **Mode**: Development (not production-ready by default)
+1. **One awaited process**: `dab init` with a connection string environment reference
+2. **Intentional non-defaults**:
+  - Development host mode
+  - Wildcard CORS for local development
+3. **DAB defaults**:
+  - REST, GraphQL, and MCP enabled
+  - Request body strict mode disabled
+  - Unauthenticated provider
+4. **Deferred configuration**:
+  - Cache is configured when an entity opts in, not while the config has no entities
+
+The process is launched without a shell, with an explicit working directory, and must exit successfully before the file is opened or success is reported.
 
 ## File Handling
 
@@ -144,9 +146,8 @@ export function resolveConfigPath(folderPath: string, baseName = 'dab-config', e
 export function waitForFile(filePath: string, timeoutMs = 3000, intervalMs = 100): Promise<void>
 ```
 
-- Polls for file existence after CLI commands
-- Required because `runCommand` is synchronous but file creation is async
-- Timeout ensures command doesn't hang indefinitely
+- Defensively verifies file existence after the awaited CLI process exits
+- Timeout protects against an unexpected successful exit without a generated file
 
 ## Error Handling Best Practices
 
@@ -177,24 +178,10 @@ export function waitForFile(filePath: string, timeoutMs = 3000, intervalMs = 100
 - **Fix**: Added `commandPalette` menu contribution
 - **Impact**: Command discoverable via Ctrl+Shift+P
 
-### Issue #5: Working Directory for DAB Commands
-- **Problem**: DAB CLI commands created config files in the wrong directory because terminal working directory wasn't being set correctly
-- **Root Cause**: The `runCommand` function's `cwd` option sets the terminal's initial directory, but subsequent commands may not respect it, especially if the terminal is reused
-- **Fix**: Prefix all DAB commands with `cd "{folder}";` to explicitly change to the target directory before execution
-- **Implementation**:
-  ```typescript
-  // utils.ts - buildInitCommand and buildConfigCommand now include cd
-  export function buildInitCommand(configPath: string, envKey: string, folder: string): string {
-    const args = [...];
-    return `cd "${folder}"; ${args.join(' ')}`;
-  }
-  
-  export function buildConfigCommand(configPath: string, setting: string, value: string, folder: string): string {
-    return `cd "${folder}"; dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
-  }
-  ```
-- **Lesson**: When executing CLI commands that create files, always explicitly `cd` to the target directory first, even if `cwd` is set in terminal options. This ensures reliable behavior across terminal reuse scenarios.
-- **Impact**: Config files now consistently created in the user-selected folder
+### Issue #5: Working Directory and Completion
+- **Problem**: Reused terminals could have a stale working directory and provided no exit status.
+- **Fix**: Launch `dab` directly with `shell: false`, an explicit `cwd`, and an argument array.
+- **Impact**: Paths do not depend on terminal state, and success is shown only after exit code zero.
 
 ## Testing Checklist
 
@@ -230,48 +217,12 @@ All functionality preserved while improving code reuse across DAB extensions.
 - Proper error handling on all async operations
 - User-friendly error messages (no technical jargon)
 
-## Terminal Command Best Practices
+## DAB Process Best Practices
 
-### Always Prefix Commands with Directory Change
-
-When running CLI commands that create or modify files in a specific directory:
-
-```typescript
-// ❌ DON'T rely solely on cwd option - terminal may be reused
-runCommand('dab init --database-type mssql', { cwd: folder });
-
-// ✅ DO prefix with cd to ensure correct working directory
-runCommand(`cd "${folder}"; dab init --database-type mssql`, { cwd: folder });
-```
-
-### Why This Matters
-
-1. **Terminal Reuse**: The shared `runCommand` function may reuse an existing terminal if one was recently created
-2. **Stale Working Directory**: A reused terminal retains its previous working directory
-3. **File Location**: CLI tools like DAB create files relative to the current working directory
-4. **Cross-Platform**: Use semicolon `;` to chain commands (works in PowerShell and bash)
-
-### Command Building Pattern
-
-```typescript
-// Build commands that include the cd prefix
-export function buildInitCommand(configPath: string, envKey: string, folder: string): string {
-  const args = [
-    'dab init',
-    '--database-type mssql',
-    `--connection-string "@env('${envKey}')"`,
-    `-c "${path.basename(configPath)}"`
-  ];
-  
-  // Always cd first, then run the command
-  return `cd "${folder}"; ${args.join(' ')}`;
-}
-```
-
-### Testing Terminal Commands
-
-When testing, verify:
-- [ ] Command creates files in the selected folder, not the workspace root
-- [ ] Command works on first invocation (fresh terminal)
-- [ ] Command works on subsequent invocations (reused terminal)
-- [ ] Command works after user changes directories manually in terminal
+- Build a string array of arguments; never construct a shell command.
+- Set `shell: false` and pass the selected folder as `cwd`.
+- Stream stdout and stderr to the DAB Init output channel.
+- Await process completion and require exit code zero.
+- Do not use fixed delays to infer completion.
+- Keep init to one CLI process unless a setting cannot be expressed by `dab init` and is immediately useful.
+- Test the exact argument array, successful completion, and non-zero exit behavior.

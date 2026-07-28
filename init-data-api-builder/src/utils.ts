@@ -13,26 +13,15 @@ export function resolveConfigPath(folderPath: string, baseName = 'dab-config', e
   return candidate;
 }
 
-export function buildInitCommand(configPath: string, envKey: string, folder: string): string {
-  const args = [
-    'dab init',
-    '--database-type mssql',
-    `--connection-string "@env('${envKey}')"`,
-    '--host-mode Development',
-    '--rest.enabled true',
-    '--graphql.enabled true',
-    '--mcp.enabled true',
-    '--auth.provider Unauthenticated',
-    `-c "${path.basename(configPath)}"`
+export function buildInitArgs(configPath: string, envKey: string): string[] {
+  return [
+    'init',
+    '--database-type', 'mssql',
+    '--connection-string', `@env('${envKey}')`,
+    '--host-mode', 'Development',
+    '--cors-origin', '*',
+    '-c', path.basename(configPath)
   ];
-
-  // Working directory is set via runCommand's cwd option
-  return args.join(' ');
-}
-
-export function buildConfigCommand(configPath: string, setting: string, value: string, folder: string): string {
-  // Working directory is set via runCommand's cwd option
-  return `dab configure --${setting} ${value} -c "${path.basename(configPath)}"`;
 }
 
 export function waitForFile(filePath: string, timeoutMs = 3000, intervalMs = 100): Promise<void> {

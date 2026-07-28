@@ -2,7 +2,8 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { buildConfigCommand, buildInitCommand, resolveConfigPath, waitForFile } from '../utils';
+import { runDabCommand } from '../dabRunner';
+import { buildInitArgs, resolveConfigPath, waitForFile } from '../utils';
 
 suite('Init utils', () => {
 	test('resolveConfigPath increments suffix when file exists', () => {
@@ -18,23 +19,38 @@ suite('Init utils', () => {
 		fs.rmSync(temp, { recursive: true, force: true });
 	});
 
-	test('buildInitCommand formats with hardcoded defaults', () => {
-		const command = buildInitCommand('/project/dab-config.json', 'MSSQL_CONNECTION_STRING', '/project');
+	test('buildInitArgs includes only required and intentional non-default settings', () => {
+		const args = buildInitArgs('/project/dab-config.json', 'MSSQL_CONNECTION_STRING');
 
-		assert.ok(command.includes('dab init'));
-		assert.ok(command.includes("--connection-string \"@env('MSSQL_CONNECTION_STRING')\""));
-		assert.ok(command.includes('--host-mode Development'));
-		assert.ok(command.includes('--rest.enabled true'));
-		assert.ok(command.includes('--graphql.enabled true'));
-		assert.ok(command.includes('--mcp.enabled true'));
-		assert.ok(command.includes('--auth.provider Unauthenticated'));
-		assert.ok(command.includes('-c "dab-config.json"'));
+		assert.deepStrictEqual(args, [
+			'init',
+			'--database-type', 'mssql',
+			'--connection-string', "@env('MSSQL_CONNECTION_STRING')",
+			'--host-mode', 'Development',
+			'--cors-origin', '*',
+			'-c', 'dab-config.json'
+		]);
+		assert.ok(!args.some(arg => /^(--rest|--graphql|--mcp|--auth)/.test(arg)));
 	});
 
-	test('buildConfigCommand targets basename', () => {
-		const cmd = buildConfigCommand('/project/sub/dab-config-2.json', 'runtime.rest.request-body-strict', 'false', '/project/sub');
-		assert.ok(cmd.includes('dab configure'));
-		assert.ok(cmd.includes('-c "dab-config-2.json"'));
+	test('runDabCommand streams output and waits for success', async () => {
+		let output = '';
+
+		await runDabCommand(
+			['-e', "process.stdout.write('complete')"],
+			os.tmpdir(),
+			text => output += text,
+			'node'
+		);
+
+		assert.strictEqual(output, 'complete');
+	});
+
+	test('runDabCommand rejects a non-zero exit code', async () => {
+		await assert.rejects(
+			() => runDabCommand(['-e', 'process.exit(7)'], os.tmpdir(), () => {}, 'node'),
+			/DAB CLI exited with code 7/
+		);
 	});
 
 	test('waitForFile resolves when file appears', async () => {

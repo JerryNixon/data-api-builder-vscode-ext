@@ -10,7 +10,7 @@ An easy way to run `DAB Add` from a config file. Supports Tables, Views, Stored 
 ![Image](add-data-api-builder/images/screenshot.png)
 
 ### init-data-api-builder
-An easy way to run `DAB Init` from a folder. Also supports Static Web Apps. 
+An easy way to run `DAB Init` from a folder using an MSSQL connection stored in `.env`.
 
 ![Image](init-data-api-builder/images/screenshot.png)
 
